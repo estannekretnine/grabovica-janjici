@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => {
     file.VITE_SUPABASE_URL?.trim() ||
     process.env.SUPABASE_URL?.trim() ||
     file.SUPABASE_URL?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
+    file.NEXT_PUBLIC_SUPABASE_URL?.trim() ||
     "";
 
   const anon =
@@ -21,6 +23,8 @@ export default defineConfig(({ mode }) => {
     file.VITE_SUPABASE_ANON_KEY?.trim() ||
     process.env.SUPABASE_ANON_KEY?.trim() ||
     file.SUPABASE_ANON_KEY?.trim() ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
+    file.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim() ||
     "";
 
   return {

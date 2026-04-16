@@ -9,10 +9,14 @@ export function MissingSupabaseConfig() {
         </p>
         <ul className="muted">
           <li>
-            <code>VITE_SUPABASE_URL</code> i <code>VITE_SUPABASE_ANON_KEY</code> (preporučeno), ili
+            <code>VITE_SUPABASE_URL</code> i <code>VITE_SUPABASE_ANON_KEY</code> (Vite), ili
           </li>
           <li>
-            <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code> (takođe podržano u buildu)
+            <code>NEXT_PUBLIC_SUPABASE_URL</code> i <code>NEXT_PUBLIC_SUPABASE_ANON_KEY</code>{" "}
+            (kao na Next.js tutorijalima — podržano), ili
+          </li>
+          <li>
+            <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code>
           </li>
         </ul>
         <p className="muted">
