@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
+import { DEMO_PASSWORD, DEMO_USERNAME } from "../constants";
 
 export function LoginPage() {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -13,11 +14,29 @@ export function LoginPage() {
       setError("Supabase nije podešen.");
       return;
     }
+
+    const u = username.trim();
+    const p = password;
+
+    if (u === DEMO_USERNAME && p === DEMO_PASSWORD) {
+      setError(null);
+      setBusy(true);
+      const { error: anonErr } = await supabase.auth.signInAnonymously();
+      setBusy(false);
+      if (anonErr) {
+        setError(
+          `Demo: uključite Anonymous sign-ins u Supabase (Authentication → Providers → Anonymous). ${anonErr.message}`
+        );
+        return;
+      }
+      return;
+    }
+
     setError(null);
     setBusy(true);
     const { error: signErr } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+      email: u,
+      password: p,
     });
     setBusy(false);
     if (signErr) setError(signErr.message);
@@ -32,17 +51,18 @@ export function LoginPage() {
       <main className="card" style={{ maxWidth: 420, margin: "2rem auto" }}>
         <h1 style={{ marginTop: 0 }}>Prijava</h1>
         <p className="muted">
-          Koristite nalog kreiran u Supabase Authentication. RLS dozvoljava samo
-          ulogovanim korisnicima.
+          <strong>Demo nalog:</strong> korisničko ime <code>{DEMO_USERNAME}</code>, lozinka{" "}
+          <code>{DEMO_PASSWORD}</code> — koristi anonimnu sesiju (mora biti uključena u Supabase).
+          Inače unesite <strong>email</strong> i lozinku korisnika iz Authentication.
         </p>
         <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
           <label>
-            Email
+            Korisničko ime ili email
             <input
-              type="email"
+              type="text"
               autoComplete="username"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               required
             />
           </label>

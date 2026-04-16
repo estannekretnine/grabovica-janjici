@@ -8,6 +8,7 @@ import { LoginPage } from "./pages/LoginPage";
 import { TreesPage } from "./pages/TreesPage";
 import { PersonsPage } from "./pages/PersonsPage";
 import { RelationshipsPage } from "./pages/RelationshipsPage";
+import { DEMO_USERNAME } from "./constants";
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -53,9 +54,15 @@ export default function App() {
     );
   }
 
+  const isDemo = session.user.is_anonymous === true;
+
   return (
     <Layout
-      email={session.user.email ?? session.user.id}
+      email={
+        isDemo
+          ? `${DEMO_USERNAME} (demo)`
+          : (session.user.email ?? session.user.id)
+      }
       onSignOut={() => void supabase.auth.signOut()}
     >
       <Routes>

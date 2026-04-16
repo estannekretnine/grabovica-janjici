@@ -36,3 +36,4 @@ Koristite **Root Directory** = `admin` pri importu Git repozitorijuma. Varijable
 - RLS dozvoljava pristup samo ulogovanim korisnicima; anon ključ bez sesije neće moći da čita tabele.
 - Nova osoba u podrazumevanom stablu koristi `tree_id` iz baze (default u migraciji) ako ne menjate stablo u padajućoj listi.
 - Tabele su u šemi **`audit`** sa prefiksom **`gr_`** (npr. `audit.gr_persons`); u kodu se koristi `audit` klijent iz [`src/lib/supabase.ts`](src/lib/supabase.ts).
+- **Demo prijava** (`grabovica-janjici` / `1234567gr`) koristi `signInAnonymously()` — u Supabase uključite **Authentication → Providers → Anonymous**. Inače RLS i dalje zahteva ulogovanog korisnika.
