@@ -151,11 +151,41 @@ type GenealogyTables = {
   };
 };
 
+type KorisniciRow = {
+  id: string;
+  naziv: string;
+  email: string | null;
+  password: string | null;
+  brojmob: string | null;
+  stsstatus: string | null;
+  stsaktivan: string | null;
+  datumk: string | null;
+  datump: string | null;
+  datumpt: string | null;
+  adresa: string | null;
+};
+
 export type Database = {
   public: {
-    Tables: Record<string, never>;
+    Tables: {
+      korisnici: {
+        Row: KorisniciRow;
+        Insert: Partial<KorisniciRow> & { naziv?: string };
+        Update: Partial<KorisniciRow>;
+      };
+    };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      login_korisnik: {
+        Args: { p_email: string; p_password: string };
+        Returns: {
+          id: string;
+          naziv: string;
+          email: string | null;
+          stsstatus: string | null;
+        }[];
+      };
+    };
     Enums: Record<string, never>;
     CompositeTypes: Record<string, never>;
   };

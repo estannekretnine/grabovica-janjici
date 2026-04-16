@@ -1,9 +1,15 @@
 import { useState } from "react";
 import { supabase } from "../lib/supabase";
-import { DEMO_PASSWORD, DEMO_USERNAME } from "../constants";
+import {
+  clearKorisnikFromStorage,
+  writeKorisnikToStorage,
+  type KorisnikProfile,
+} from "../lib/korisnikSession";
+import { DEFAULT_LOGIN_EMAIL } from "../constants";
+import "./LoginPage.css";
 
 export function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState(DEFAULT_LOGIN_EMAIL);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -15,33 +21,50 @@ export function LoginPage() {
       return;
     }
 
-    const u = username.trim();
+    const u = email.trim();
     const p = password;
-
-    if (u === DEMO_USERNAME && p === DEMO_PASSWORD) {
-      setError(null);
-      setBusy(true);
-      const { error: anonErr } = await supabase.auth.signInAnonymously();
-      setBusy(false);
-      if (anonErr) {
-        const hint =
-          /failed to fetch|networkerror|name_not_resolved/i.test(anonErr.message)
-            ? " Proverite NEXT_PUBLIC_SUPABASE_URL na Vercelu — mora biti https://…supabase.co (često pogrešno …co bez supabase)."
-            : " U Supabase uključite Anonymous (Authentication → Providers → Anonymous).";
-        setError(`Demo: ${hint} (${anonErr.message})`);
-        return;
-      }
-      return;
-    }
 
     setError(null);
     setBusy(true);
-    const { error: signErr } = await supabase.auth.signInWithPassword({
-      email: u,
-      password: p,
+
+    const { data: rows, error: rpcErr } = await supabase.rpc("login_korisnik", {
+      p_email: u,
+      p_password: p,
     });
+
+    if (rpcErr) {
+      setBusy(false);
+      setError(rpcErr.message);
+      return;
+    }
+
+    const row = Array.isArray(rows) ? rows[0] : null;
+    if (!row) {
+      setBusy(false);
+      setError("Pogrešno korisničko ime ili lozinka.");
+      return;
+    }
+
+    const profile: KorisnikProfile = {
+      id: String(row.id),
+      naziv: String(row.naziv ?? ""),
+      email: row.email != null ? String(row.email) : null,
+      stsstatus: row.stsstatus != null ? String(row.stsstatus) : null,
+    };
+    clearKorisnikFromStorage();
+    writeKorisnikToStorage(profile);
+
+    const { error: anonErr } = await supabase.auth.signInAnonymously();
     setBusy(false);
-    if (signErr) setError(signErr.message);
+    if (anonErr) {
+      clearKorisnikFromStorage();
+      const hint =
+        /failed to fetch|networkerror|name_not_resolved/i.test(anonErr.message)
+          ? "Proverite Supabase URL na Vercelu (https://…supabase.co)."
+          : "Uključite Anonymous sign-ins (Authentication → Providers → Anonymous).";
+      setError(`${hint} (${anonErr.message})`);
+      return;
+    }
   }
 
   if (!supabase) {
@@ -49,41 +72,90 @@ export function LoginPage() {
   }
 
   return (
-    <div className="layout">
-      <main className="card" style={{ maxWidth: 420, margin: "2rem auto" }}>
-        <h1 style={{ marginTop: 0 }}>Prijava</h1>
-        <p className="muted">
-          <strong>Demo nalog:</strong> korisničko ime <code>{DEMO_USERNAME}</code>, lozinka{" "}
-          <code>{DEMO_PASSWORD}</code> — koristi anonimnu sesiju (mora biti uključena u Supabase).
-          Inače unesite <strong>email</strong> i lozinku korisnika iz Authentication.
-        </p>
-        <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
-          <label>
-            Korisničko ime ili email
+    <div className="login-shell">
+      <section className="login-brand" aria-label="Brending">
+        <div className="login-brand-top">
+          <div className="login-logo-row">
+            <div className="login-logo-mark">GJ</div>
+            <div>
+              <div className="login-logo-title">Grabovica Janjići</div>
+              <div className="login-tagline-gold">
+                porodično stablo janjici Grabovica Crna Gora
+              </div>
+            </div>
+          </div>
+          <div className="login-hero">
+            <h2>
+              <span className="white">Upravljajte</span>
+              <br />
+              <span className="gold">porodičnim stablom</span>
+            </h2>
+            <p>Centralizovano upravljanje članovima porodice i podacima na jednom mestu.</p>
+          </div>
+        </div>
+        <div className="login-stats">
+          <div>
+            <strong>100%</strong>
+            <span>Sigurnost podataka</span>
+          </div>
+          <div>
+            <strong>24/7</strong>
+            <span>Dostupnost</span>
+          </div>
+          <div>
+            <strong>Pro</strong>
+            <span>Podrška</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="login-form-panel">
+        <div className="login-form-inner">
+          <h1>Dobrodošli nazad</h1>
+          <p className="subtitle">Unesite vaše podatke za pristup</p>
+
+          <form onSubmit={(e) => void handleSubmit(e)}>
+            <label htmlFor="login-email">Email adresa</label>
             <input
+              id="login-email"
               type="text"
               autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
-          </label>
-          <label>
-            Lozinka
+
+            <label htmlFor="login-pass">Lozinka</label>
             <input
+              id="login-pass"
               type="password"
               autoComplete="current-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
             />
-          </label>
-          {error ? <p className="error">{error}</p> : null}
-          <button className="primary" type="submit" disabled={busy}>
-            {busy ? "Prijava…" : "Prijavi se"}
-          </button>
-        </form>
-      </main>
+
+            {error ? <p className="login-error">{error}</p> : null}
+
+            <button className="login-submit" type="submit" disabled={busy}>
+              {busy ? "Prijava…" : "Prijavi se"} <span aria-hidden>→</span>
+            </button>
+          </form>
+
+          <div className="login-or">ILI</div>
+
+          <p className="login-footer-note">
+            Nemate nalog? Kontaktirajte administratora na{" "}
+            <a href="mailto:admin@grabovica-janjici.local">admin@grabovica-janjici.local</a>
+          </p>
+
+          <div className="login-meta">
+            Poslednje ažuriranje aplikacije: {new Date().toLocaleString("sr-Latn-ME")}
+          </div>
+
+          <div className="login-version">Porodično stablo v1 • 2026</div>
+        </div>
+      </section>
     </div>
   );
 }

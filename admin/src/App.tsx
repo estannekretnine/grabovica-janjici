@@ -8,7 +8,10 @@ import { LoginPage } from "./pages/LoginPage";
 import { TreesPage } from "./pages/TreesPage";
 import { PersonsPage } from "./pages/PersonsPage";
 import { RelationshipsPage } from "./pages/RelationshipsPage";
-import { DEMO_USERNAME } from "./constants";
+import {
+  clearKorisnikFromStorage,
+  readKorisnikFromStorage,
+} from "./lib/korisnikSession";
 
 export default function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -54,16 +57,20 @@ export default function App() {
     );
   }
 
-  const isDemo = session.user.is_anonymous === true;
+  const korisnik = readKorisnikFromStorage();
+  const headerLabel =
+    korisnik?.naziv?.trim() ||
+    (session.user.is_anonymous ? "Gost" : null) ||
+    session.user.email ||
+    session.user.id;
 
   return (
     <Layout
-      email={
-        isDemo
-          ? `${DEMO_USERNAME} (demo)`
-          : (session.user.email ?? session.user.id)
-      }
-      onSignOut={() => void supabase.auth.signOut()}
+      email={headerLabel}
+      onSignOut={() => {
+        clearKorisnikFromStorage();
+        void supabase.auth.signOut();
+      }}
     >
       <Routes>
         <Route path="/" element={<Navigate to="/persons" replace />} />
