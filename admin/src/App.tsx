@@ -2,7 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
-import { MissingSupabaseConfig } from "./components/MissingSupabaseConfig";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { TreesPage } from "./pages/TreesPage";
@@ -33,10 +32,6 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
-
-  if (supabase === null) {
-    return <MissingSupabaseConfig />;
-  }
 
   if (loading) {
     return (

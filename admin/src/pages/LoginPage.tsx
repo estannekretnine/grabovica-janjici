@@ -6,7 +6,48 @@ import {
   type KorisnikProfile,
 } from "../lib/korisnikSession";
 import { DEFAULT_LOGIN_EMAIL } from "../constants";
+import { SupabaseEnvHelp } from "../components/MissingSupabaseConfig";
 import "./LoginPage.css";
+
+function LoginBrandPanel() {
+  return (
+    <section className="login-brand" aria-label="Brending">
+      <div className="login-brand-top">
+        <div className="login-logo-row">
+          <div className="login-logo-mark">GJ</div>
+          <div>
+            <div className="login-logo-title">Grabovica Janjići</div>
+            <div className="login-tagline-gold">
+              porodično stablo janjici Grabovica Crna Gora
+            </div>
+          </div>
+        </div>
+        <div className="login-hero">
+          <h2>
+            <span className="white">Upravljajte</span>
+            <br />
+            <span className="gold">porodičnim stablom</span>
+          </h2>
+          <p>Centralizovano upravljanje članovima porodice i podacima na jednom mestu.</p>
+        </div>
+      </div>
+      <div className="login-stats">
+        <div>
+          <strong>100%</strong>
+          <span>Sigurnost podataka</span>
+        </div>
+        <div>
+          <strong>24/7</strong>
+          <span>Dostupnost</span>
+        </div>
+        <div>
+          <strong>Pro</strong>
+          <span>Podrška</span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function LoginPage() {
   const [email, setEmail] = useState(DEFAULT_LOGIN_EMAIL);
@@ -68,46 +109,21 @@ export function LoginPage() {
   }
 
   if (!supabase) {
-    return null;
+    return (
+      <div className="login-shell">
+        <LoginBrandPanel />
+        <section className="login-form-panel">
+          <div className="login-form-inner">
+            <SupabaseEnvHelp />
+          </div>
+        </section>
+      </div>
+    );
   }
 
   return (
     <div className="login-shell">
-      <section className="login-brand" aria-label="Brending">
-        <div className="login-brand-top">
-          <div className="login-logo-row">
-            <div className="login-logo-mark">GJ</div>
-            <div>
-              <div className="login-logo-title">Grabovica Janjići</div>
-              <div className="login-tagline-gold">
-                porodično stablo janjici Grabovica Crna Gora
-              </div>
-            </div>
-          </div>
-          <div className="login-hero">
-            <h2>
-              <span className="white">Upravljajte</span>
-              <br />
-              <span className="gold">porodičnim stablom</span>
-            </h2>
-            <p>Centralizovano upravljanje članovima porodice i podacima na jednom mestu.</p>
-          </div>
-        </div>
-        <div className="login-stats">
-          <div>
-            <strong>100%</strong>
-            <span>Sigurnost podataka</span>
-          </div>
-          <div>
-            <strong>24/7</strong>
-            <span>Dostupnost</span>
-          </div>
-          <div>
-            <strong>Pro</strong>
-            <span>Podrška</span>
-          </div>
-        </div>
-      </section>
+      <LoginBrandPanel />
 
       <section className="login-form-panel">
         <div className="login-form-inner">
