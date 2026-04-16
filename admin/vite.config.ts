@@ -43,6 +43,16 @@ function pickSupabaseFromEnv(mode: string): { url: string; anon: string } {
 
 export default defineConfig(({ mode }) => {
   const { url, anon } = pickSupabaseFromEnv(mode);
+
+  console.log("[vite.config] mode:", mode);
+  console.log("[vite.config] cwd:", process.cwd());
+  console.log("[vite.config] __dirname:", __dirname);
+  console.log("[vite.config] process.env keys with SUPA/NEXT:", Object.keys(process.env).filter(k => /supa|next_public/i.test(k)));
+  console.log("[vite.config] raw process.env.NEXT_PUBLIC_SUPABASE_URL:", JSON.stringify(process.env.NEXT_PUBLIC_SUPABASE_URL));
+  console.log("[vite.config] raw process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY:", process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ? `${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.slice(0, 10)}…(len=${process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY.length})` : "undefined");
+  console.log("[vite.config] resolved url:", JSON.stringify(url));
+  console.log("[vite.config] resolved anon:", anon ? `${anon.slice(0, 10)}…(len=${anon.length})` : "(empty)");
+
   return {
     plugins: [react()],
     envDir: __dirname,
