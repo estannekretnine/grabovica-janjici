@@ -5,6 +5,7 @@
 export function normalizeSupabaseUrl(raw: string | undefined): string {
   let u = (raw ?? "").trim().replace(/^["'“”]+|["'“”]+$/g, "");
   if (!u || u === "undefined" || u === "null") return "";
+  u = u.replace(/^t{0,2}ps?:\/\//i, "https://");
   if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
 
   try {
