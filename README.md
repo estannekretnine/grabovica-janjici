@@ -19,6 +19,32 @@ U Supabase Dashboard: **Project Settings → API → Exposed schemas** dodajte `
 
 RLS dozvoljava **samo ulogovane** korisnike (`authenticated`). U **Authentication** kreirajte korisnika za admin pristup, zatim se prijavite u admin panelu.
 
+## Deploy na Vercel (povezivanje sa Gitom)
+
+1. **Git na GitHubu (ili GitLab / Bitbucket)**  
+   Repozitorijum mora biti na udaljenom originu (npr. `git push -u origin main`). Vercel se veže za taj remote.
+
+2. **Novi projekat na Vercelu**  
+   - Ulogujte se na [vercel.com](https://vercel.com) → **Add New…** → **Project**.  
+   - **Import** odabranog Git repozitorijuma (dozvolite Vercelu pristup nalogu ako traži).
+
+3. **Podešavanje builda (monorepo)**  
+   Pošto je Vite aplikacija u podfolderu `admin/`:  
+   - **Root Directory**: `admin` (Edit u koraku Configure Project, ili **Settings → General → Root Directory** posle importa).  
+   - **Framework Preset**: Vite (obično se detektuje sam).  
+   - **Build Command**: `npm run build`  
+   - **Output Directory**: `dist`  
+   - **Install Command**: `npm install` (podrazumevano)
+
+4. **Environment Variables** (Settings → Environment Variables), za **Production** (i po želji Preview):  
+   - `VITE_SUPABASE_URL` — URL projekta iz Supabase  
+   - `VITE_SUPABASE_ANON_KEY` — anon javni ključ  
+
+   Posle dodavanja varijabli pokrenite **Redeploy** da build uključi `.env` vrednosti u Vite.
+
+5. **SPA rute**  
+   U [`admin/vercel.json`](admin/vercel.json) je podešen rewrite na `index.html` da osvežavanje stranica tipa `/persons` ne vrati 404.
+
 ## Admin panel
 
 Pogledajte [`admin/README.md`](admin/README.md).

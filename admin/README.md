@@ -27,6 +27,10 @@ npm run dev
 
 Otvorite prikazani URL, prijavite se, zatim koristite **Članovi**, **Veze** i **Stabla**.
 
+## Vercel
+
+Koristite **Root Directory** = `admin` pri importu Git repozitorijuma. Varijable okruženja: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`. Detalji u korenskom [`README.md`](../README.md) (sekcija Deploy na Vercel).
+
 ## Napomene
 
 - RLS dozvoljava pristup samo ulogovanim korisnicima; anon ključ bez sesije neće moći da čita tabele.
