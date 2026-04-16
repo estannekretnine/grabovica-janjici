@@ -4,15 +4,21 @@ export function MissingSupabaseConfig() {
       <main className="card" style={{ maxWidth: 520, margin: "2rem auto" }}>
         <h1 style={{ marginTop: 0 }}>Nedostaje konfiguracija Supabase</h1>
         <p>
-          Aplikacija zahteva promenljive okruženja{" "}
-          <code>VITE_SUPABASE_URL</code> i <code>VITE_SUPABASE_ANON_KEY</code>{" "}
-          (vrednosti iz Supabase: Project Settings → API).
+          Aplikacija zahteva URL i anon ključ iz Supabase (Project Settings → API). U Vercelu
+          koristi tačno jedan par imena (kopiraj ključeve bez razmaka na početku/kraju):
         </p>
+        <ul className="muted">
+          <li>
+            <code>VITE_SUPABASE_URL</code> i <code>VITE_SUPABASE_ANON_KEY</code> (preporučeno), ili
+          </li>
+          <li>
+            <code>SUPABASE_URL</code> i <code>SUPABASE_ANON_KEY</code> (takođe podržano u buildu)
+          </li>
+        </ul>
         <p className="muted">
-          Na <strong>Vercel</strong>: Project → <strong>Settings</strong> →{" "}
-          <strong>Environment Variables</strong> → dodaj obe za <strong>Production</strong>{" "}
-          (i Preview ako treba), zatim <strong>Deployments</strong> → tri tačke na poslednjem →{" "}
-          <strong>Redeploy</strong> (bez keša). Bez redeploy-a, stari build i dalje nema ključeve.
+          Na <strong>Vercel</strong>: Settings → <strong>Environment Variables</strong> → obavezno
+          uključi <strong>Production</strong> (kvačica pored imena promenljive). Posle izmene:{" "}
+          <strong>Deployments</strong> → ⋯ na poslednjem → <strong>Redeploy</strong>.
         </p>
       </main>
     </div>
