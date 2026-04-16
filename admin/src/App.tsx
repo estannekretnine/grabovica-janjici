@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "./lib/supabase";
+import { MissingSupabaseConfig } from "./components/MissingSupabaseConfig";
 import { Layout } from "./components/Layout";
 import { LoginPage } from "./pages/LoginPage";
 import { TreesPage } from "./pages/TreesPage";
@@ -13,7 +14,11 @@ export default function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    if (supabase === null) {
+      setLoading(false);
+      return;
+    }
+    void supabase.auth.getSession().then(({ data }) => {
       setSession(data.session);
       setLoading(false);
     });
@@ -24,6 +29,10 @@ export default function App() {
     });
     return () => subscription.unsubscribe();
   }, []);
+
+  if (supabase === null) {
+    return <MissingSupabaseConfig />;
+  }
 
   if (loading) {
     return (

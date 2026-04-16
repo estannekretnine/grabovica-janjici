@@ -37,12 +37,12 @@ export function RelationshipsPage() {
   const [pNotes, setPNotes] = useState("");
 
   const loadTrees = useCallback(async () => {
-    const { data } = await audit.from("gr_family_trees").select("*").order("name");
+    const { data } = await audit!.from("gr_family_trees").select("*").order("name");
     setTrees(data ?? []);
   }, []);
 
   const loadPersons = useCallback(async (tid: string) => {
-    const { data, error: qErr } = await audit
+    const { data, error: qErr } = await audit!
       .from("gr_persons")
       .select("*")
       .eq("tree_id", tid)
@@ -61,7 +61,7 @@ export function RelationshipsPage() {
       setPcRows([]);
       return;
     }
-    const { data, error: qErr } = await audit
+    const { data, error: qErr } = await audit!
       .from("gr_parent_child")
       .select("*")
       .in("parent_person_id", ids)
@@ -79,7 +79,7 @@ export function RelationshipsPage() {
       setPartRows([]);
       return;
     }
-    const { data, error: qErr } = await audit
+    const { data, error: qErr } = await audit!
       .from("gr_partnerships")
       .select("*")
       .in("person_a_id", ids)
@@ -128,7 +128,7 @@ export function RelationshipsPage() {
       setError("Izaberite različitog roditelja i deteta.");
       return;
     }
-    const { error: insErr } = await audit.from("gr_parent_child").insert({
+    const { error: insErr } = await audit!.from("gr_parent_child").insert({
       parent_person_id: pcParent,
       child_person_id: pcChild,
       relation_subtype: pcSubtype,
@@ -143,7 +143,7 @@ export function RelationshipsPage() {
 
   async function deletePc(id: string) {
     if (!confirm("Obrisati vezu roditelj–dete?")) return;
-    const { error: delErr } = await audit.from("gr_parent_child").delete().eq("id", id);
+    const { error: delErr } = await audit!.from("gr_parent_child").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await loadParentChild();
   }
@@ -155,7 +155,7 @@ export function RelationshipsPage() {
       setError("Izaberite dve različite osobe.");
       return;
     }
-    const { error: insErr } = await audit.from("gr_partnerships").insert({
+    const { error: insErr } = await audit!.from("gr_partnerships").insert({
       person_a_id: pA,
       person_b_id: pB,
       partnership_type: pType,
@@ -176,7 +176,7 @@ export function RelationshipsPage() {
 
   async function deletePart(id: string) {
     if (!confirm("Obrisati partnersku vezu?")) return;
-    const { error: delErr } = await audit.from("gr_partnerships").delete().eq("id", id);
+    const { error: delErr } = await audit!.from("gr_partnerships").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await loadPartnerships();
   }

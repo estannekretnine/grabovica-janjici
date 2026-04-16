@@ -11,7 +11,7 @@ export function TreesPage() {
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const { data, error: qErr } = await audit
+    const { data, error: qErr } = await audit!
       .from("gr_family_trees")
       .select("*")
       .order("created_at", { ascending: true });
@@ -29,7 +29,7 @@ export function TreesPage() {
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const { error: insErr } = await audit.from("gr_family_trees").insert({
+    const { error: insErr } = await audit!.from("gr_family_trees").insert({
       name: name.trim(),
       slug: slug.trim() || null,
     });
@@ -47,7 +47,7 @@ export function TreesPage() {
       return;
     }
     setError(null);
-    const { error: delErr } = await audit.from("gr_family_trees").delete().eq("id", id);
+    const { error: delErr } = await audit!.from("gr_family_trees").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await load();
   }

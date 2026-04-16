@@ -1,14 +1,16 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 
-const url = import.meta.env.VITE_SUPABASE_URL;
-const anon = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const url = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
+const anon = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? "";
 
-if (!url || !anon) {
-  console.warn("Nedostaju VITE_SUPABASE_URL ili VITE_SUPABASE_ANON_KEY u .env");
-}
+/** false na Vercelu ako nisu podešene Environment Variables (mora redeploy posle dodavanja). */
+export const isSupabaseConfigured = Boolean(url && anon);
 
-export const supabase = createClient<Database>(url ?? "", anon ?? "");
+const client: SupabaseClient<Database> | null =
+  isSupabaseConfigured ? createClient<Database>(url, anon) : null;
 
-/** Porodične tabele (`gr_*`) žive u šemi `audit` — koristiti umesto `supabase.from` za podatke. */
-export const audit = supabase.schema("audit");
+export const supabase = client;
+
+/** Šema `audit` — samo kada je Supabase podešen. */
+export const audit = client !== null ? client.schema("audit") : null;

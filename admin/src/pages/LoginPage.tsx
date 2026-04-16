@@ -9,6 +9,10 @@ export function LoginPage() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!supabase) {
+      setError("Supabase nije podešen.");
+      return;
+    }
     setError(null);
     setBusy(true);
     const { error: signErr } = await supabase.auth.signInWithPassword({
@@ -17,6 +21,10 @@ export function LoginPage() {
     });
     setBusy(false);
     if (signErr) setError(signErr.message);
+  }
+
+  if (!supabase) {
+    return null;
   }
 
   return (

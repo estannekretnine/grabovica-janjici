@@ -38,12 +38,12 @@ export function PersonsPage() {
   const [error, setError] = useState<string | null>(null);
 
   const loadTrees = useCallback(async () => {
-    const { data } = await audit.from("gr_family_trees").select("*").order("name");
+    const { data } = await audit!.from("gr_family_trees").select("*").order("name");
     setTrees(data ?? []);
   }, []);
 
   const loadPersons = useCallback(async (tid: string) => {
-    const { data, error: qErr } = await audit
+    const { data, error: qErr } = await audit!
       .from("gr_persons")
       .select("*")
       .eq("tree_id", tid)
@@ -102,13 +102,13 @@ export function PersonsPage() {
     const payload = { ...form, tree_id: treeId };
 
     if (editingId) {
-      const { error: upErr } = await audit.from("gr_persons").update(payload).eq("id", editingId);
+      const { error: upErr } = await audit!.from("gr_persons").update(payload).eq("id", editingId);
       if (upErr) {
         setError(upErr.message);
         return;
       }
     } else {
-      const { error: insErr } = await audit.from("gr_persons").insert(payload);
+      const { error: insErr } = await audit!.from("gr_persons").insert(payload);
       if (insErr) {
         setError(insErr.message);
         return;
@@ -122,7 +122,7 @@ export function PersonsPage() {
   async function handleDelete(id: string) {
     if (!confirm(`Obrisati osobu ${id}?`)) return;
     setError(null);
-    const { error: delErr } = await audit.from("gr_persons").delete().eq("id", id);
+    const { error: delErr } = await audit!.from("gr_persons").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await loadPersons(treeId);
   }
