@@ -42,12 +42,9 @@ RLS dozvoljava **samo ulogovane** korisnike (`authenticated`). U **Authenticatio
    - **Import** odabranog Git repozitorijuma (dozvolite Vercelu pristup nalogu ako traži).
 
 3. **Podešavanje builda (monorepo)**  
-   Pošto je Vite aplikacija u podfolderu `admin/`:  
-   - **Root Directory**: `admin` (Edit u koraku Configure Project, ili **Settings → General → Root Directory** posle importa).  
-   - **Framework Preset**: Vite (obično se detektuje sam).  
-   - **Build Command**: `npm run build`  
-   - **Output Directory**: `dist`  
-   - **Install Command**: `npm install` (podrazumevano)
+   Vite aplikacija je u **`admin/`**. Možeš na jedan od dva načina:  
+   - **A)** Ostavi **Root Directory** prazan (koren repozitorijuma) — u korenu postoji [`vercel.json`](vercel.json) koji gradi `admin/` i izlaz stavlja u `admin/dist` (ovo rešava uobičajeni **404** ako ranije nisi podešavao `admin`).  
+   - **B)** **Root Directory** = `admin` — onda Vercel koristi samo `admin/` (Build: `npm run build`, Output: `dist`).
 
 4. **Environment Variables** (Settings → Environment Variables), za **Production** (i po želji Preview):  
    - `VITE_SUPABASE_URL` — URL projekta iz Supabase  
