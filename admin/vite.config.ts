@@ -1,65 +1,55 @@
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
+import { normalizeSupabaseUrl } from "./src/lib/normalizeSupabaseUrl";
 
-function normalizeSupabaseUrl(raw: string | undefined): string {
-  let u = (raw ?? "").trim().replace(/^["'“”]+|["'“”]+$/g, "");
-  if (!u || u === "undefined" || u === "null") return "";
-  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
-  try {
-    let parsed = new URL(u);
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
-    let host = parsed.hostname.toLowerCase();
-    if (/^[a-z0-9]{10,40}$/i.test(host)) {
-      host = `${host}.supabase.co`;
-      parsed = new URL(`${parsed.protocol}//${host}`);
-    } else if (/^[a-z0-9]{10,40}\.co$/i.test(host) && !host.includes("supabase")) {
-      const ref = host.replace(/\.co$/i, "");
-      parsed = new URL(`${parsed.protocol}//${ref}.supabase.co`);
-    }
-    if (!parsed.hostname.endsWith(".supabase.co") && !parsed.hostname.endsWith(".supabase.in")) {
-      return "";
-    }
-    const path =
-      parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
-    return `${parsed.origin}${path}`;
-  } catch {
-    return "";
-  }
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+function stripInvisible(s: string): string {
+  return s.replace(/[\u200B-\u200D\uFEFF]/g, "").trim();
 }
 
 /**
- * Vercel postavlja promenljive u process.env pri buildu.
- * Podržani prefiksi: VITE_*, SUPABASE_*, NEXT_PUBLIC_SUPABASE_*.
+ * Vercel ubacuje vrednosti u `process.env` tokom `vite build`.
+ * Učitavamo i `.env*` iz `admin/` (`envDir`) da lokalni build radi isto.
+ * Podržano: VITE_*, NEXT_PUBLIC_*, SUPABASE_URL / SUPABASE_ANON_KEY (bez SERVICE_ROLE u klijentu).
  */
-export default defineConfig(({ mode }) => {
-  const file = loadEnv(mode, process.cwd(), "");
-
-  const rawUrl =
+function pickSupabaseFromEnv(mode: string): { url: string; anon: string } {
+  const file = loadEnv(mode, __dirname, "");
+  const rawUrl = stripInvisible(
     process.env.VITE_SUPABASE_URL ||
-    file.VITE_SUPABASE_URL ||
-    process.env.SUPABASE_URL ||
-    file.SUPABASE_URL ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    file.NEXT_PUBLIC_SUPABASE_URL ||
-    "";
-
-  const rawAnon =
+      file.VITE_SUPABASE_URL ||
+      process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      file.NEXT_PUBLIC_SUPABASE_URL ||
+      process.env.SUPABASE_URL ||
+      file.SUPABASE_URL ||
+      "",
+  );
+  const rawAnon = stripInvisible(
     process.env.VITE_SUPABASE_ANON_KEY ||
-    file.VITE_SUPABASE_ANON_KEY ||
-    process.env.SUPABASE_ANON_KEY ||
-    file.SUPABASE_ANON_KEY ||
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    file.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-    "";
+      file.VITE_SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      file.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      file.SUPABASE_ANON_KEY ||
+      "",
+  );
+  return {
+    url: normalizeSupabaseUrl(rawUrl),
+    anon: rawAnon,
+  };
+}
 
-  const url = normalizeSupabaseUrl(rawUrl);
-  const anon = (rawAnon || "").trim();
-
+export default defineConfig(({ mode }) => {
+  const { url, anon } = pickSupabaseFromEnv(mode);
   return {
     plugins: [react()],
+    envDir: __dirname,
+    envPrefix: ["VITE_", "NEXT_PUBLIC_"],
     define: {
-      "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(url),
-      "import.meta.env.VITE_SUPABASE_ANON_KEY": JSON.stringify(anon),
+      __GR_SUPABASE_URL__: JSON.stringify(url),
+      __GR_SUPABASE_ANON__: JSON.stringify(anon),
     },
   };
 });

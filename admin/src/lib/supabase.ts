@@ -2,8 +2,23 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "../types/database";
 import { normalizeSupabaseUrl } from "./normalizeSupabaseUrl";
 
-const rawUrl = import.meta.env.VITE_SUPABASE_URL?.trim() ?? "";
-const rawAnon = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim() ?? "";
+declare const __GR_SUPABASE_URL__: string;
+declare const __GR_SUPABASE_ANON__: string;
+
+/** Ugrađeno u build iz vite.config (svi prefiksi + trim); fallback na import.meta za dev. */
+const rawUrl = (
+  (typeof __GR_SUPABASE_URL__ !== "undefined" ? __GR_SUPABASE_URL__ : "") ||
+  import.meta.env.VITE_SUPABASE_URL ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_URL ||
+  ""
+).trim();
+
+const rawAnon = (
+  (typeof __GR_SUPABASE_ANON__ !== "undefined" ? __GR_SUPABASE_ANON__ : "") ||
+  import.meta.env.VITE_SUPABASE_ANON_KEY ||
+  import.meta.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+  ""
+).trim();
 
 const url = normalizeSupabaseUrl(rawUrl);
 const anon = rawAnon.length > 0 ? rawAnon : "";

@@ -29,6 +29,12 @@ export function SupabaseEnvHelp() {
         uključi <strong>Production</strong> (kvačica pored imena promenljive). Posle izmene:{" "}
         <strong>Deployments</strong> → ⋯ na poslednjem → <strong>Redeploy</strong>.
       </p>
+      <p className="muted">
+        Ako su promenljive već postavljene, a poruka ostaje: ponovo uradi <strong>Redeploy</strong> i
+        uključi <strong>Clear build cache</strong> (stari build je možda napravljen bez env-a). URL u
+        Vercelu mora biti tačan <strong>Project URL</strong> sa API stranice (ne connection string /
+        pooler).
+      </p>
     </div>
   );
 }
