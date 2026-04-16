@@ -1,0 +1,5 @@
+{
+  "name": "grabovica-janjici",
+  "private": true,
+  "description": "Monorepo root — Vite admin app je u folderu admin/; Vercel koristi vercel.json u korenu."
+}
