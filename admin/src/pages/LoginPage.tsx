@@ -24,9 +24,11 @@ export function LoginPage() {
       const { error: anonErr } = await supabase.auth.signInAnonymously();
       setBusy(false);
       if (anonErr) {
-        setError(
-          `Demo: uključite Anonymous sign-ins u Supabase (Authentication → Providers → Anonymous). ${anonErr.message}`
-        );
+        const hint =
+          /failed to fetch|networkerror|name_not_resolved/i.test(anonErr.message)
+            ? " Proverite NEXT_PUBLIC_SUPABASE_URL na Vercelu — mora biti https://…supabase.co (često pogrešno …co bez supabase)."
+            : " U Supabase uključite Anonymous (Authentication → Providers → Anonymous).";
+        setError(`Demo: ${hint} (${anonErr.message})`);
         return;
       }
       return;

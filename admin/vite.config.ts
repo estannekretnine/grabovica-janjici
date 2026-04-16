@@ -6,9 +6,22 @@ function normalizeSupabaseUrl(raw: string | undefined): string {
   if (!u || u === "undefined" || u === "null") return "";
   if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
   try {
-    const parsed = new URL(u);
+    let parsed = new URL(u);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return "";
-    return `${parsed.origin}${parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "")}`;
+    let host = parsed.hostname.toLowerCase();
+    if (/^[a-z0-9]{10,40}$/i.test(host)) {
+      host = `${host}.supabase.co`;
+      parsed = new URL(`${parsed.protocol}//${host}`);
+    } else if (/^[a-z0-9]{10,40}\.co$/i.test(host) && !host.includes("supabase")) {
+      const ref = host.replace(/\.co$/i, "");
+      parsed = new URL(`${parsed.protocol}//${ref}.supabase.co`);
+    }
+    if (!parsed.hostname.endsWith(".supabase.co") && !parsed.hostname.endsWith(".supabase.in")) {
+      return "";
+    }
+    const path =
+      parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/$/, "");
+    return `${parsed.origin}${path}`;
   } catch {
     return "";
   }

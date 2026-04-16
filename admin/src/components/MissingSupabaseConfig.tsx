@@ -20,6 +20,11 @@ export function MissingSupabaseConfig() {
           </li>
         </ul>
         <p className="muted">
+          URL mora biti u obliku <code>https://&lt;project-ref&gt;.supabase.co</code> (iz Supabase
+          Dashboard → Settings → API). Ako je slučajno <code>.co</code> bez <code>.supabase</code>,
+          aplikacija pokušava ispravku pri učitavanju.
+        </p>
+        <p className="muted">
           Na <strong>Vercel</strong>: Settings → <strong>Environment Variables</strong> → obavezno
           uključi <strong>Production</strong> (kvačica pored imena promenljive). Posle izmene:{" "}
           <strong>Deployments</strong> → ⋯ na poslednjem → <strong>Redeploy</strong>.
