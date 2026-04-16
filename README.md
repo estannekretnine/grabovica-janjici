@@ -1,5 +1,18 @@
 # Grabovica Janjići — porodično stablo
 
+## Povezivanje sa GitHubom (prvi push)
+
+Nakon što na GitHubu postoji repozitorijum **`grabovica-janjici`** (pod tvojim nalogom ili organizacijom), u korenu ovog foldera:
+
+```powershell
+git remote add origin https://github.com/TVOJ_NALOG/grabovica-janjici.git
+git push -u origin main
+```
+
+Zameni `TVOJ_NALOG` tačnim korisničkim imenom ili organizacijom iz URL-a u browseru. Ako `origin` već postoji sa pogrešnim URL-om: `git remote set-url origin https://github.com/.../grabovica-janjici.git`.
+
+Alternativa (PowerShell): [`scripts/push-to-github.ps1`](scripts/push-to-github.ps1) — `.\scripts\push-to-github.ps1 -Owner tvoj_github_nalog`
+
 ## Baza (Supabase)
 
 1. U Supabase Dashboard otvorite **SQL Editor**.
