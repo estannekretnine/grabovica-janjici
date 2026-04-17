@@ -1177,3 +1177,145 @@
 .public-pretraga-activity-link:hover {
   text-decoration: underline;
 }
+
+/* Aktivnosti modul */
+.public-aktivnosti-page {
+  flex: 1;
+}
+
+.public-aktivnosti-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+.public-aktivnosti-card {
+  display: flex;
+  flex-direction: column;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.public-aktivnosti-card:hover {
+  border-color: var(--pub-gold);
+  box-shadow: 0 4px 16px rgba(212, 168, 83, 0.15);
+}
+
+.public-aktivnosti-card-thumb {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+
+.public-aktivnosti-card-body {
+  padding: 1rem;
+}
+
+.public-aktivnosti-card-title {
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--pub-text);
+  margin-bottom: 0.35rem;
+}
+
+.public-aktivnosti-card-date {
+  font-size: 0.85rem;
+  color: var(--pub-gold);
+  margin-bottom: 0.25rem;
+}
+
+.public-aktivnosti-card-person {
+  font-size: 0.85rem;
+  color: var(--pub-muted);
+}
+
+.public-aktivnosti-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+}
+
+.public-aktivnosti-modal {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 540px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.public-aktivnosti-modal-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--pub-border);
+  position: sticky;
+  top: 0;
+  background: var(--pub-surface);
+}
+
+.public-aktivnosti-modal-close {
+  background: none;
+  border: none;
+  color: var(--pub-muted);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.public-aktivnosti-modal-close:hover {
+  color: var(--pub-gold);
+}
+
+.public-aktivnosti-modal-body {
+  padding: 1.25rem;
+}
+
+.public-aktivnosti-modal-date,
+.public-aktivnosti-modal-person,
+.public-aktivnosti-modal-link {
+  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  color: var(--pub-text);
+}
+
+.public-aktivnosti-modal-opis {
+  margin: 0.75rem 0;
+}
+
+.public-aktivnosti-modal-opis p {
+  margin: 0.35rem 0 0;
+  white-space: pre-wrap;
+  line-height: 1.6;
+  color: var(--pub-muted);
+}
+
+.public-aktivnosti-modal-link a {
+  color: var(--pub-gold);
+  text-decoration: none;
+}
+
+.public-aktivnosti-modal-link a:hover {
+  text-decoration: underline;
+}
+
+.public-aktivnosti-modal-img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 8px;
+  margin-top: 1rem;
+}

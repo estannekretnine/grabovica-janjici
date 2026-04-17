@@ -17,6 +17,7 @@ import { PublicHome } from "./public/PublicHome";
 import { PublicStablo } from "./public/PublicStablo";
 import { PublicKontakt } from "./public/PublicKontakt";
 import { PublicPretraga } from "./public/PublicPretraga";
+import { PublicAktivnosti } from "./public/PublicAktivnosti";
 import {
   clearKorisnikFromStorage,
   readKorisnikFromStorage,
@@ -72,6 +73,7 @@ export default function App() {
         <Route index element={<PublicHome />} />
         <Route path="stablo" element={<PublicStablo />} />
         <Route path="pretraga" element={<PublicPretraga />} />
+        <Route path="aktivnosti" element={<PublicAktivnosti />} />
         <Route path="kontakt" element={<PublicKontakt />} />
       </Route>
 
