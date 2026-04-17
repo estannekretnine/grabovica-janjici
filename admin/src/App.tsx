@@ -78,7 +78,7 @@ export default function App() {
         <Route path="/municipalities" element={<OpstinePage />} />
         <Route path="/locations" element={<LokacijaPage />} />
         <Route path="/trees" element={<TreesPage />} />
-        <Route path="/stablo-3" element={<TreesPage variant="stablo3" />} />
+        <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
         <Route path="/persons" element={<PersonsPage />} />
         <Route path="/relationships" element={<RelationshipsPage />} />
         <Route path="*" element={<Navigate to="/countries" replace />} />

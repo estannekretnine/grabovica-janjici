@@ -106,7 +106,7 @@ function activityThumbUrl(path: string | null | undefined): string | null {
   return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
-/** Kartice u rodoslovnom prikazu (Stablo 3). */
+/** Kartice u rodoslovnom prikazu (Stablo 1). */
 const PEDIGREE_CARD_W = 172;
 const PEDIGREE_CARD_H = 112;
 const PEDIGREE_HALF_W = PEDIGREE_CARD_W / 2;
@@ -202,7 +202,7 @@ function MemberKontaktBlock({
   );
 }
 
-type TreesPageProps = { variant?: "full" | "stablo3" };
+type TreesPageProps = { variant?: "full" | "stablo1" };
 
 export function TreesPage({ variant = "full" }: TreesPageProps) {
   const [rows, setRows] = useState<TreeRow[]>([]);
@@ -564,13 +564,13 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     else await load();
   }
 
-  const isStablo3 = variant === "stablo3";
+  const isStablo1 = variant === "stablo1";
 
   return (
     <div>
-      {isStablo3 ? (
+      {isStablo1 ? (
         <>
-          <h1 style={{ marginTop: 0 }}>Stablo 3</h1>
+          <h1 style={{ marginTop: 0 }}>Stablo 1</h1>
           <p className="muted">
             Rodoslov odozgo nadole — kartice i stepenaste veze. Izbor stabla i isti paneli
             (Kontakt, detalji, aktivnosti) kao na stranici Stabla.
@@ -609,7 +609,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
 
       {error ? <p className="error">{error}</p> : null}
 
-      {!isStablo3 ? (
+      {!isStablo1 ? (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Lista</h2>
           <table>
@@ -727,7 +727,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                       <g
                         key={node.id}
                         className="tree-node pedigree-node"
-                        transform={`translate(${sx},${sy})`}
+                        transform={`translate(${node.sx},${node.sy})`}
                         onClick={(e) => {
                           e.stopPropagation();
                           openMemberPanelAtNode(node, node.id, "kontakt-menu");
