@@ -557,7 +557,8 @@ th {
 
 .member-popover-grid {
   display: grid;
-  grid-template-columns: 6.3rem 1fr;
+  /* minmax(0, 1fr) sprečava „jedan red“ na uskim ekranima (grid min-width: auto) */
+  grid-template-columns: 6.3rem minmax(0, 1fr);
   gap: 0.35rem 0.55rem;
   padding: 0.6rem 0.65rem;
   font-size: 0.85rem;
@@ -759,7 +760,9 @@ th {
 }
 
 .member-popover-multiline {
+  min-width: 0;
   word-break: break-word;
+  overflow-wrap: anywhere;
   white-space: pre-wrap;
   max-height: 5.5rem;
   overflow-y: auto;
@@ -829,10 +832,19 @@ th {
   }
 
   .member-popover-grid {
-    grid-template-columns: 4.35rem 1fr;
+    grid-template-columns: 4.35rem minmax(0, 1fr);
     gap: 0.18rem 0.35rem;
     padding: 0.35rem 0.45rem;
     font-size: 0.7rem;
+  }
+
+  .member-popover--details .member-popover-multiline,
+  .member-popover--details .member-popover-multiline--karijera {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    min-width: 0;
+    max-height: none;
   }
 
   .member-popover-kontakt-title {
@@ -863,10 +875,6 @@ th {
     display: block;
     border-radius: 6px;
   }
-
-  .member-popover--details .member-popover-multiline--karijera {
-    max-height: none;
-  }
 }
 
 @media (max-width: 400px) {
@@ -879,7 +887,7 @@ th {
   }
 
   .member-popover-grid {
-    grid-template-columns: 3.85rem 1fr;
+    grid-template-columns: minmax(0, 3.85rem) minmax(0, 1fr);
     font-size: 0.66rem;
   }
 
