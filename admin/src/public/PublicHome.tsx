@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { supabase } from "../lib/supabase";
+import { audit } from "../lib/supabase";
+import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
 import { PUBLIC_IMG_DURMITOR, PUBLIC_IMG_TREE } from "./publicMedia";
 
 type HomePerson = {
-  first_name?: string;
-  last_name?: string;
+  first_name?: string | null;
+  last_name?: string | null;
   birth_date?: string | null;
   birth_place?: string | null;
   death_date?: string | null;
@@ -15,21 +16,36 @@ type HomePerson = {
 export function PublicHome() {
   const [person, setPerson] = useState<HomePerson | null>(null);
   const [personErr, setPersonErr] = useState<string | null>(null);
+  const [personEmpty, setPersonEmpty] = useState(false);
 
   useEffect(() => {
-    if (!supabase) {
+    if (!audit) {
       setPersonErr("Aplikacija nije povezana sa bazom.");
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { data, error } = await supabase.rpc("get_public_home_person");
+      const { data, error } = await audit
+        .from("gr_persons")
+        .select("first_name,last_name,birth_date,birth_place,death_date,gender,is_living")
+        .eq("tree_id", PUBLIC_FAMILY_TREE_ID);
       if (cancelled) return;
-      if (error) setPersonErr(error.message);
-      else {
-        setPersonErr(null);
-        setPerson((data as HomePerson | null) ?? null);
+      if (error) {
+        setPersonErr(error.message);
+        setPersonEmpty(false);
+        setPerson(null);
+        return;
       }
+      setPersonErr(null);
+      const rows = data ?? [];
+      if (!rows.length) {
+        setPerson(null);
+        setPersonEmpty(true);
+        return;
+      }
+      setPersonEmpty(false);
+      const i = Math.floor(Math.random() * rows.length);
+      setPerson(rows[i] as HomePerson);
     })();
     return () => {
       cancelled = true;
@@ -57,7 +73,10 @@ export function PublicHome() {
         <div className="public-card public-card--person">
           <h2 className="public-section-title">Nasumičan član</h2>
           {personErr ? <p className="public-muted">{personErr}</p> : null}
-          {!personErr && !person ? <p className="public-muted">Učitavanje…</p> : null}
+          {!personErr && personEmpty ? (
+            <p className="public-muted">Još nema članova u glavnom stablu.</p>
+          ) : null}
+          {!personErr && !person && !personEmpty ? <p className="public-muted">Učitavanje…</p> : null}
           {person && name ? (
             <dl className="public-dl">
               <dt>Ime i prezime</dt>
