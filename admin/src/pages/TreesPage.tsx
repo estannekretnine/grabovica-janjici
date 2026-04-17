@@ -5,6 +5,7 @@ import type { Database } from "../types/database";
 
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
+type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type PcRow = Database["audit"]["Tables"]["gr_parent_child"]["Row"];
 type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
 type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
@@ -127,8 +128,17 @@ function personLifeLine(p: PersonRow) {
   return b ? `${birth} –` : "—";
 }
 
-function personBirthPlace(p: PersonRow) {
-  return p.birth_place?.trim() || "—";
+/** Opština za listu lociranja: prvo rođenje, zatim prebivalište. */
+function personLocateOpstinaLabel(p: PersonRow, opstinaById: Map<number, string>) {
+  if (p.opstinaidrodio != null) {
+    const t = opstinaById.get(p.opstinaidrodio)?.trim();
+    if (t) return t;
+  }
+  if (p.opstinaid != null) {
+    const t = opstinaById.get(p.opstinaid)?.trim();
+    if (t) return t;
+  }
+  return "—";
 }
 
 function orthConnectors(
@@ -237,6 +247,13 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   const [memberLocateOpen, setMemberLocateOpen] = useState(false);
   const [highlightedLocatePersonId, setHighlightedLocatePersonId] = useState<string | null>(null);
   const [locateHint, setLocateHint] = useState<string | null>(null);
+  const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
+
+  const loadOpstine = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from("opstina").select("*").order("opis", { ascending: true });
+    setOpstine(data ?? []);
+  }, []);
 
   const load = useCallback(async () => {
     const { data, error: qErr } = await audit!
@@ -273,6 +290,10 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   }, [load]);
 
   useEffect(() => {
+    void loadOpstine();
+  }, [loadOpstine]);
+
+  useEffect(() => {
     void loadGraph(selectedTreeId);
   }, [selectedTreeId, loadGraph]);
 
@@ -281,6 +302,12 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     for (const p of persons) m.set(p.id, p);
     return m;
   }, [persons]);
+
+  const opstinaById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const o of opstine) m.set(o.id, o.opis ?? `id ${o.id}`);
+    return m;
+  }, [opstine]);
 
   const childByParent = useMemo(() => {
     const m = new Map<string, string[]>();
@@ -485,13 +512,14 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     if (!q) return sorted.slice(0, 120);
     return sorted
       .filter((p) => {
-        const hay = `${p.first_name} ${p.last_name} ${p.birth_place ?? ""} ${p.birth_date ?? ""}`
+        const op = personLocateOpstinaLabel(p, opstinaById).toLowerCase();
+        const hay = `${p.first_name} ${p.last_name} ${op} ${p.birth_date ?? ""}`
           .toLowerCase()
           .replace(/\s+/g, " ");
         return hay.includes(q);
       })
       .slice(0, 120);
-  }, [persons, memberLocateQuery, graphNodeByPersonId]);
+  }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
   const locatePersonOnGraph = useCallback(
     (personId: string) => {
@@ -765,7 +793,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                 <input
                   type="search"
                   className="tree-locate-input"
-                  placeholder="Pretraži člana (ime, prezime, mesto, datum)…"
+                  placeholder="Pretraži člana (ime, prezime, opština, datum)…"
                   value={memberLocateQuery}
                   onChange={(e) => {
                     setMemberLocateQuery(e.target.value);
@@ -787,7 +815,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                         >
                           <span className="tree-locate-item-name">{personLabel(p)}</span>
                           <span className="tree-locate-item-meta">
-                            {personBirthPlace(p)}
+                            {personLocateOpstinaLabel(p, opstinaById)}
                             <span className="tree-locate-item-sep"> · </span>
                             {p.birth_date?.trim() || "—"}
                           </span>
