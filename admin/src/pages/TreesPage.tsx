@@ -476,25 +476,28 @@ export function TreesPage() {
                         {node.person.first_name?.slice(0, 1) || "?"}
                       </text>
                       {(() => {
-                        const malePrimary = node.person.gender === "male";
-                        const malePartner = node.partners.find((p) => p.person.gender === "male");
-                        const refMale = malePrimary
-                          ? { isPrimary: true, isJanjic: isJanjicSurname(node.person.last_name) }
-                          : malePartner
-                            ? { isPrimary: false, isJanjic: isJanjicSurname(malePartner.person.last_name) }
-                            : null;
-                        const primaryBold = refMale
-                          ? (refMale.isPrimary ? refMale.isJanjic : !refMale.isJanjic)
-                          : false;
-                        const primaryItalic = refMale
-                          ? (refMale.isPrimary ? !refMale.isJanjic : refMale.isJanjic)
-                          : false;
-                        const partnerBold = refMale
-                          ? (refMale.isPrimary ? !refMale.isJanjic : refMale.isJanjic)
-                          : false;
-                        const partnerItalic = refMale
-                          ? (refMale.isPrimary ? refMale.isJanjic : !refMale.isJanjic)
-                          : false;
+                        const firstPartner = node.partners[0] ?? null;
+                        const pair = firstPartner
+                          ? [
+                              { id: node.id, person: node.person, label: personLabel(node.person) },
+                              firstPartner,
+                            ]
+                          : [{ id: node.id, person: node.person, label: personLabel(node.person) }];
+
+                        const male = pair.find((m) => m.person.gender === "male") ?? null;
+                        const female = pair.find((m) => m.person.gender === "female") ?? null;
+
+                        let first = pair[0];
+                        let second = pair[1] ?? null;
+                        if (male && second) {
+                          if (isJanjicSurname(male.person.last_name)) {
+                            first = male;
+                            second = pair.find((x) => x.id !== male.id) ?? second;
+                          } else if (female) {
+                            first = female;
+                            second = pair.find((x) => x.id !== female.id) ?? second;
+                          }
+                        }
 
                         return (
                           <>
@@ -503,29 +506,32 @@ export function TreesPage() {
                               textAnchor="middle"
                               fill="#0f172a"
                               fontSize="12"
-                              fontWeight={primaryBold ? "700" : "500"}
-                              fontStyle={primaryItalic ? "italic" : "normal"}
+                              fontWeight={second ? "700" : "600"}
+                              fontStyle="normal"
+                              textDecoration="underline"
+                              style={{ cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openMemberCardAtNode(node, first.id);
+                              }}
                             >
-                        {personLabel(node.person)}
+                              {first.label}
                             </text>
-                            {node.partners.length ? (
+                            {second ? (
                               <text y="60" textAnchor="middle" fill="#475569" fontSize="11">
                                 <tspan>+ </tspan>
-                                {node.partners.map((p, idx) => (
-                                  <tspan
-                                    key={p.id}
-                                    style={{ cursor: "pointer" }}
-                                    fontWeight={partnerBold ? "700" : "500"}
-                                    fontStyle={partnerItalic ? "italic" : "normal"}
-                                    textDecoration="underline"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      openMemberCardAtNode(node, p.id);
-                                    }}
-                                  >
-                                    {idx > 0 ? `, ${p.label}` : p.label}
-                                  </tspan>
-                                ))}
+                                <tspan
+                                  style={{ cursor: "pointer" }}
+                                  fontWeight="500"
+                                  fontStyle="italic"
+                                  textDecoration="underline"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openMemberCardAtNode(node, second.id);
+                                  }}
+                                >
+                                  {second.label}
+                                </tspan>
                               </text>
                             ) : null}
                           </>
