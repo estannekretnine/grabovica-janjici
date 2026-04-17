@@ -304,15 +304,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     void loadGraph(selectedTreeId);
   }, [selectedTreeId, loadGraph]);
 
-  useEffect(() => {
-    if (!highlightPersonParam || persons.length === 0) return;
-    const person = persons.find((p) => p.id === highlightPersonParam);
-    if (person) {
-      setSelectedMember(person);
-      setMemberPanelPos({ x: 200, y: 150 });
-      setMemberPanelMode("details");
-    }
-  }, [highlightPersonParam, persons]);
+  const [autoLocateDone, setAutoLocateDone] = useState(false);
 
   const personsById = useMemo(() => {
     const m = new Map<string, PersonRow>();
@@ -558,6 +550,17 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     },
     [graphNodeByPersonId, pedigreeViewBoxRect, zoom]
   );
+
+  useEffect(() => {
+    if (!highlightPersonParam || persons.length === 0 || autoLocateDone) return;
+    const person = persons.find((p) => p.id === highlightPersonParam);
+    if (person) {
+      window.setTimeout(() => {
+        locatePersonOnGraph(person.id);
+        setAutoLocateDone(true);
+      }, 150);
+    }
+  }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
 
   useEffect(() => {
     if (!memberLocateOpen) return;
