@@ -49,6 +49,49 @@ function toPublicPhotoUrl(path: string | null): string | null {
   return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
+function MemberKontaktBlock({ person }: { person: PersonRow }) {
+  const email = person.email?.trim() ?? "";
+  const mob1 = person.mob1?.trim() ?? "";
+  const mob2 = person.mob2?.trim() ?? "";
+  return (
+    <div className="member-popover-kontakt">
+      <div className="member-popover-kontakt-title">Kontakt</div>
+      <div className="member-popover-grid">
+        <span>Email</span>
+        <span className="member-popover-value">
+          {email ? (
+            <a href={`mailto:${encodeURIComponent(email)}`} className="member-popover-link">
+              {email}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+        <span>Mobilni 1</span>
+        <span className="member-popover-value">
+          {mob1 ? (
+            <a href={`tel:${mob1.replace(/\s+/g, "")}`} className="member-popover-link">
+              {mob1}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+        <span>Mobilni 2</span>
+        <span className="member-popover-value">
+          {mob2 ? (
+            <a href={`tel:${mob2.replace(/\s+/g, "")}`} className="member-popover-link">
+              {mob2}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function TreesPage() {
   const [rows, setRows] = useState<TreeRow[]>([]);
   const [name, setName] = useState("");
@@ -606,6 +649,7 @@ export function TreesPage() {
                     <span>Napomene</span>
                     <span>{selectedMember.notes ?? "—"}</span>
                   </div>
+                  <MemberKontaktBlock person={selectedMember} />
                 </aside>
               ) : null}
             </div>

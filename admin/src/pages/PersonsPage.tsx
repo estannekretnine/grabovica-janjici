@@ -33,6 +33,9 @@ const emptyForm: PersonInsert = {
   drzavaidrodio: null,
   opstinaidrodio: null,
   lokacijaidrodio: null,
+  email: null,
+  mob1: null,
+  mob2: null,
 };
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
@@ -236,6 +239,9 @@ export function PersonsPage() {
       drzavaidrodio: p.drzavaidrodio,
       opstinaidrodio: p.opstinaidrodio,
       lokacijaidrodio: p.lokacijaidrodio,
+      email: p.email,
+      mob1: p.mob1,
+      mob2: p.mob2,
     });
     const parsed = parsePhotoItems(p.photo_storage_path);
     setPhotoItems(
@@ -439,7 +445,38 @@ export function PersonsPage() {
             </div>
             </div>
             <div className="person-form-section">
-              <h3>Mesta (relaciono)</h3>
+              <h3>Kontakt</h3>
+              <div className="row">
+                <label>
+                  Email
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={form.email ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, email: e.target.value.trim() || null }))}
+                  />
+                </label>
+                <label>
+                  Mobilni 1
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={form.mob1 ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, mob1: e.target.value.trim() || null }))}
+                  />
+                </label>
+                <label>
+                  Mobilni 2
+                  <input
+                    type="tel"
+                    autoComplete="tel"
+                    value={form.mob2 ?? ""}
+                    onChange={(e) => setForm((f) => ({ ...f, mob2: e.target.value.trim() || null }))}
+                  />
+                </label>
+              </div>
+            </div>
+            <div className="person-form-section">
             <div className="row">
               <label>
                 Pol

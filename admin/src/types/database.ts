@@ -56,6 +56,9 @@ type GenealogyTables = {
       drzavaidrodio: number | null;
       opstinaidrodio: number | null;
       lokacijaidrodio: number | null;
+      email: string | null;
+      mob1: string | null;
+      mob2: string | null;
     };
     Insert: {
       id?: string;
@@ -80,6 +83,9 @@ type GenealogyTables = {
       drzavaidrodio?: number | null;
       opstinaidrodio?: number | null;
       lokacijaidrodio?: number | null;
+      email?: string | null;
+      mob1?: string | null;
+      mob2?: string | null;
     };
     Update: {
       id?: string;
@@ -104,6 +110,9 @@ type GenealogyTables = {
       drzavaidrodio?: number | null;
       opstinaidrodio?: number | null;
       lokacijaidrodio?: number | null;
+      email?: string | null;
+      mob1?: string | null;
+      mob2?: string | null;
     };
   };
   gr_parent_child: {

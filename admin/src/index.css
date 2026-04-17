@@ -448,6 +448,37 @@ th {
   font-size: 0.85rem;
 }
 
+.member-popover-kontakt {
+  border-top: 1px solid #e2e8f0;
+}
+
+.member-popover-kontakt-title {
+  padding: 0.45rem 0.65rem 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #64748b;
+}
+
+.member-popover-kontakt .member-popover-grid {
+  padding-top: 0.35rem;
+}
+
+.member-popover-value {
+  word-break: break-word;
+}
+
+.member-popover-link {
+  color: #1d4ed8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.member-popover-link:hover {
+  color: #1e40af;
+}
+
 .member-photo-wrap {
   padding: 0.6rem 0.65rem 0;
 }
