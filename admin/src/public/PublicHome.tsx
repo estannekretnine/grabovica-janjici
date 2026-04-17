@@ -164,6 +164,10 @@ export function PublicHome() {
             <>
               <div className="public-home-parents">
                 <div className="public-home-person">
+                  <div className="public-home-person-name">{personLabel(randomPerson)}</div>
+                  {lifeLineShort(randomPerson) ? (
+                    <div className="public-home-person-life">{lifeLineShort(randomPerson)}</div>
+                  ) : null}
                   {mainPhotoUrl ? (
                     <img
                       src={mainPhotoUrl}
@@ -175,14 +179,14 @@ export function PublicHome() {
                       ?
                     </div>
                   )}
-                  <div className="public-home-person-name">{personLabel(randomPerson)}</div>
-                  {lifeLineShort(randomPerson) ? (
-                    <div className="public-home-person-life">{lifeLineShort(randomPerson)}</div>
-                  ) : null}
                 </div>
 
                 {partner ? (
                   <div className="public-home-person">
+                    <div className="public-home-person-name">{personLabel(partner)}</div>
+                    {lifeLineShort(partner) ? (
+                      <div className="public-home-person-life">{lifeLineShort(partner)}</div>
+                    ) : null}
                     {partnerPhotoUrl ? (
                       <img
                         src={partnerPhotoUrl}
@@ -194,10 +198,6 @@ export function PublicHome() {
                         ?
                       </div>
                     )}
-                    <div className="public-home-person-name">{personLabel(partner)}</div>
-                    {lifeLineShort(partner) ? (
-                      <div className="public-home-person-life">{lifeLineShort(partner)}</div>
-                    ) : null}
                   </div>
                 ) : null}
               </div>

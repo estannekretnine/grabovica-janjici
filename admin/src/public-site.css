@@ -658,7 +658,7 @@
   display: flex;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 }
 
 .public-home-person {
@@ -677,21 +677,15 @@
   height: 140px;
   border-radius: 50%;
   object-fit: cover;
-  border: 4px solid var(--pub-surface);
+  border: 4px solid var(--pub-gold);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
-  margin-bottom: 0.75rem;
+  margin-top: 0.5rem;
   position: relative;
-  z-index: 1;
-}
-
-.public-home-person:first-child .public-home-person-photo {
   z-index: 2;
-  border-color: var(--pub-gold);
 }
 
 .public-home-person:nth-child(2) .public-home-person-photo {
   z-index: 1;
-  border-color: var(--pub-gold);
 }
 
 .public-home-person-photo--placeholder {
@@ -708,7 +702,6 @@
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--pub-text);
-  margin-top: 0.25rem;
 }
 
 .public-home-person:nth-child(2) .public-home-person-name {
@@ -718,22 +711,30 @@
 .public-home-person-life {
   font-size: 0.88rem;
   color: var(--pub-muted);
-  margin-top: 0.2rem;
+  margin-top: 0.1rem;
+}
+
+.public-home-person:nth-child(2) .public-home-person-life {
+  margin-left: 40px;
 }
 
 .public-home-children-title {
-  margin: 1.5rem 0 1rem;
-  font-size: 1rem;
+  margin: 0.5rem 0 0.5rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--pub-gold);
   text-align: center;
+  position: relative;
+  z-index: 10;
 }
 
 .public-home-children {
   display: flex;
   justify-content: center;
-  gap: 1.5rem;
   flex-wrap: wrap;
+  margin-top: -30px;
+  position: relative;
+  z-index: 0;
 }
 
 .public-home-child {
@@ -741,6 +742,11 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
+  margin-left: -20px;
+}
+
+.public-home-child:first-child {
+  margin-left: 0;
 }
 
 .public-home-child-photo {
@@ -748,7 +754,8 @@
   height: 80px;
   border-radius: 50%;
   object-fit: cover;
-  border: 2px solid var(--pub-border);
+  border: 3px solid var(--pub-surface);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.25);
   margin-bottom: 0.5rem;
 }
 
