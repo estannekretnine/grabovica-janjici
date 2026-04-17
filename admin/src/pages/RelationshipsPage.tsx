@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { audit } from "../lib/supabase";
+import { audit, supabase } from "../lib/supabase";
 import { DEFAULT_TREE_ID } from "../constants";
 import type { Database } from "../types/database";
 import type { PartnershipType, RelationSubtype } from "../types/database";
@@ -8,6 +8,7 @@ type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type PcRow = Database["audit"]["Tables"]["gr_parent_child"]["Row"];
 type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
+type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
   const a = `${p.last_name} ${p.first_name}`.trim();
@@ -19,17 +20,22 @@ export function RelationshipsPage() {
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [treeId, setTreeId] = useState(DEFAULT_TREE_ID);
   const [persons, setPersons] = useState<PersonRow[]>([]);
+  const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
   const [pcRows, setPcRows] = useState<PcRow[]>([]);
   const [partRows, setPartRows] = useState<PartRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const [pcParent, setPcParent] = useState("");
   const [pcChild, setPcChild] = useState("");
+  const [pcParentSearch, setPcParentSearch] = useState("");
+  const [pcChildSearch, setPcChildSearch] = useState("");
   const [pcSubtype, setPcSubtype] = useState<RelationSubtype>("biological");
   const [pcNotes, setPcNotes] = useState("");
 
   const [pA, setPA] = useState("");
   const [pB, setPB] = useState("");
+  const [pASearch, setPASearch] = useState("");
+  const [pBSearch, setPBSearch] = useState("");
   const [pType, setPType] = useState<PartnershipType>("marriage");
   const [pStart, setPStart] = useState("");
   const [pEnd, setPEnd] = useState("");
@@ -53,6 +59,12 @@ export function RelationshipsPage() {
       setError(null);
       setPersons(data ?? []);
     }
+  }, []);
+
+  const loadOpstine = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from("opstina").select("*").order("opis", { ascending: true });
+    setOpstine(data ?? []);
   }, []);
 
   const loadParentChild = useCallback(async () => {
@@ -93,7 +105,8 @@ export function RelationshipsPage() {
 
   useEffect(() => {
     void loadTrees();
-  }, [loadTrees]);
+    void loadOpstine();
+  }, [loadTrees, loadOpstine]);
 
   useEffect(() => {
     void loadPersons(treeId);
@@ -120,6 +133,19 @@ export function RelationshipsPage() {
         : [{ id: DEFAULT_TREE_ID, name: "Glavno (podrazumevano)", slug: "default", created_at: "" }],
     [trees]
   );
+
+  const opstinaById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const o of opstine) m.set(o.id, o.opis ?? `id ${o.id}`);
+    return m;
+  }, [opstine]);
+
+  function personFullLabel(p: PersonRow) {
+    const ime = personLabel(p);
+    const opstina =
+      p.opstinaid != null ? (opstinaById.get(p.opstinaid) ?? `id ${p.opstinaid}`) : "bez opštine";
+    return `${ime} — ${opstina}`;
+  }
 
   async function addParentChild(e: React.FormEvent) {
     e.preventDefault();
@@ -184,18 +210,32 @@ export function RelationshipsPage() {
   const personSelect = (
     value: string,
     onChange: (v: string) => void,
+    search: string,
+    onSearchChange: (v: string) => void,
     exclude?: string
   ) => (
-    <select value={value} onChange={(e) => onChange(e.target.value)} required>
-      <option value="">— izaberite —</option>
-      {persons
-        .filter((p) => p.id !== exclude)
-        .map((p) => (
-          <option key={p.id} value={p.id}>
-            {personLabel(p)}
-          </option>
-        ))}
-    </select>
+    <>
+      <input
+        value={search}
+        onChange={(e) => onSearchChange(e.target.value)}
+        placeholder="Pretraži osobu..."
+      />
+      <select value={value} onChange={(e) => onChange(e.target.value)} required>
+        <option value="">— izaberite —</option>
+        {persons
+          .filter((p) => p.id !== exclude)
+          .filter((p) => {
+            const q = search.trim().toLowerCase();
+            if (!q) return true;
+            return personFullLabel(p).toLowerCase().includes(q);
+          })
+          .map((p) => (
+            <option key={p.id} value={p.id}>
+              {personFullLabel(p)}
+            </option>
+          ))}
+      </select>
+    </>
   );
 
   return (
@@ -242,11 +282,11 @@ export function RelationshipsPage() {
               <div className="row">
                 <label>
                   Roditelj
-                  {personSelect(pcParent, setPcParent, pcChild)}
+                  {personSelect(pcParent, setPcParent, pcParentSearch, setPcParentSearch, pcChild)}
                 </label>
                 <label>
                   Dete
-                  {personSelect(pcChild, setPcChild, pcParent)}
+                  {personSelect(pcChild, setPcChild, pcChildSearch, setPcChildSearch, pcParent)}
                 </label>
                 <label>
                   Tip
@@ -311,11 +351,11 @@ export function RelationshipsPage() {
               <div className="row">
                 <label>
                   Osoba A
-                  {personSelect(pA, setPA, pB)}
+                  {personSelect(pA, setPA, pASearch, setPASearch, pB)}
                 </label>
                 <label>
                   Osoba B
-                  {personSelect(pB, setPB, pA)}
+                  {personSelect(pB, setPB, pBSearch, setPBSearch, pA)}
                 </label>
                 <label>
                   Tip
