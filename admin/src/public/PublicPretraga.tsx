@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { audit, supabase } from "../lib/supabase";
 import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
 import type { Database } from "../types/database";
@@ -399,19 +400,26 @@ export function PublicPretraga() {
                 {filtered.map((p) => {
                   const partner = getPartner(p.id);
                   return (
-                    <button
-                      key={p.id}
-                      type="button"
-                      className="public-pretraga-card"
-                      onClick={() => void openPersonModal(p)}
-                    >
-                      <div className="public-pretraga-card-name">{personLabel(p)}</div>
-                      {partner ? (
-                        <div className="public-pretraga-card-partner">
-                          <em>Partner/ka: {personLabel(partner)}</em>
-                        </div>
-                      ) : null}
-                    </button>
+                    <div key={p.id} className="public-pretraga-card">
+                      <button
+                        type="button"
+                        className="public-pretraga-card-main"
+                        onClick={() => void openPersonModal(p)}
+                      >
+                        <div className="public-pretraga-card-name">{personLabel(p)}</div>
+                        {partner ? (
+                          <div className="public-pretraga-card-partner">
+                            <em>Partner/ka: {personLabel(partner)}</em>
+                          </div>
+                        ) : null}
+                      </button>
+                      <Link
+                        to={`/stablo?person=${p.id}`}
+                        className="public-pretraga-card-tree-link"
+                      >
+                        Prikaži na stablu
+                      </Link>
+                    </div>
                   );
                 })}
               </div>

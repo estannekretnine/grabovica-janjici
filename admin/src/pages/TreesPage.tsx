@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { audit, supabase } from "../lib/supabase";
 import { loadFamilyGraph } from "../lib/familyTreeGraphLoad";
 import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
@@ -222,6 +223,8 @@ type TreesPageProps = { variant?: "full" | "stablo1" | "public" };
 export function TreesPage({ variant = "full" }: TreesPageProps) {
   const isPublic = variant === "public";
   const isStablo1 = variant === "stablo1";
+  const [searchParams] = useSearchParams();
+  const highlightPersonParam = isPublic ? searchParams.get("person") : null;
   const [rows, setRows] = useState<TreeRow[]>([]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -300,6 +303,16 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   useEffect(() => {
     void loadGraph(selectedTreeId);
   }, [selectedTreeId, loadGraph]);
+
+  useEffect(() => {
+    if (!highlightPersonParam || persons.length === 0) return;
+    const person = persons.find((p) => p.id === highlightPersonParam);
+    if (person) {
+      setSelectedMember(person);
+      setMemberPanelPos({ x: 200, y: 150 });
+      setMemberPanelMode("details");
+    }
+  }, [highlightPersonParam, persons]);
 
   const personsById = useMemo(() => {
     const m = new Map<string, PersonRow>();
