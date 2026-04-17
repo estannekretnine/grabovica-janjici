@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
+import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
 import type { Database } from "../types/database";
 import type { Gender } from "../types/database";
@@ -145,8 +146,12 @@ export function PersonsPage() {
   }, []);
 
   useEffect(() => {
-    void loadTrees();
-    void loadLocations();
+    void (async () => {
+      const bootErr = await ensureDefaultTreeExists();
+      if (bootErr) setError(bootErr.message);
+      await loadTrees();
+      await loadLocations();
+    })();
   }, [loadTrees, loadLocations]);
 
   useEffect(() => {

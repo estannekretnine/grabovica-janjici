@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
+import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
 import type { Database } from "../types/database";
 import type { PartnershipType, RelationSubtype } from "../types/database";
@@ -104,8 +105,12 @@ export function RelationshipsPage() {
   }, [persons]);
 
   useEffect(() => {
-    void loadTrees();
-    void loadOpstine();
+    void (async () => {
+      const bootErr = await ensureDefaultTreeExists();
+      if (bootErr) setError(bootErr.message);
+      await loadTrees();
+      await loadOpstine();
+    })();
   }, [loadTrees, loadOpstine]);
 
   useEffect(() => {
