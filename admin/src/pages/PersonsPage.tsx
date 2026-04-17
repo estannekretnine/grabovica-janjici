@@ -479,6 +479,7 @@ export function PersonsPage() {
               </div>
             </div>
             <div className="person-form-section">
+            <div className="person-form-places-block">
             <div className="row">
               <label>
                 Pol
@@ -648,6 +649,7 @@ export function PersonsPage() {
                   ))}
                 </select>
               </label>
+            </div>
             </div>
             </div>
             <div className="person-form-section">
