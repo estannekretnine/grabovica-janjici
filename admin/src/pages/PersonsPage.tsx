@@ -85,14 +85,12 @@ function safeFilename(name: string): string {
   return cleaned.replace(/-+/g, "-").replace(/^-|-$/g, "") || "photo.jpg";
 }
 
-function getSupabaseHostLabel(): string {
-  const raw = typeof __GR_SUPABASE_URL__ !== "undefined" ? __GR_SUPABASE_URL__ : "";
-  if (!raw) return "unknown-host";
-  try {
-    return new URL(raw).host;
-  } catch {
-    return raw;
-  }
+function toPublicPhotoUrl(storagePath: string): string | null {
+  if (!supabase) return null;
+  const trimmed = storagePath.trim();
+  if (!trimmed) return null;
+  const normalized = trimmed.replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
 export function PersonsPage() {
@@ -110,7 +108,6 @@ export function PersonsPage() {
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [uploadDebug, setUploadDebug] = useState<string | null>(null);
 
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
@@ -236,7 +233,12 @@ export function PersonsPage() {
       lokacijaidrodio: p.lokacijaidrodio,
     });
     const parsed = parsePhotoItems(p.photo_storage_path);
-    setPhotoItems(parsed.items);
+    setPhotoItems(
+      parsed.items.map((item) => ({
+        ...item,
+        previewUrl: toPublicPhotoUrl(item.storagePath),
+      }))
+    );
     setDefaultPhotoIndex(parsed.defaultIndex);
     setIsFormOpen(true);
   }
@@ -244,7 +246,6 @@ export function PersonsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setUploadDebug(`SUPABASE HOST -> ${getSupabaseHostLabel()}\nTARGET BUCKET -> bucket`);
     const personId = editingId ?? crypto.randomUUID();
     const uploadedItems: PhotoItem[] = [];
     for (let i = 0; i < photoItems.length; i += 1) {
@@ -259,16 +260,13 @@ export function PersonsPage() {
       }
       const fileName = safeFilename(item.file.name);
       const objectPath = `persons/${treeId}/${personId}/${Date.now()}-${i + 1}-${fileName}`;
-      setUploadDebug(`UPLOAD -> bucket/${objectPath}`);
       const { error: upErr } = await supabase.storage
         .from("bucket")
         .upload(objectPath, item.file, { upsert: true });
       if (upErr) {
-        setUploadDebug(`UPLOAD ERROR -> bucket/${objectPath} :: ${upErr.message}`);
         setError(`Upload fotografije nije uspeo: ${upErr.message}`);
         return;
       }
-      setUploadDebug(`UPLOAD OK -> bucket/${objectPath}`);
       uploadedItems.push({
         ...item,
         file: null,
@@ -286,19 +284,16 @@ export function PersonsPage() {
     if (editingId) {
       const { error: upErr } = await audit!.from("gr_persons").update(payload).eq("id", editingId);
       if (upErr) {
-        setUploadDebug((prev) => `${prev ?? ""}\nDB UPDATE ERROR: ${upErr.message}`.trim());
         setError(upErr.message);
         return;
       }
     } else {
       const { error: insErr } = await audit!.from("gr_persons").insert(payload);
       if (insErr) {
-        setUploadDebug((prev) => `${prev ?? ""}\nDB INSERT ERROR: ${insErr.message}`.trim());
         setError(insErr.message);
         return;
       }
     }
-    setUploadDebug((prev) => `${prev ?? ""}\nDB SAVE OK (person_id=${personId})`.trim());
     setEditingId(null);
     setForm({ ...emptyForm, tree_id: treeId });
     setPhotoItems([]);
@@ -664,7 +659,14 @@ export function PersonsPage() {
                         onChange={(e) =>
                           setPhotoItems((prev) =>
                             prev.map((p, i) =>
-                              i === idx ? { ...p, storagePath: e.target.value, file: null } : p
+                              i === idx
+                                ? {
+                                    ...p,
+                                    storagePath: e.target.value,
+                                    file: null,
+                                    previewUrl: toPublicPhotoUrl(e.target.value),
+                                  }
+                                : p
                             )
                           )
                         }
@@ -704,7 +706,6 @@ export function PersonsPage() {
               ) : null}
             </div>
           </form>
-          {uploadDebug ? <pre className="upload-debug">{uploadDebug}</pre> : null}
         </div>
       ) : null}
 

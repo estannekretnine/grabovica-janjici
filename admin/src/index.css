@@ -396,13 +396,3 @@ th {
   border: 1px solid #cbd5e1;
 }
 
-.upload-debug {
-  margin-top: 0.75rem;
-  padding: 0.6rem;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  background: #0f172a;
-  color: #e2e8f0;
-  font-size: 0.8rem;
-  white-space: pre-wrap;
-}
