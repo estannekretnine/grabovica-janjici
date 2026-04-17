@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audit } from "../lib/supabase";
 import type { Database } from "../types/database";
 
@@ -20,7 +20,17 @@ export function TreesPage() {
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
   const [partnerships, setPartnerships] = useState<PartRow[]>([]);
+  const [selectedMember, setSelectedMember] = useState<PersonRow | null>(null);
+  const [zoom, setZoom] = useState(1);
+  const [offset, setOffset] = useState({ x: 90, y: 70 });
   const [error, setError] = useState<string | null>(null);
+  const dragRef = useRef<{ active: boolean; x: number; y: number; ox: number; oy: number }>({
+    active: false,
+    x: 0,
+    y: 0,
+    ox: 0,
+    oy: 0,
+  });
 
   const load = useCallback(async () => {
     const { data, error: qErr } = await audit!
@@ -137,10 +147,7 @@ export function TreesPage() {
     return persons.filter((p) => !hiddenPartnerIds.has(p.id));
   }, [persons, relations, hiddenPartnerIds]);
 
-  function renderNode(id: string, visited: Set<string>) {
-    const p = personsById.get(id);
-    if (!p || hiddenPartnerIds.has(id)) return null;
-
+  function childrenFor(id: string) {
     const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
     const childrenSet = new Set<string>();
     for (const pid of [id, ...partnerIds]) {
@@ -148,33 +155,73 @@ export function TreesPage() {
         if (!hiddenPartnerIds.has(c)) childrenSet.add(c);
       }
     }
-    const children = Array.from(childrenSet);
+    return Array.from(childrenSet);
+  }
 
-    const partners = Array.from(partnersByPerson.get(id) ?? [])
-      .map((pid) => personsById.get(pid))
-      .filter((x): x is PersonRow => Boolean(x))
-      .map((x) => personLabel(x));
-    const nextVisited = new Set(visited);
-    nextVisited.add(id);
-    return (
-      <li key={id}>
-        <span>
-          {personLabel(p)}
-          {partners.length ? (
-            <em style={{ marginLeft: "0.45rem", color: "#334155" }}>
-              + partner: {partners.join(", ")}
-            </em>
-          ) : null}
-        </span>
-        {children.length ? (
-          <ul style={{ marginTop: "0.35rem" }}>
-            {children
-              .filter((cid) => !nextVisited.has(cid))
-              .map((cid) => renderNode(cid, nextVisited))}
-          </ul>
-        ) : null}
-      </li>
-    );
+  const treeGraph = useMemo(() => {
+    const nodes = new Map<
+      string,
+      { id: string; person: PersonRow; x: number; y: number; depth: number; partners: string[] }
+    >();
+    const edges: Array<{ from: string; to: string }> = [];
+    let leafCursor = 0;
+
+    function place(id: string, depth: number, stack: Set<string>): number {
+      const p = personsById.get(id);
+      if (!p || hiddenPartnerIds.has(id) || stack.has(id)) return leafCursor++;
+      if (nodes.has(id)) return nodes.get(id)!.x;
+
+      const nextStack = new Set(stack);
+      nextStack.add(id);
+      const children = childrenFor(id).filter((cid) => !nextStack.has(cid));
+      const childXs = children.map((cid) => place(cid, depth + 1, nextStack));
+      const x = childXs.length ? childXs.reduce((a, b) => a + b, 0) / childXs.length : leafCursor++;
+      const partners = Array.from(partnersByPerson.get(id) ?? [])
+        .map((pid) => personsById.get(pid))
+        .filter((x): x is PersonRow => Boolean(x))
+        .map((x) => personLabel(x));
+
+      nodes.set(id, { id, person: p, x, y: depth, depth, partners });
+      for (const cid of children) edges.push({ from: id, to: cid });
+      return x;
+    }
+
+    roots.forEach((r) => place(r.id, 0, new Set<string>()));
+    return { nodes: Array.from(nodes.values()), edges };
+  }, [roots, personsById, hiddenPartnerIds, partnersByPerson, childByParent]);
+
+  const positionedGraph = useMemo(() => {
+    const X_SPACING = 170;
+    const Y_SPACING = 150;
+    return {
+      nodes: treeGraph.nodes.map((n) => ({
+        ...n,
+        sx: n.x * X_SPACING,
+        sy: n.y * Y_SPACING,
+      })),
+      edges: treeGraph.edges,
+    };
+  }, [treeGraph]);
+
+  function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
+    e.preventDefault();
+    const next = e.deltaY > 0 ? zoom * 0.92 : zoom * 1.08;
+    setZoom(Math.max(0.35, Math.min(2.6, next)));
+  }
+
+  function onCanvasMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    dragRef.current = { active: true, x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
+  }
+
+  function onCanvasMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    if (!dragRef.current.active) return;
+    const dx = e.clientX - dragRef.current.x;
+    const dy = e.clientY - dragRef.current.y;
+    setOffset({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy });
+  }
+
+  function onCanvasMouseUp() {
+    dragRef.current.active = false;
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -282,9 +329,89 @@ export function TreesPage() {
         ) : !persons.length ? (
           <p className="muted">Nema članova u izabranom stablu.</p>
         ) : (
-          <ul style={{ marginTop: "0.8rem" }}>
-            {roots.map((r) => renderNode(r.id, new Set<string>()))}
-          </ul>
+          <>
+            <div className="row" style={{ marginTop: "0.65rem" }}>
+              <button type="button" onClick={() => setZoom((z) => Math.min(2.6, z * 1.12))}>
+                +
+              </button>
+              <button type="button" onClick={() => setZoom((z) => Math.max(0.35, z * 0.88))}>
+                -
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setZoom(1);
+                  setOffset({ x: 90, y: 70 });
+                }}
+              >
+                Reset prikaza
+              </button>
+              <span className="muted">Zoom: {Math.round(zoom * 100)}%</span>
+            </div>
+
+            <div
+              className="tree-canvas"
+              onWheel={onCanvasWheel}
+              onMouseDown={onCanvasMouseDown}
+              onMouseMove={onCanvasMouseMove}
+              onMouseUp={onCanvasMouseUp}
+              onMouseLeave={onCanvasMouseUp}
+            >
+              <svg width="100%" height="560" viewBox="0 0 1400 560">
+                <g transform={`translate(${offset.x},${offset.y}) scale(${zoom})`}>
+                  {positionedGraph.edges.map((edge, idx) => {
+                    const a = positionedGraph.nodes.find((n) => n.id === edge.from);
+                    const b = positionedGraph.nodes.find((n) => n.id === edge.to);
+                    if (!a || !b) return null;
+                    return (
+                      <line
+                        key={`${edge.from}-${edge.to}-${idx}`}
+                        x1={a.sx}
+                        y1={a.sy + 22}
+                        x2={b.sx}
+                        y2={b.sy - 22}
+                        stroke="#94a3b8"
+                        strokeWidth="2"
+                      />
+                    );
+                  })}
+
+                  {positionedGraph.nodes.map((node) => (
+                    <g
+                      key={node.id}
+                      transform={`translate(${node.sx},${node.sy})`}
+                      className="tree-node"
+                      onClick={() => setSelectedMember(node.person)}
+                    >
+                      <circle r="24" fill="#1d4ed8" />
+                      <text y="5" textAnchor="middle" fill="#fff" fontSize="11">
+                        {node.person.first_name?.slice(0, 1) || "?"}
+                      </text>
+                      <text y="44" textAnchor="middle" fill="#0f172a" fontSize="12" fontWeight="600">
+                        {personLabel(node.person)}
+                      </text>
+                      {node.partners.length ? (
+                        <text y="60" textAnchor="middle" fill="#475569" fontSize="11">
+                          + {node.partners.join(", ")}
+                        </text>
+                      ) : null}
+                    </g>
+                  ))}
+                </g>
+              </svg>
+            </div>
+
+            {selectedMember ? (
+              <div className="card" style={{ marginTop: "0.8rem" }}>
+                <h3 style={{ marginTop: 0 }}>Član</h3>
+                <p><strong>Ime i prezime:</strong> {personLabel(selectedMember)}</p>
+                <p><strong>Pol:</strong> {selectedMember.gender ?? "—"}</p>
+                <p><strong>Rođen/a:</strong> {selectedMember.birth_date ?? "—"}</p>
+                <p><strong>Živ/živa:</strong> {selectedMember.is_living == null ? "—" : selectedMember.is_living ? "da" : "ne"}</p>
+                <p><strong>Napomene:</strong> {selectedMember.notes ?? "—"}</p>
+              </div>
+            ) : null}
+          </>
         )}
       </div>
     </div>

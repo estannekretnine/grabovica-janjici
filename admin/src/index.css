@@ -396,3 +396,20 @@ th {
   border: 1px solid #cbd5e1;
 }
 
+.tree-canvas {
+  margin-top: 0.75rem;
+  border: 1px solid #dbe4f0;
+  border-radius: 10px;
+  background: #f8fafc;
+  overflow: hidden;
+  cursor: grab;
+}
+
+.tree-canvas:active {
+  cursor: grabbing;
+}
+
+.tree-node {
+  cursor: pointer;
+}
+
