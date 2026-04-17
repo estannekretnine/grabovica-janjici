@@ -50,9 +50,6 @@ function PublicLayoutInner() {
             <p className="public-footer-muted">Porodično stablo — Grabovica, Crna Gora</p>
           </div>
           <div className="public-footer-links">
-            <NavLink to="/kontakt" className="public-footer-link">
-              Kontakt forma
-            </NavLink>
             <NavLink to="/login" className="public-footer-link public-footer-login">
               Prijava (admin)
             </NavLink>

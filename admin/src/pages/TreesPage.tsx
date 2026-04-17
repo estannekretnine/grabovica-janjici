@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
 import { loadFamilyGraph } from "../lib/familyTreeGraphLoad";
+import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
 import type { Database } from "../types/database";
 
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
@@ -216,13 +217,15 @@ function MemberKontaktBlock({
   );
 }
 
-type TreesPageProps = { variant?: "full" | "stablo1" };
+type TreesPageProps = { variant?: "full" | "stablo1" | "public" };
 
 export function TreesPage({ variant = "full" }: TreesPageProps) {
+  const isPublic = variant === "public";
+  const isStablo1 = variant === "stablo1";
   const [rows, setRows] = useState<TreeRow[]>([]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
-  const [selectedTreeId, setSelectedTreeId] = useState("");
+  const [selectedTreeId, setSelectedTreeId] = useState(() => (isPublic ? PUBLIC_FAMILY_TREE_ID : ""));
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
   const [partnerships, setPartnerships] = useState<PartRow[]>([]);
@@ -256,7 +259,8 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   }, []);
 
   const load = useCallback(async () => {
-    const { data, error: qErr } = await audit!
+    if (!audit) return;
+    const { data, error: qErr } = await audit
       .from("gr_family_trees")
       .select("*")
       .order("created_at", { ascending: true });
@@ -264,11 +268,11 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     else {
       setError(null);
       setRows(data ?? []);
-      if (!selectedTreeId && (data ?? []).length) {
+      if (!isPublic && !selectedTreeId && (data ?? []).length) {
         setSelectedTreeId((data ?? [])[0].id);
       }
     }
-  }, [selectedTreeId]);
+  }, [selectedTreeId, isPublic]);
 
   const loadGraph = useCallback(async (treeId: string) => {
     if (!treeId) {
@@ -672,11 +676,17 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     else await load();
   }
 
-  const isStablo1 = variant === "stablo1";
-
   return (
-    <div>
-      {isStablo1 ? (
+    <div className={isPublic ? "trees-page trees-page--public" : "trees-page"}>
+      {isPublic ? (
+        <>
+          <h1 style={{ marginTop: 0 }}>Stablo</h1>
+          <p className="muted">
+            Rodoslov odozgo nadole — zumiranje, prevlačenje i kartica člana (detalji, kontakt,
+            aktivnosti). Prikazano je glavno porodično stablo.
+          </p>
+        </>
+      ) : isStablo1 ? (
         <>
           <h1 style={{ marginTop: 0 }}>Stablo 1</h1>
           <p className="muted">
@@ -717,7 +727,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
 
       {error ? <p className="error">{error}</p> : null}
 
-      {!isStablo1 ? (
+      {!isStablo1 && !isPublic ? (
         <div className="card">
           <h2 style={{ marginTop: 0 }}>Lista</h2>
           <table>
@@ -751,17 +761,19 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Prikaz stabla</h2>
-        <label>
-          Stablo za prikaz
-          <select value={selectedTreeId} onChange={(e) => setSelectedTreeId(e.target.value)}>
-            <option value="">— izaberite —</option>
-            {rows.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name}
-              </option>
-            ))}
-          </select>
-        </label>
+        {!isPublic ? (
+          <label>
+            Stablo za prikaz
+            <select value={selectedTreeId} onChange={(e) => setSelectedTreeId(e.target.value)}>
+              <option value="">— izaberite —</option>
+              {rows.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
         {!selectedTreeId ? (
           <p className="muted">Izaberite stablo za prikaz.</p>
         ) : !persons.length ? (

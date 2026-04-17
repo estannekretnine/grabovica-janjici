@@ -3,7 +3,12 @@ import { audit } from "../lib/supabase";
 import { TablePagination } from "../components/TablePagination";
 import type { Database } from "../types/database";
 
-type KlijentRow = Database["audit"]["Tables"]["gr_klijenti"]["Row"];
+type KlijentRow = Database["audit"]["Tables"]["klijenti"]["Row"];
+
+function formatTs(v: string | null) {
+  if (!v) return "—";
+  return new Date(v).toLocaleString("sr-Latn-ME");
+}
 
 export function PorukeSajtaPage() {
   const [rows, setRows] = useState<KlijentRow[]>([]);
@@ -14,7 +19,7 @@ export function PorukeSajtaPage() {
 
   const load = useCallback(async () => {
     if (!audit) return;
-    const { data, error: qErr } = await audit.from("gr_klijenti").select("*").order("datumupisa", { ascending: false });
+    const { data, error: qErr } = await audit.from("klijenti").select("*").order("datumupisa", { ascending: false });
     if (qErr) setError(qErr.message);
     else {
       setError(null);
@@ -51,7 +56,7 @@ export function PorukeSajtaPage() {
     if (!audit) return;
     const next = !r.stsarhiviran;
     const { error: uErr } = await audit
-      .from("gr_klijenti")
+      .from("klijenti")
       .update({ stsarhiviran: next, datumpromene: new Date().toISOString() })
       .eq("id", r.id);
     if (uErr) setError(uErr.message);
@@ -61,7 +66,7 @@ export function PorukeSajtaPage() {
   return (
     <div>
       <h1 style={{ marginTop: 0 }}>Poruke sa sajta</h1>
-      <p className="muted">Kontakt obrasci sa javnog sajta (tabela audit.gr_klijenti).</p>
+      <p className="muted">Tabela audit.klijenti — kolone kao u bazi.</p>
 
       <div className="card row" style={{ alignItems: "center" }}>
         <label style={{ flexDirection: "row", alignItems: "center", gap: "0.5rem" }}>
@@ -85,48 +90,72 @@ export function PorukeSajtaPage() {
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
         />
-        <table>
-          <thead>
-            <tr>
-              <th>Datum</th>
-              <th>Ime</th>
-              <th>Prezime</th>
-              <th>Firma</th>
-              <th>Email</th>
-              <th>Kontakt</th>
-              <th>Uloge / opis</th>
-              <th>Investitor audit</th>
-              <th>Izvor</th>
-              <th>Arhiva</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {pageRows.map((r) => (
-              <tr key={r.id}>
-                <td className="muted" style={{ fontSize: "0.8rem", whiteSpace: "nowrap" }}>
-                  {r.datumupisa ? new Date(r.datumupisa).toLocaleString("sr-Latn-ME") : "—"}
-                </td>
-                <td>{r.ime ?? "—"}</td>
-                <td>{r.prezime ?? "—"}</td>
-                <td>{r.firma ?? "—"}</td>
-                <td>{r.email ?? "—"}</td>
-                <td>{r.kontakt ?? "—"}</td>
-                <td style={{ maxWidth: "14rem", fontSize: "0.85rem" }}>{r.opis ?? "—"}</td>
-                <td>{r.stsinvestitoraudit ? "da" : "ne"}</td>
-                <td className="muted" style={{ fontSize: "0.75rem" }}>
-                  {r.source ?? "—"}
-                </td>
-                <td>{r.stsarhiviran ? "da" : "ne"}</td>
-                <td>
-                  <button type="button" onClick={() => void toggleArchive(r)}>
-                    {r.stsarhiviran ? "Vrati" : "Arhiviraj"}
-                  </button>
-                </td>
+        <div className="klijenti-table-wrap">
+          <table className="klijenti-table">
+            <thead>
+              <tr>
+                <th>id</th>
+                <th>datumupisa</th>
+                <th>datumpromene</th>
+                <th>ime</th>
+                <th>prezime</th>
+                <th>firma</th>
+                <th>email</th>
+                <th>kontakt</th>
+                <th>opis</th>
+                <th>stsinvestitoraudit</th>
+                <th>source</th>
+                <th>contactid</th>
+                <th>stsarhiviran</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {pageRows.map((r) => (
+                <tr key={r.id}>
+                  <td className="muted klijenti-id">{r.id}</td>
+                  <td className="muted klijenti-ts">{formatTs(r.datumupisa)}</td>
+                  <td className="muted klijenti-ts">{formatTs(r.datumpromene)}</td>
+                  <td>{r.ime ?? "—"}</td>
+                  <td>{r.prezime ?? "—"}</td>
+                  <td className="klijenti-cell-clip" title={r.firma ?? ""}>
+                    {r.firma ?? "—"}
+                  </td>
+                  <td className="klijenti-cell-clip" title={r.email ?? ""}>
+                    {r.email ?? "—"}
+                  </td>
+                  <td className="klijenti-cell-clip" title={r.kontakt ?? ""}>
+                    {r.kontakt ?? "—"}
+                  </td>
+                  <td className="klijenti-opis" title={r.opis ?? ""}>
+                    {r.opis ?? "—"}
+                  </td>
+                  <td>
+                    <span className={`klijenti-badge ${r.stsinvestitoraudit ? "klijenti-badge--yes" : "klijenti-badge--no"}`}>
+                      {r.stsinvestitoraudit ? "da" : "ne"}
+                    </span>
+                  </td>
+                  <td className="muted klijenti-cell-clip" title={r.source ?? ""}>
+                    {r.source ?? "—"}
+                  </td>
+                  <td className="muted klijenti-cell-mono" title={r.contactid ?? ""}>
+                    {r.contactid ? `${r.contactid.slice(0, 8)}…` : "—"}
+                  </td>
+                  <td>
+                    <span className={`klijenti-badge ${r.stsarhiviran ? "klijenti-badge--warn" : "klijenti-badge--no"}`}>
+                      {r.stsarhiviran ? "da" : "ne"}
+                    </span>
+                  </td>
+                  <td>
+                    <button type="button" onClick={() => void toggleArchive(r)}>
+                      {r.stsarhiviran ? "Vrati" : "Arhiviraj"}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

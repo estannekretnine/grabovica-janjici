@@ -1,5 +1,5 @@
--- Poruke sa javnog sajta (kontakt forma)
-create table audit.gr_klijenti (
+-- Poruke sa javnog sajta (kontakt forma) — tabela audit.klijenti (bez prefiksa gr_)
+create table audit.klijenti (
   id serial not null,
   ime text null,
   prezime text null,
@@ -16,40 +16,40 @@ create table audit.gr_klijenti (
   constraint klijenti_pkey primary key (id)
 );
 
-create index gr_klijenti_datumupisa_idx on audit.gr_klijenti (datumupisa desc);
+create index klijenti_datumupisa_idx on audit.klijenti (datumupisa desc);
 
-alter table audit.gr_klijenti enable row level security;
+alter table audit.klijenti enable row level security;
 
-drop policy if exists "gr_klijenti_insert_anon" on audit.gr_klijenti;
-drop policy if exists "gr_klijenti_insert_authenticated" on audit.gr_klijenti;
-drop policy if exists "gr_klijenti_select_authenticated" on audit.gr_klijenti;
-drop policy if exists "gr_klijenti_update_authenticated" on audit.gr_klijenti;
-drop policy if exists "gr_klijenti_delete_authenticated" on audit.gr_klijenti;
+drop policy if exists "klijenti_insert_anon" on audit.klijenti;
+drop policy if exists "klijenti_insert_authenticated" on audit.klijenti;
+drop policy if exists "klijenti_select_authenticated" on audit.klijenti;
+drop policy if exists "klijenti_update_authenticated" on audit.klijenti;
+drop policy if exists "klijenti_delete_authenticated" on audit.klijenti;
 
-create policy "gr_klijenti_insert_anon"
-  on audit.gr_klijenti for insert to anon
+create policy "klijenti_insert_anon"
+  on audit.klijenti for insert to anon
   with check (true);
 
-create policy "gr_klijenti_insert_authenticated"
-  on audit.gr_klijenti for insert to authenticated
+create policy "klijenti_insert_authenticated"
+  on audit.klijenti for insert to authenticated
   with check (true);
 
-create policy "gr_klijenti_select_authenticated"
-  on audit.gr_klijenti for select to authenticated
+create policy "klijenti_select_authenticated"
+  on audit.klijenti for select to authenticated
   using (true);
 
-create policy "gr_klijenti_update_authenticated"
-  on audit.gr_klijenti for update to authenticated
+create policy "klijenti_update_authenticated"
+  on audit.klijenti for update to authenticated
   using (true)
   with check (true);
 
-create policy "gr_klijenti_delete_authenticated"
-  on audit.gr_klijenti for delete to authenticated
+create policy "klijenti_delete_authenticated"
+  on audit.klijenti for delete to authenticated
   using (true);
 
-grant insert on table audit.gr_klijenti to anon;
-grant select, insert, update, delete on table audit.gr_klijenti to authenticated;
-grant usage, select on sequence audit.gr_klijenti_id_seq to anon, authenticated;
+grant insert on table audit.klijenti to anon;
+grant select, insert, update, delete on table audit.klijenti to authenticated;
+grant usage, select on sequence audit.klijenti_id_seq to anon, authenticated;
 
 -- Javni prikaz jednog nasumičnog člana (PostgREST: funkcija u public šemi)
 create or replace function public.get_public_home_person()

@@ -159,7 +159,7 @@ type GenealogyTables = {
       updated_at?: string;
     };
   };
-  gr_klijenti: {
+  klijenti: {
     Row: {
       id: number;
       ime: string | null;

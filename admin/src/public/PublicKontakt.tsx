@@ -2,34 +2,22 @@ import { useState } from "react";
 import { audit } from "../lib/supabase";
 import type { Database } from "../types/database";
 
-type KlijentInsert = Database["audit"]["Tables"]["gr_klijenti"]["Insert"];
+type KlijentInsert = Database["audit"]["Tables"]["klijenti"]["Insert"];
 
-const ROLE_INVESTOR = "Investitor";
-const ROLE_INVESTOR_AUDIT = "Investitor AuditClaw-Project";
-const ROLE_BUYER = "Kupac";
-const ROLE_FRIEND = "Prijatelj sajta";
-const ROLE_SELLER = "Prodavac";
-
+/**
+ * Javna forma: samo ono što korisnik unosi — ime, prezime, firma, email, kontakt, opis.
+ * stsarhiviran / stsinvestitoraudit / datumupisa ostaju na defaultima u bazi; source i contactid šalje aplikacija.
+ */
 export function PublicKontakt() {
   const [ime, setIme] = useState("");
   const [prezime, setPrezime] = useState("");
   const [firma, setFirma] = useState("");
   const [email, setEmail] = useState("");
   const [kontakt, setKontakt] = useState("");
-  const [roles, setRoles] = useState<Record<string, boolean>>({
-    [ROLE_INVESTOR]: false,
-    [ROLE_INVESTOR_AUDIT]: false,
-    [ROLE_BUYER]: false,
-    [ROLE_FRIEND]: false,
-    [ROLE_SELLER]: false,
-  });
+  const [opis, setOpis] = useState("");
   const [sending, setSending] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-
-  function toggleRole(key: string) {
-    setRoles((r) => ({ ...r, [key]: !r[key] }));
-  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -43,24 +31,19 @@ export function PublicKontakt() {
       setErr("Slanje nije dostupno (nema konekcije na bazu).");
       return;
     }
-    const picked = Object.entries(roles)
-      .filter(([, v]) => v)
-      .map(([k]) => k);
-    const opis = picked.length ? picked.join(", ") : null;
-    const stsinvestitoraudit = roles[ROLE_INVESTOR_AUDIT] ?? false;
+    const opisTrim = opis.trim();
     const payload: KlijentInsert = {
       ime: ime.trim(),
       prezime: prezime.trim(),
       firma: firma.trim() || null,
       email: email.trim(),
       kontakt: kontakt.trim(),
-      opis,
-      stsinvestitoraudit,
+      opis: opisTrim || null,
       source: "grabovica-web",
       contactid: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null,
     };
     setSending(true);
-    const { error } = await audit.from("gr_klijenti").insert(payload);
+    const { error } = await audit.from("klijenti").insert(payload);
     setSending(false);
     if (error) setErr(error.message);
     else {
@@ -70,60 +53,37 @@ export function PublicKontakt() {
       setFirma("");
       setEmail("");
       setKontakt("");
-      setRoles({
-        [ROLE_INVESTOR]: false,
-        [ROLE_INVESTOR_AUDIT]: false,
-        [ROLE_BUYER]: false,
-        [ROLE_FRIEND]: false,
-        [ROLE_SELLER]: false,
-      });
+      setOpis("");
     }
   }
 
-  const roleGrid = (
-    <div className="public-role-grid">
-      {[
-        ROLE_INVESTOR,
-        ROLE_INVESTOR_AUDIT,
-        ROLE_BUYER,
-        ROLE_FRIEND,
-        ROLE_SELLER,
-      ].map((label) => (
-        <label key={label} className="public-role-tile">
-          <input
-            type="checkbox"
-            checked={roles[label] ?? false}
-            onChange={() => toggleRole(label)}
-          />
-          <span>{label}</span>
-        </label>
-      ))}
-    </div>
-  );
-
   return (
-    <div className="public-page public-page--narrow">
-      <section className="public-section">
-        <h1 className="public-page-title">Korisnički centar</h1>
-        <p className="public-lead">Registrujte se i postanite deo naše zajednice — ostavite kontakt ispod.</p>
+    <div className="public-page public-kontakt-page">
+      <section className="public-section public-kontakt-section">
+        <form className="public-form public-form--kontakt" onSubmit={(e) => void onSubmit(e)}>
+          <h1 className="public-kontakt-title">Korisnički centar</h1>
+          <p className="public-kontakt-lead">
+            Registrujte se i postanite deo naše zajednice — ostavite kontakt ispod.
+          </p>
 
-        <form className="public-form card-like" onSubmit={(e) => void onSubmit(e)}>
           <div className="public-form-row">
-            <label className="public-label">
+            <label className="public-kontakt-label">
               Ime *
               <input value={ime} onChange={(e) => setIme(e.target.value)} required placeholder="Vaše ime" />
             </label>
-            <label className="public-label">
+            <label className="public-kontakt-label">
               Prezime *
               <input value={prezime} onChange={(e) => setPrezime(e.target.value)} required placeholder="Vaše prezime" />
             </label>
           </div>
-          <label className="public-label">
+
+          <label className="public-kontakt-label public-kontakt-label--full">
             Firma
             <input value={firma} onChange={(e) => setFirma(e.target.value)} placeholder="Naziv firme (opciono)" />
           </label>
+
           <div className="public-form-row">
-            <label className="public-label">
+            <label className="public-kontakt-label">
               Email adresa *
               <input
                 type="email"
@@ -133,18 +93,27 @@ export function PublicKontakt() {
                 placeholder="vas@email.com"
               />
             </label>
-            <label className="public-label">
+            <label className="public-kontakt-label">
               Telefon *
               <input value={kontakt} onChange={(e) => setKontakt(e.target.value)} required placeholder="+381 63 123 4567" />
             </label>
           </div>
-          <fieldset className="public-fieldset">
-            <legend>Ja sam (izaberite sve što se odnosi na vas)</legend>
-            {roleGrid}
-          </fieldset>
-          {err ? <p className="public-error">{err}</p> : null}
-          {msg ? <p className="public-success">{msg}</p> : null}
-          <button type="submit" className="public-submit" disabled={sending}>
+
+          <label className="public-kontakt-label public-kontakt-label--full">
+            Napomena / poruka (opciono)
+            <textarea
+              value={opis}
+              onChange={(e) => setOpis(e.target.value)}
+              rows={4}
+              placeholder="Dodatne informacije, interesovanja ili poruka…"
+              className="public-kontakt-textarea"
+            />
+          </label>
+
+          {err ? <p className="public-kontakt-error">{err}</p> : null}
+          {msg ? <p className="public-kontakt-success">{msg}</p> : null}
+
+          <button type="submit" className="public-kontakt-submit" disabled={sending}>
             {sending ? "Šaljem…" : "Pošalji"}
           </button>
         </form>
