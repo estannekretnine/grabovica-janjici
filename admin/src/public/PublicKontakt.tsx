@@ -2,7 +2,7 @@ import { useState } from "react";
 import { audit } from "../lib/supabase";
 import type { Database } from "../types/database";
 
-type KlijentInsert = Database["audit"]["Tables"]["klijenti"]["Insert"];
+type KlijentInsert = Database["audit"]["Tables"]["gr_klijenti"]["Insert"];
 
 /**
  * Javna forma: samo ono što korisnik unosi — ime, prezime, firma, email, kontakt, opis.
@@ -43,7 +43,7 @@ export function PublicKontakt() {
       contactid: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : null,
     };
     setSending(true);
-    const { error } = await audit.from("klijenti").insert(payload);
+    const { error } = await audit.from("gr_klijenti").insert(payload);
     setSending(false);
     if (error) setErr(error.message);
     else {

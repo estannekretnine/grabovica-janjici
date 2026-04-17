@@ -3,7 +3,7 @@ import { audit } from "../lib/supabase";
 import { TablePagination } from "../components/TablePagination";
 import type { Database } from "../types/database";
 
-type KlijentRow = Database["audit"]["Tables"]["klijenti"]["Row"];
+type KlijentRow = Database["audit"]["Tables"]["gr_klijenti"]["Row"];
 
 function formatTs(v: string | null) {
   if (!v) return "—";
@@ -19,7 +19,7 @@ export function PorukeSajtaPage() {
 
   const load = useCallback(async () => {
     if (!audit) return;
-    const { data, error: qErr } = await audit.from("klijenti").select("*").order("datumupisa", { ascending: false });
+    const { data, error: qErr } = await audit.from("gr_klijenti").select("*").order("datumupisa", { ascending: false });
     if (qErr) setError(qErr.message);
     else {
       setError(null);
@@ -56,7 +56,7 @@ export function PorukeSajtaPage() {
     if (!audit) return;
     const next = !r.stsarhiviran;
     const { error: uErr } = await audit
-      .from("klijenti")
+      .from("gr_klijenti")
       .update({ stsarhiviran: next, datumpromene: new Date().toISOString() })
       .eq("id", r.id);
     if (uErr) setError(uErr.message);
