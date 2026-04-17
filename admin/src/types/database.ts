@@ -118,6 +118,47 @@ type GenealogyTables = {
       karijera?: string | null;
     };
   };
+  gr_aktivnosti: {
+    Row: {
+      id: string;
+      person_id: string;
+      naslov: string;
+      opis: string | null;
+      datum: string | null;
+      veb_link: string | null;
+      foto_storage_path: string | null;
+      redosled: number;
+      napomena: string | null;
+      created_at: string;
+      updated_at: string;
+    };
+    Insert: {
+      id?: string;
+      person_id: string;
+      naslov?: string;
+      opis?: string | null;
+      datum?: string | null;
+      veb_link?: string | null;
+      foto_storage_path?: string | null;
+      redosled?: number;
+      napomena?: string | null;
+      created_at?: string;
+      updated_at?: string;
+    };
+    Update: {
+      id?: string;
+      person_id?: string;
+      naslov?: string;
+      opis?: string | null;
+      datum?: string | null;
+      veb_link?: string | null;
+      foto_storage_path?: string | null;
+      redosled?: number;
+      napomena?: string | null;
+      created_at?: string;
+      updated_at?: string;
+    };
+  };
   gr_parent_child: {
     Row: {
       id: string;

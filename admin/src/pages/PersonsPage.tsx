@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
 import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
+import { PersonActivitiesModal } from "./PersonActivitiesModal";
 import type { Database } from "../types/database";
 import type { Gender } from "../types/database";
 
@@ -113,6 +114,9 @@ export function PersonsPage() {
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [activitiesOpen, setActivitiesOpen] = useState(false);
+  const [activitiesPersonId, setActivitiesPersonId] = useState<string | null>(null);
+  const [activitiesPersonName, setActivitiesPersonName] = useState("");
 
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
@@ -809,6 +813,16 @@ export function PersonsPage() {
                     <button type="button" onClick={() => startEdit(p)}>
                       Izmeni
                     </button>{" "}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActivitiesPersonId(p.id);
+                        setActivitiesPersonName(personLabel(p));
+                        setActivitiesOpen(true);
+                      }}
+                    >
+                      Aktivnosti
+                    </button>{" "}
                     <button type="button" className="danger" onClick={() => void handleDelete(p.id)}>
                       Obriši
                     </button>
@@ -819,6 +833,18 @@ export function PersonsPage() {
           </tbody>
         </table>
       </div>
+
+      <PersonActivitiesModal
+        open={activitiesOpen}
+        onClose={() => {
+          setActivitiesOpen(false);
+          setActivitiesPersonId(null);
+          setActivitiesPersonName("");
+        }}
+        personId={activitiesPersonId}
+        personName={activitiesPersonName}
+        treeId={treeId}
+      />
     </div>
   );
 }

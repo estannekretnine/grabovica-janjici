@@ -24,6 +24,46 @@ function isJanjicSurname(v: string | null | undefined) {
   return normalizeSurname(v) === "janjic";
 }
 
+type PartnerLabel = { id: string; person: PersonRow; label: string };
+
+/** Isti redosled imena kao u postojećem prikazu čvora (Janjić / pol pravila). */
+function primaryPairForNode(node: {
+  id: string;
+  person: PersonRow;
+  partners: PartnerLabel[];
+}): { first: PartnerLabel; second: PartnerLabel | null } {
+  const firstPartner = node.partners[0] ?? null;
+  const pair: PartnerLabel[] = firstPartner
+    ? [
+        { id: node.id, person: node.person, label: personLabel(node.person) },
+        firstPartner,
+      ]
+    : [{ id: node.id, person: node.person, label: personLabel(node.person) }];
+
+  const male = pair.find((m) => m.person.gender === "male") ?? null;
+  const female = pair.find((m) => m.person.gender === "female") ?? null;
+
+  let first = pair[0];
+  let second: PartnerLabel | null = pair[1] ?? null;
+  if (male && second) {
+    if (isJanjicSurname(male.person.last_name)) {
+      first = male;
+      second = pair.find((x) => x.id !== male.id) ?? second;
+    } else if (female) {
+      first = female;
+      second = pair.find((x) => x.id !== female.id) ?? second;
+    }
+  }
+  return { first, second };
+}
+
+/** Jednolinijski isječak karijere ispod imena na grafu. */
+function karijeraTreeSnippet(raw: string | null | undefined, maxLen = 34): string {
+  const t = raw?.replace(/\s+/g, " ").trim() ?? "";
+  if (!t) return "";
+  return t.length > maxLen ? `${t.slice(0, maxLen - 1)}…` : t;
+}
+
 function getDefaultPhotoPath(raw: string | null): string | null {
   if (!raw?.trim()) return null;
   const trimmed = raw.trim();
@@ -550,29 +590,8 @@ export function TreesPage() {
                         {node.person.first_name?.slice(0, 1) || "?"}
                       </text>
                       {(() => {
-                        const firstPartner = node.partners[0] ?? null;
-                        const pair = firstPartner
-                          ? [
-                              { id: node.id, person: node.person, label: personLabel(node.person) },
-                              firstPartner,
-                            ]
-                          : [{ id: node.id, person: node.person, label: personLabel(node.person) }];
-
-                        const male = pair.find((m) => m.person.gender === "male") ?? null;
-                        const female = pair.find((m) => m.person.gender === "female") ?? null;
-
-                        let first = pair[0];
-                        let second = pair[1] ?? null;
-                        if (male && second) {
-                          if (isJanjicSurname(male.person.last_name)) {
-                            first = male;
-                            second = pair.find((x) => x.id !== male.id) ?? second;
-                          } else if (female) {
-                            first = female;
-                            second = pair.find((x) => x.id !== female.id) ?? second;
-                          }
-                        }
-
+                        const { first, second } = primaryPairForNode(node);
+                        const kSnip = karijeraTreeSnippet(first.person.karijera);
                         return (
                           <>
                             <text
@@ -606,6 +625,23 @@ export function TreesPage() {
                                 >
                                   {second.label}
                                 </tspan>
+                              </text>
+                            ) : null}
+                            {kSnip ? (
+                              <text
+                                y={second ? 78 : 62}
+                                textAnchor="middle"
+                                fill="#475569"
+                                fontSize="9"
+                                fontWeight="500"
+                                style={{ cursor: "pointer" }}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openMemberCardAtNode(node, first.id);
+                                }}
+                              >
+                                <title>{first.person.karijera?.trim() ?? ""}</title>
+                                {kSnip}
                               </text>
                             ) : null}
                           </>
