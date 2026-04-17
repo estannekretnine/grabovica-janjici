@@ -11,7 +11,6 @@ import { DrzavePage } from "./pages/DrzavePage";
 import { OpstinePage } from "./pages/OpstinePage";
 import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
-import { Stablo1FanPage } from "./pages/Stablo1FanPage";
 import {
   clearKorisnikFromStorage,
   readKorisnikFromStorage,
@@ -79,7 +78,7 @@ export default function App() {
         <Route path="/municipalities" element={<OpstinePage />} />
         <Route path="/locations" element={<LokacijaPage />} />
         <Route path="/trees" element={<TreesPage />} />
-        <Route path="/stablo-1" element={<Stablo1FanPage />} />
+        <Route path="/stablo-3" element={<TreesPage variant="stablo3" />} />
         <Route path="/persons" element={<PersonsPage />} />
         <Route path="/relationships" element={<RelationshipsPage />} />
         <Route path="*" element={<Navigate to="/countries" replace />} />

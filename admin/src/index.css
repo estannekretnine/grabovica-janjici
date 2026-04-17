@@ -494,44 +494,23 @@ th {
   border-radius: 9px;
 }
 
+.pedigree-svg {
+  display: block;
+  min-height: 480px;
+  height: min(72vh, 720px);
+  max-height: 900px;
+}
+
+.pedigree-node {
+  cursor: pointer;
+}
+
+.pedigree-connector {
+  pointer-events: none;
+}
+
 .tree-canvas:active {
   cursor: grabbing;
-}
-
-.fan-chart-card {
-  margin-top: 0.75rem;
-}
-
-.fan-chart-label {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  max-width: 28rem;
-}
-
-.fan-chart-select {
-  max-width: 100%;
-}
-
-.fan-chart-note {
-  margin: 0.5rem 0 0;
-  font-size: 0.9rem;
-}
-
-.fan-chart-wrap {
-  margin-top: 0.75rem;
-  border: 1px solid #dbe4f0;
-  border-radius: 10px;
-  background: #fff;
-  overflow: auto;
-  max-width: 100%;
-}
-
-.fan-chart-svg {
-  display: block;
-  width: min(920px, 100%);
-  height: auto;
-  margin: 0 auto;
 }
 
 .tree-node {

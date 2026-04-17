@@ -106,6 +106,47 @@ function activityThumbUrl(path: string | null | undefined): string | null {
   return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
+/** Kartice u rodoslovnom prikazu (Stablo 3). */
+const PEDIGREE_CARD_W = 172;
+const PEDIGREE_CARD_H = 112;
+const PEDIGREE_HALF_W = PEDIGREE_CARD_W / 2;
+const PEDIGREE_HALF_H = PEDIGREE_CARD_H / 2;
+const PEDIGREE_CONNECTOR_STUB = 18;
+
+function pedigreeAccent(depth: number) {
+  const c = ["#1e40af", "#0d9488", "#7c3aed", "#db2777"];
+  return c[depth % c.length] ?? "#1e40af";
+}
+
+function personLifeLine(p: PersonRow) {
+  const b = p.birth_date?.trim();
+  const d = p.death_date?.trim();
+  const birth = b || "—";
+  if (d) return `${birth} – ${d}`;
+  if (p.is_living === false) return `${birth} –`;
+  return b ? `${birth} –` : "—";
+}
+
+function orthConnectors(
+  px: number,
+  py: number,
+  children: Array<{ sx: number; sy: number }>,
+  halfH: number
+): string {
+  if (!children.length) return "";
+  const pBottom = py + halfH;
+  const yMid = pBottom + PEDIGREE_CONNECTOR_STUB;
+  const cxs = children.map((c) => c.sx);
+  const minX = Math.min(px, ...cxs);
+  const maxX = Math.max(px, ...cxs);
+  const d: string[] = [`M ${px} ${pBottom} L ${px} ${yMid} L ${minX} ${yMid} L ${maxX} ${yMid}`];
+  for (const c of children) {
+    const cTop = c.sy - halfH;
+    d.push(`M ${c.sx} ${yMid} L ${c.sx} ${cTop}`);
+  }
+  return d.join(" ");
+}
+
 function MemberKontaktBlock({
   person,
   onKontaktTitleClick,
@@ -161,7 +202,9 @@ function MemberKontaktBlock({
   );
 }
 
-export function TreesPage() {
+type TreesPageProps = { variant?: "full" | "stablo3" };
+
+export function TreesPage({ variant = "full" }: TreesPageProps) {
   const [rows, setRows] = useState<TreeRow[]>([]);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -362,8 +405,8 @@ export function TreesPage() {
   }, [roots, personsById, partnersByPerson, childByParent, hiddenPartnerIds]);
 
   const positionedGraph = useMemo(() => {
-    const X_SPACING = 170;
-    const Y_SPACING = 150;
+    const X_SPACING = 196;
+    const Y_SPACING = PEDIGREE_CARD_H + PEDIGREE_CONNECTOR_STUB + 44;
     return {
       nodes: treeGraph.nodes.map((n) => ({
         ...n,
@@ -373,6 +416,35 @@ export function TreesPage() {
       edges: treeGraph.edges,
     };
   }, [treeGraph]);
+
+  const edgesByParent = useMemo(() => {
+    const m = new Map<string, string[]>();
+    for (const e of positionedGraph.edges) {
+      const cur = m.get(e.from) ?? [];
+      cur.push(e.to);
+      m.set(e.from, cur);
+    }
+    return m;
+  }, [positionedGraph.edges]);
+
+  const pedigreeViewBox = useMemo(() => {
+    const nodes = positionedGraph.nodes;
+    if (!nodes.length) return "0 0 980 520";
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+    for (const n of nodes) {
+      minX = Math.min(minX, n.sx - PEDIGREE_HALF_W);
+      maxX = Math.max(maxX, n.sx + PEDIGREE_HALF_W);
+      minY = Math.min(minY, n.sy - PEDIGREE_HALF_H);
+      maxY = Math.max(maxY, n.sy + PEDIGREE_HALF_H + PEDIGREE_CONNECTOR_STUB + 8);
+    }
+    const pad = 72;
+    const w = maxX - minX + pad * 2;
+    const h = maxY - minY + pad * 2;
+    return `${minX - pad} ${minY - pad} ${w} ${h}`;
+  }, [positionedGraph.nodes]);
 
   function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -414,8 +486,8 @@ export function TreesPage() {
     if (!person) return;
     const wrap = canvasRef.current;
     if (wrap) {
-      const panelX = offset.x + node.sx * zoom + 34;
-      const panelY = offset.y + node.sy * zoom - 12;
+      const panelX = offset.x + node.sx * zoom + PEDIGREE_HALF_W * 0.35 * zoom;
+      const panelY = offset.y + node.sy * zoom - PEDIGREE_HALF_H * 0.4 * zoom;
       const narrow = typeof window !== "undefined" && window.innerWidth < 640;
       const isChoice = mode === "kontakt-menu";
       const panelW = narrow
@@ -492,66 +564,82 @@ export function TreesPage() {
     else await load();
   }
 
+  const isStablo3 = variant === "stablo3";
+
   return (
     <div>
-      <h1 style={{ marginTop: 0 }}>Porodična stabla</h1>
-      <p className="muted">
-        Podrazumevano stablo iz migracije možete zadržati; dodatna stabla za druge
-        grane porodice.
-      </p>
+      {isStablo3 ? (
+        <>
+          <h1 style={{ marginTop: 0 }}>Stablo 3</h1>
+          <p className="muted">
+            Rodoslov odozgo nadole — kartice i stepenaste veze. Izbor stabla i isti paneli
+            (Kontakt, detalji, aktivnosti) kao na stranici Stabla.
+          </p>
+        </>
+      ) : (
+        <>
+          <h1 style={{ marginTop: 0 }}>Porodična stabla</h1>
+          <p className="muted">
+            Podrazumevano stablo iz migracije možete zadržati; dodatna stabla za druge
+            grane porodice.
+          </p>
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Novo stablo</h2>
-        <form className="row" onSubmit={(e) => void handleCreate(e)}>
-          <label>
-            Naziv
-            <input value={name} onChange={(e) => setName(e.target.value)} required />
-          </label>
-          <label>
-            Slug (opciono)
-            <input
-              value={slug}
-              onChange={(e) => setSlug(e.target.value)}
-              placeholder="npr. janjici"
-            />
-          </label>
-          <button className="primary" type="submit">
-            Dodaj
-          </button>
-        </form>
-      </div>
+          <div className="card">
+            <h2 style={{ marginTop: 0 }}>Novo stablo</h2>
+            <form className="row" onSubmit={(e) => void handleCreate(e)}>
+              <label>
+                Naziv
+                <input value={name} onChange={(e) => setName(e.target.value)} required />
+              </label>
+              <label>
+                Slug (opciono)
+                <input
+                  value={slug}
+                  onChange={(e) => setSlug(e.target.value)}
+                  placeholder="npr. janjici"
+                />
+              </label>
+              <button className="primary" type="submit">
+                Dodaj
+              </button>
+            </form>
+          </div>
+        </>
+      )}
 
       {error ? <p className="error">{error}</p> : null}
 
-      <div className="card">
-        <h2 style={{ marginTop: 0 }}>Lista</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Naziv</th>
-              <th>Slug</th>
-              <th>ID</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((r) => (
-              <tr key={r.id}>
-                <td>{r.name}</td>
-                <td>{r.slug ?? "—"}</td>
-                <td className="muted" style={{ fontSize: "0.75rem" }}>
-                  {r.id}
-                </td>
-                <td>
-                  <button type="button" className="danger" onClick={() => void handleDelete(r.id)}>
-                    Obriši
-                  </button>
-                </td>
+      {!isStablo3 ? (
+        <div className="card">
+          <h2 style={{ marginTop: 0 }}>Lista</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>Naziv</th>
+                <th>Slug</th>
+                <th>ID</th>
+                <th></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id}>
+                  <td>{r.name}</td>
+                  <td>{r.slug ?? "—"}</td>
+                  <td className="muted" style={{ fontSize: "0.75rem" }}>
+                    {r.id}
+                  </td>
+                  <td>
+                    <button type="button" className="danger" onClick={() => void handleDelete(r.id)}>
+                      Obriši
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Prikaz stabla</h2>
@@ -602,114 +690,153 @@ export function TreesPage() {
               onMouseLeave={onCanvasMouseUp}
             >
               <div className="tree-canvas-inner">
-              <svg width="100%" height="560" viewBox="0 0 1400 560">
+              <svg
+                className="pedigree-svg"
+                width="100%"
+                viewBox={pedigreeViewBox}
+                preserveAspectRatio="xMidYMid meet"
+              >
                 <g transform={`translate(${offset.x},${offset.y}) scale(${zoom})`}>
-                  {positionedGraph.edges.map((edge, idx) => {
-                    const a = positionedGraph.nodes.find((n) => n.id === edge.from);
-                    const b = positionedGraph.nodes.find((n) => n.id === edge.to);
-                    if (!a || !b) return null;
+                  {Array.from(edgesByParent.entries()).map(([fromId, toIds]) => {
+                    const parent = positionedGraph.nodes.find((n) => n.id === fromId);
+                    if (!parent) return null;
+                    const kids = toIds
+                      .map((tid) => positionedGraph.nodes.find((n) => n.id === tid))
+                      .filter((n): n is (typeof positionedGraph.nodes)[0] => Boolean(n));
+                    if (!kids.length) return null;
+                    const d = orthConnectors(parent.sx, parent.sy, kids, PEDIGREE_HALF_H);
                     return (
-                      <line
-                        key={`${edge.from}-${edge.to}-${idx}`}
-                        x1={a.sx}
-                        y1={a.sy + 22}
-                        x2={b.sx}
-                        y2={b.sy - 22}
-                        stroke="#94a3b8"
-                        strokeWidth="2"
+                      <path
+                        key={`fork-${fromId}`}
+                        d={d}
+                        fill="none"
+                        stroke="#cbd5e1"
+                        strokeWidth="1.75"
+                        className="pedigree-connector"
                       />
                     );
                   })}
 
-                  {positionedGraph.nodes.map((node) => (
-                    <g
-                      key={node.id}
-                      transform={`translate(${node.sx},${node.sy})`}
-                      className="tree-node"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openMemberPanelAtNode(node, node.id, "kontakt-menu");
-                      }}
-                    >
-                      <circle r="24" fill="#1d4ed8" />
-                      <text y="5" textAnchor="middle" fill="#fff" fontSize="11">
-                        {node.person.first_name?.slice(0, 1) || "?"}
-                      </text>
-                      {(() => {
-                        const { first, second } = primaryPairForNode(node);
-                        const kSnip = karijeraTreeSnippet(first.person.karijera);
-                        return (
-                          <>
-                            <text
-                              y="44"
-                              textAnchor="middle"
-                              fill="#0f172a"
-                              fontSize="12"
-                              fontWeight={second ? "700" : "600"}
-                              fontStyle="normal"
-                              textDecoration="underline"
-                              style={{ cursor: "pointer" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                              }}
-                            >
-                              {first.label}
-                            </text>
-                            {second ? (
-                              <text y="60" textAnchor="middle" fill="#475569" fontSize="11">
-                                <tspan>+ </tspan>
-                                <tspan
-                                  style={{ cursor: "pointer" }}
-                                  fontWeight="500"
-                                  fontStyle="italic"
-                                  textDecoration="underline"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    openMemberPanelAtNode(node, second.id, "kontakt-menu");
-                                  }}
-                                >
-                                  {second.label}
-                                </tspan>
-                              </text>
-                            ) : null}
-                            {kSnip ? (
-                              <text
-                                y={second ? 78 : 62}
-                                textAnchor="middle"
-                                fill="#475569"
-                                fontSize="9"
-                                fontWeight="500"
-                                style={{ cursor: "pointer" }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                                }}
-                              >
-                                <title>{first.person.karijera?.trim() ?? ""}</title>
-                                {kSnip}
-                              </text>
-                            ) : null}
-                            <text
-                              y={second ? (kSnip ? 94 : 78) : kSnip ? 76 : 58}
-                              textAnchor="middle"
-                              fill="#2563eb"
-                              fontSize="10"
-                              fontWeight="600"
-                              textDecoration="underline"
-                              style={{ cursor: "pointer" }}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                              }}
-                            >
-                              Kontakt
-                            </text>
-                          </>
-                        );
-                      })()}
-                    </g>
-                  ))}
+                  {positionedGraph.nodes.map((node) => {
+                    const accent = pedigreeAccent(node.depth);
+                    const { first, second } = primaryPairForNode(node);
+                    const kSnip = karijeraTreeSnippet(first.person.karijera, 40);
+                    const life1 = personLifeLine(first.person);
+                    const life2 = second ? personLifeLine(second.person) : "";
+                    return (
+                      <g
+                        key={node.id}
+                        className="tree-node pedigree-node"
+                        transform={`translate(${sx},${sy})`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          openMemberPanelAtNode(node, node.id, "kontakt-menu");
+                        }}
+                      >
+                        <rect
+                          x={-PEDIGREE_HALF_W}
+                          y={-PEDIGREE_HALF_H}
+                          width={PEDIGREE_CARD_W}
+                          height={PEDIGREE_CARD_H}
+                          fill="#ffffff"
+                          stroke="#e2e8f0"
+                          strokeWidth="1"
+                        />
+                        <rect
+                          x={-PEDIGREE_HALF_W}
+                          y={-PEDIGREE_HALF_H}
+                          width={PEDIGREE_CARD_W}
+                          height="5"
+                          fill={accent}
+                        />
+                        <text
+                          y={-PEDIGREE_HALF_H + 24}
+                          textAnchor="middle"
+                          fill="#0f172a"
+                          fontSize="12.5"
+                          fontWeight="700"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                          }}
+                        >
+                          <title>{first.label}</title>
+                          {first.label.length > 22 ? `${first.label.slice(0, 21)}…` : first.label}
+                        </text>
+                        {second ? (
+                          <text
+                            y={-PEDIGREE_HALF_H + 40}
+                            textAnchor="middle"
+                            fill="#475569"
+                            fontSize="11"
+                            fontStyle="italic"
+                            fontWeight="600"
+                            style={{ cursor: "pointer" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openMemberPanelAtNode(node, second.id, "kontakt-menu");
+                            }}
+                          >
+                            <title>{second.label}</title>
+                            <tspan>+ </tspan>
+                            <tspan>
+                              {second.label.length > 20 ? `${second.label.slice(0, 19)}…` : second.label}
+                            </tspan>
+                          </text>
+                        ) : null}
+                        <text
+                          y={-PEDIGREE_HALF_H + (second ? 56 : 44)}
+                          textAnchor="middle"
+                          fill="#64748b"
+                          fontSize="10.5"
+                          fontWeight="500"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                          }}
+                        >
+                          <title>
+                            {second ? `${life1} / ${life2}` : life1}
+                          </title>
+                          {second ? `${life1} · ${life2}` : life1}
+                        </text>
+                        {kSnip ? (
+                          <text
+                            y={-PEDIGREE_HALF_H + (second ? 72 : 60)}
+                            textAnchor="middle"
+                            fill="#64748b"
+                            fontSize="9"
+                            fontWeight="500"
+                            style={{ cursor: "pointer" }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                            }}
+                          >
+                            <title>{first.person.karijera?.trim() ?? ""}</title>
+                            {kSnip}
+                          </text>
+                        ) : null}
+                        <text
+                          y={-PEDIGREE_HALF_H + (second ? (kSnip ? 86 : 78) : kSnip ? 74 : 62)}
+                          textAnchor="middle"
+                          fill="#2563eb"
+                          fontSize="10"
+                          fontWeight="600"
+                          textDecoration="underline"
+                          style={{ cursor: "pointer" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                          }}
+                        >
+                          Kontakt
+                        </text>
+                      </g>
+                    );
+                  })}
                 </g>
               </svg>
               </div>
