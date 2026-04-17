@@ -10,7 +10,7 @@ type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
-type PhotoItem = { id: string; storagePath: string; previewUrl: string | null };
+type PhotoItem = { id: string; storagePath: string; previewUrl: string | null; file: File | null };
 
 const emptyForm: PersonInsert = {
   tree_id: DEFAULT_TREE_ID,
@@ -53,18 +53,18 @@ function parsePhotoItems(raw: string | null): { items: PhotoItem[]; defaultIndex
       const items = parsed
         .map((p) => String(p ?? "").trim())
         .filter(Boolean)
-        .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null }));
+        .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null, file: null }));
       return { items, defaultIndex: 0 };
     }
     const items = (parsed.items ?? [])
       .map((x) => String(x?.path ?? "").trim())
       .filter(Boolean)
-      .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null }));
+      .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null, file: null }));
     const d = parsed.defaultIndex ?? 0;
     return { items, defaultIndex: d >= 0 && d < items.length ? d : 0 };
   } catch {
     return {
-      items: [{ id: createPhotoId(), storagePath: raw.trim(), previewUrl: null }],
+      items: [{ id: createPhotoId(), storagePath: raw.trim(), previewUrl: null, file: null }],
       defaultIndex: 0,
     };
   }
@@ -78,6 +78,11 @@ function serializePhotoItems(items: PhotoItem[], defaultIndex: number): string |
     defaultIndex: Math.max(0, Math.min(defaultIndex, cleaned.length - 1)),
     items: cleaned.map((path) => ({ path })),
   });
+}
+
+function safeFilename(name: string): string {
+  const cleaned = name.toLowerCase().replace(/[^a-z0-9._-]+/g, "-");
+  return cleaned.replace(/-+/g, "-").replace(/^-|-$/g, "") || "photo.jpg";
 }
 
 export function PersonsPage() {
@@ -228,10 +233,39 @@ export function PersonsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const personId = editingId ?? crypto.randomUUID();
+    const uploadedItems: PhotoItem[] = [];
+    for (let i = 0; i < photoItems.length; i += 1) {
+      const item = photoItems[i];
+      if (!item.file) {
+        uploadedItems.push(item);
+        continue;
+      }
+      if (!supabase) {
+        setError("Supabase nije podešen.");
+        return;
+      }
+      const fileName = safeFilename(item.file.name);
+      const objectPath = `persons/${treeId}/${personId}/${Date.now()}-${i + 1}-${fileName}`;
+      const { error: upErr } = await supabase.storage
+        .from("bucket")
+        .upload(objectPath, item.file, { upsert: true });
+      if (upErr) {
+        setError(`Upload fotografije nije uspeo: ${upErr.message}`);
+        return;
+      }
+      uploadedItems.push({
+        ...item,
+        file: null,
+        storagePath: `bucket/${objectPath}`,
+      });
+    }
+
     const payload: PersonInsert = {
       ...form,
+      id: personId,
       tree_id: treeId,
-      photo_storage_path: serializePhotoItems(photoItems, defaultPhotoIndex),
+      photo_storage_path: serializePhotoItems(uploadedItems, defaultPhotoIndex),
     };
 
     if (editingId) {
@@ -270,7 +304,7 @@ export function PersonsPage() {
   function addPhotoPath() {
     setPhotoItems((prev) => {
       if (prev.length >= 10) return prev;
-      return [...prev, { id: createPhotoId(), storagePath: "", previewUrl: null }];
+      return [...prev, { id: createPhotoId(), storagePath: "", previewUrl: null, file: null }];
     });
   }
 
@@ -299,6 +333,7 @@ export function PersonsPage() {
         id: createPhotoId(),
         storagePath: `bucket/${f.name}`,
         previewUrl: URL.createObjectURL(f),
+        file: f,
       }));
       return [...prev, ...picked];
     });
@@ -611,7 +646,7 @@ export function PersonsPage() {
                         onChange={(e) =>
                           setPhotoItems((prev) =>
                             prev.map((p, i) =>
-                              i === idx ? { ...p, storagePath: e.target.value } : p
+                              i === idx ? { ...p, storagePath: e.target.value, file: null } : p
                             )
                           )
                         }
