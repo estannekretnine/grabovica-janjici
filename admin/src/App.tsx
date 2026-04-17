@@ -11,6 +11,11 @@ import { DrzavePage } from "./pages/DrzavePage";
 import { OpstinePage } from "./pages/OpstinePage";
 import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
+import { PorukeSajtaPage } from "./pages/PorukeSajtaPage";
+import { PublicShell } from "./public/PublicLayout";
+import { PublicHome } from "./public/PublicHome";
+import { PublicStablo } from "./public/PublicStablo";
+import { PublicKontakt } from "./public/PublicKontakt";
 import {
   clearKorisnikFromStorage,
   readKorisnikFromStorage,
@@ -47,42 +52,57 @@ export default function App() {
     );
   }
 
-  if (!session) {
-    return (
-      <Routes>
-        <Route path="/login" element={<LoginPage />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
-  }
-
-  const korisnik = readKorisnikFromStorage();
+  const korisnik = session ? readKorisnikFromStorage() : null;
   const headerLabel =
     korisnik?.naziv?.trim() ||
-    (session.user.is_anonymous ? "Gost" : null) ||
-    session.user.email ||
-    session.user.id;
+    (session?.user.is_anonymous ? "Gost" : null) ||
+    session?.user.email ||
+    session?.user.id ||
+    "";
+
+  const adminSignOut = () => {
+    clearKorisnikFromStorage();
+    void supabase?.auth.signOut();
+  };
 
   return (
-    <Layout
-      email={headerLabel}
-      onSignOut={() => {
-        clearKorisnikFromStorage();
-        void supabase.auth.signOut();
-      }}
-    >
-      <Routes>
-        <Route path="/" element={<Navigate to="/countries" replace />} />
-        <Route path="/korisnici" element={<KorisniciPage />} />
-        <Route path="/countries" element={<DrzavePage />} />
-        <Route path="/municipalities" element={<OpstinePage />} />
-        <Route path="/locations" element={<LokacijaPage />} />
-        <Route path="/trees" element={<TreesPage />} />
-        <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
-        <Route path="/persons" element={<PersonsPage />} />
-        <Route path="/relationships" element={<RelationshipsPage />} />
-        <Route path="*" element={<Navigate to="/countries" replace />} />
-      </Routes>
-    </Layout>
+    <Routes>
+      <Route path="/" element={<PublicShell />}>
+        <Route index element={<PublicHome />} />
+        <Route path="stablo" element={<PublicStablo />} />
+        <Route path="kontakt" element={<PublicKontakt />} />
+      </Route>
+
+      <Route
+        path="/login"
+        element={session ? <Navigate to="/countries" replace /> : <LoginPage />}
+      />
+
+      {session ? (
+        <Route
+          element={
+            <Layout
+              email={headerLabel}
+              onSignOut={adminSignOut}
+            />
+          }
+        >
+          <Route path="/korisnici" element={<KorisniciPage />} />
+          <Route path="/poruke-sajta" element={<PorukeSajtaPage />} />
+          <Route path="/countries" element={<DrzavePage />} />
+          <Route path="/municipalities" element={<OpstinePage />} />
+          <Route path="/locations" element={<LokacijaPage />} />
+          <Route path="/trees" element={<TreesPage />} />
+          <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
+          <Route path="/persons" element={<PersonsPage />} />
+          <Route path="/relationships" element={<RelationshipsPage />} />
+        </Route>
+      ) : null}
+
+      <Route
+        path="*"
+        element={<Navigate to={session ? "/countries" : "/"} replace />}
+      />
+    </Routes>
   );
 }

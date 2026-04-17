@@ -1,8 +1,7 @@
-import { NavLink } from "react-router-dom";
-import { useState, type ReactNode } from "react";
+import { NavLink, Outlet } from "react-router-dom";
+import { useState } from "react";
 
 type Props = {
-  children: ReactNode;
   email: string;
   onSignOut: () => void;
 };
@@ -11,7 +10,7 @@ function navClass({ isActive }: { isActive: boolean }) {
   return `sidebar-link${isActive ? " active" : ""}`;
 }
 
-export function Layout({ children, email, onSignOut }: Props) {
+export function Layout({ email, onSignOut }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   function closeSidebar() {
@@ -43,6 +42,9 @@ export function Layout({ children, email, onSignOut }: Props) {
             <div className="sidebar-label">Admin</div>
             <NavLink to="/korisnici" className={navClass} onClick={closeSidebar}>
               Korisnici
+            </NavLink>
+            <NavLink to="/poruke-sajta" className={navClass} onClick={closeSidebar}>
+              Poruke sa sajta
             </NavLink>
           </div>
 
@@ -97,7 +99,9 @@ export function Layout({ children, email, onSignOut }: Props) {
           </button>
           <strong className="mobile-topbar-title">Porodica — admin</strong>
         </header>
-        <main className="app-main">{children}</main>
+        <main className="app-main">
+          <Outlet />
+        </main>
       </div>
     </div>
   );

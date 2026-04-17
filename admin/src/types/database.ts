@@ -159,6 +159,53 @@ type GenealogyTables = {
       updated_at?: string;
     };
   };
+  gr_klijenti: {
+    Row: {
+      id: number;
+      ime: string | null;
+      prezime: string | null;
+      firma: string | null;
+      email: string | null;
+      kontakt: string | null;
+      datumupisa: string | null;
+      datumpromene: string | null;
+      opis: string | null;
+      stsarhiviran: boolean | null;
+      stsinvestitoraudit: boolean | null;
+      source: string | null;
+      contactid: string | null;
+    };
+    Insert: {
+      id?: number;
+      ime?: string | null;
+      prezime?: string | null;
+      firma?: string | null;
+      email?: string | null;
+      kontakt?: string | null;
+      datumupisa?: string | null;
+      datumpromene?: string | null;
+      opis?: string | null;
+      stsarhiviran?: boolean | null;
+      stsinvestitoraudit?: boolean | null;
+      source?: string | null;
+      contactid?: string | null;
+    };
+    Update: {
+      id?: number;
+      ime?: string | null;
+      prezime?: string | null;
+      firma?: string | null;
+      email?: string | null;
+      kontakt?: string | null;
+      datumupisa?: string | null;
+      datumpromene?: string | null;
+      opis?: string | null;
+      stsarhiviran?: boolean | null;
+      stsinvestitoraudit?: boolean | null;
+      source?: string | null;
+      contactid?: string | null;
+    };
+  };
   gr_parent_child: {
     Row: {
       id: string;
@@ -385,6 +432,10 @@ export type Database = {
     };
     Views: Record<string, never>;
     Functions: {
+      get_public_home_person: {
+        Args: Record<string, never>;
+        Returns: Record<string, unknown> | null;
+      };
       login_korisnik: {
         Args: { p_email: string; p_password: string };
         Returns: {
