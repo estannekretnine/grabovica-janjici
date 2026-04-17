@@ -152,7 +152,7 @@ type GenealogyTables = {
 };
 
 type KorisniciRow = {
-  id: string;
+  id: number;
   naziv: string;
   email: string | null;
   password: string | null;
@@ -170,8 +170,77 @@ export type Database = {
     Tables: {
       korisnici: {
         Row: KorisniciRow;
-        Insert: Partial<KorisniciRow> & { naziv?: string };
-        Update: Partial<KorisniciRow>;
+        Insert: {
+          id?: number;
+          naziv: string;
+          email?: string | null;
+          password?: string | null;
+          brojmob?: string | null;
+          stsstatus?: string | null;
+          stsaktivan?: string | null;
+          datumk?: string | null;
+          datump?: string | null;
+          datumpt?: string | null;
+          adresa?: string | null;
+        };
+        Update: Partial<Omit<KorisniciRow, "id">> & { id?: number };
+      };
+      drzava: {
+        Row: {
+          id: number;
+          created_at: string;
+          opis: string | null;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+        };
+      };
+      opstina: {
+        Row: {
+          id: number;
+          created_at: string;
+          opis: string | null;
+          iddrzava: number | null;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+          iddrzava?: number | null;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+          iddrzava?: number | null;
+        };
+      };
+      lokacija: {
+        Row: {
+          id: number;
+          created_at: string;
+          opis: string | null;
+          idopstina: number | null;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+          idopstina?: number | null;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+          idopstina?: number | null;
+        };
       };
     };
     Views: Record<string, never>;
@@ -179,7 +248,7 @@ export type Database = {
       login_korisnik: {
         Args: { p_email: string; p_password: string };
         Returns: {
-          id: string;
+          id: number;
           naziv: string;
           email: string | null;
           stsstatus: string | null;

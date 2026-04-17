@@ -7,6 +7,10 @@ import { LoginPage } from "./pages/LoginPage";
 import { TreesPage } from "./pages/TreesPage";
 import { PersonsPage } from "./pages/PersonsPage";
 import { RelationshipsPage } from "./pages/RelationshipsPage";
+import { DrzavePage } from "./pages/DrzavePage";
+import { OpstinePage } from "./pages/OpstinePage";
+import { LokacijaPage } from "./pages/LokacijaPage";
+import { KorisniciPage } from "./pages/KorisniciPage";
 import {
   clearKorisnikFromStorage,
   readKorisnikFromStorage,
@@ -68,11 +72,15 @@ export default function App() {
       }}
     >
       <Routes>
-        <Route path="/" element={<Navigate to="/persons" replace />} />
+        <Route path="/" element={<Navigate to="/countries" replace />} />
+        <Route path="/korisnici" element={<KorisniciPage />} />
+        <Route path="/countries" element={<DrzavePage />} />
+        <Route path="/municipalities" element={<OpstinePage />} />
+        <Route path="/locations" element={<LokacijaPage />} />
         <Route path="/trees" element={<TreesPage />} />
         <Route path="/persons" element={<PersonsPage />} />
         <Route path="/relationships" element={<RelationshipsPage />} />
-        <Route path="*" element={<Navigate to="/persons" replace />} />
+        <Route path="*" element={<Navigate to="/countries" replace />} />
       </Routes>
     </Layout>
   );
