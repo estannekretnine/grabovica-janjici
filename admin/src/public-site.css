@@ -726,6 +726,16 @@
   border-radius: 12px;
 }
 
+.public-pretraga-filters-heading {
+  width: 100%;
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--pub-gold);
+  margin-bottom: 0.25rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
 .public-pretraga-label {
   display: flex;
   flex-direction: column;

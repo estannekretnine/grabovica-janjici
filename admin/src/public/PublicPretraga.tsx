@@ -284,6 +284,7 @@ export function PublicPretraga() {
         {error ? <p className="public-muted">{error}</p> : null}
 
         <div className="public-pretraga-filters">
+          <div className="public-pretraga-filters-heading">Prebivalište</div>
           <label className="public-pretraga-label">
             Država
             <select
