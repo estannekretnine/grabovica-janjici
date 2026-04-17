@@ -448,10 +448,20 @@ export function TreesPage() {
       const panelX = offset.x + node.sx * zoom + 34;
       const panelY = offset.y + node.sy * zoom - 12;
       const narrow = typeof window !== "undefined" && window.innerWidth < 640;
-      const panelW = narrow ? Math.min(252, Math.max(168, wrap.clientWidth - 20)) : 300;
+      const isChoice = mode === "kontakt-menu";
+      const panelW = narrow
+        ? Math.min(isChoice ? 208 : 252, Math.max(156, wrap.clientWidth - 20))
+        : isChoice
+          ? 228
+          : 300;
       const panelH = narrow
-        ? Math.min(300, Math.max(140, Math.round(wrap.clientHeight * 0.5)))
-        : 220;
+        ? Math.min(
+            isChoice ? 150 : 300,
+            Math.max(isChoice ? 100 : 140, Math.round(wrap.clientHeight * (isChoice ? 0.26 : 0.5)))
+          )
+        : isChoice
+          ? 118
+          : 220;
       const margin = 8;
       const maxX = Math.max(margin, wrap.clientWidth - panelW - margin);
       const maxY = Math.max(margin, wrap.clientHeight - panelH);
@@ -671,7 +681,7 @@ export function TreesPage() {
                               style={{ cursor: "pointer" }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openMemberPanelAtNode(node, first.id, "details");
+                                openMemberPanelAtNode(node, first.id, "kontakt-menu");
                               }}
                             >
                               {first.label}
@@ -686,7 +696,7 @@ export function TreesPage() {
                                   textDecoration="underline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openMemberPanelAtNode(node, second.id, "details");
+                                    openMemberPanelAtNode(node, second.id, "kontakt-menu");
                                   }}
                                 >
                                   {second.label}
@@ -703,7 +713,7 @@ export function TreesPage() {
                                 style={{ cursor: "pointer" }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openMemberPanelAtNode(node, first.id, "details");
+                                  openMemberPanelAtNode(node, first.id, "kontakt-menu");
                                 }}
                               >
                                 <title>{first.person.karijera?.trim() ?? ""}</title>
@@ -735,29 +745,31 @@ export function TreesPage() {
 
               {selectedMember && memberPanelPos ? (
                 <aside
-                  className="member-popover"
+                  className={`member-popover${memberPanelMode === "kontakt-menu" ? " member-popover--kontakt-choice" : ""}`}
                   style={{ left: memberPanelPos.x, top: memberPanelPos.y }}
                 >
                   <div className="member-popover-head">
                     <strong>{personLabel(selectedMember)}</strong>
                     <button type="button" className="member-popover-close" onClick={closeMemberPanel}>
-                      x
+                      ×
                     </button>
                   </div>
                   {memberPanelMode === "kontakt-menu" ? (
-                    <div className="member-popover-kontakt-menu">
-                      <p className="muted" style={{ margin: "0.5rem 0.65rem", fontSize: "0.85rem" }}>
-                        Izaberite prikaz:
-                      </p>
-                      <div className="member-popover-kontakt-menu-actions">
+                    <div className="member-popover-kontakt-menu-inner">
+                      <p className="member-popover-kontakt-menu-label">Izaberite prikaz</p>
+                      <div className="member-popover-kontakt-menu-pair">
                         <button
                           type="button"
-                          className="primary"
+                          className="member-btn-aktivnosti"
                           onClick={() => void openActivitiesView(selectedMember.id)}
                         >
                           Aktivnosti
                         </button>
-                        <button type="button" onClick={() => setMemberPanelMode("details")}>
+                        <button
+                          type="button"
+                          className="member-btn-detalji"
+                          onClick={() => setMemberPanelMode("details")}
+                        >
                           Detalji
                         </button>
                       </div>
