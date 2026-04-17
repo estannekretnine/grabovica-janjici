@@ -51,6 +51,7 @@ export function PublicPretraga() {
   }>({ drzava: "", opstina: "", lokacija: "", status: "", keyword: "" });
 
   const [selectedPerson, setSelectedPerson] = useState<PersonRow | null>(null);
+  const [modalView, setModalView] = useState<"menu" | "details" | "activities">("menu");
   const [activities, setActivities] = useState<ActivityRow[]>([]);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
 
@@ -215,23 +216,43 @@ export function PublicPretraga() {
     setAppliedFilters({ drzava: "", opstina: "", lokacija: "", status: "", keyword: "" });
   }
 
-  async function openPersonDetail(p: PersonRow) {
+  function openPersonModal(p: PersonRow) {
     setSelectedPerson(p);
+    setModalView("menu");
     setActivities([]);
+  }
+
+  async function loadActivities(personId: string) {
     if (!audit) return;
     setActivitiesLoading(true);
     const { data } = await audit
       .from("gr_aktivnosti")
       .select("*")
-      .eq("person_id", p.id)
+      .eq("person_id", personId)
       .order("redosled")
       .order("created_at");
     setActivities(data ?? []);
     setActivitiesLoading(false);
   }
 
-  function closeDetail() {
+  function showDetails() {
+    setModalView("details");
+  }
+
+  async function showActivities() {
+    if (!selectedPerson) return;
+    setModalView("activities");
+    await loadActivities(selectedPerson.id);
+  }
+
+  function backToMenu() {
+    setModalView("menu");
+    setActivities([]);
+  }
+
+  function closeModal() {
     setSelectedPerson(null);
+    setModalView("menu");
     setActivities([]);
   }
 
@@ -380,7 +401,7 @@ export function PublicPretraga() {
                       key={p.id}
                       type="button"
                       className="public-pretraga-card"
-                      onClick={() => void openPersonDetail(p)}
+                      onClick={() => openPersonModal(p)}
                     >
                       <div className="public-pretraga-card-name">{personLabel(p)}</div>
                       <div className="public-pretraga-card-life">{lifeLineShort(p)}</div>
@@ -402,97 +423,127 @@ export function PublicPretraga() {
       </section>
 
       {selectedPerson ? (
-        <div className="public-pretraga-modal-backdrop" onClick={closeDetail}>
+        <div className="public-pretraga-modal-backdrop" onClick={closeModal}>
           <div className="public-pretraga-modal" onClick={(e) => e.stopPropagation()}>
             <div className="public-pretraga-modal-head">
               <strong>{personLabel(selectedPerson)}</strong>
-              <button type="button" className="public-pretraga-modal-close" onClick={closeDetail}>
+              <button type="button" className="public-pretraga-modal-close" onClick={closeModal}>
                 ×
               </button>
             </div>
 
-            <div className="public-pretraga-modal-body">
-              <h3 className="public-pretraga-modal-section-title">Detalji</h3>
-              <dl className="public-pretraga-modal-dl">
-                {selectedPerson.middle_name?.trim() ? (
-                  <>
-                    <dt>Srednje ime</dt>
-                    <dd>{selectedPerson.middle_name}</dd>
-                  </>
-                ) : null}
-                {selectedPerson.maiden_name?.trim() ? (
-                  <>
-                    <dt>Devojačko prezime</dt>
-                    <dd>{selectedPerson.maiden_name}</dd>
-                  </>
-                ) : null}
-                <dt>Pol</dt>
-                <dd>{genderLabel(selectedPerson.gender)}</dd>
-                <dt>Datum rođenja</dt>
-                <dd>{selectedPerson.birth_date ?? "—"}</dd>
-                <dt>Mesto rođenja</dt>
-                <dd>{getMestoRodjenjaLabel(selectedPerson) || "—"}</dd>
-                <dt>Živ/a</dt>
-                <dd>
-                  {selectedPerson.is_living === true
-                    ? "Da"
-                    : selectedPerson.is_living === false
-                      ? "Ne"
-                      : "—"}
-                </dd>
-                {selectedPerson.death_date || selectedPerson.is_living === false ? (
-                  <>
-                    <dt>Datum smrti</dt>
-                    <dd>{selectedPerson.death_date ?? "—"}</dd>
-                    <dt>Mesto smrti</dt>
-                    <dd>{selectedPerson.death_place ?? "—"}</dd>
-                  </>
-                ) : null}
-                <dt>Prebivalište</dt>
-                <dd>{getLokacijaLabel(selectedPerson) || "—"}</dd>
-                {selectedPerson.karijera?.trim() ? (
-                  <>
-                    <dt>Karijera</dt>
-                    <dd className="public-pretraga-modal-karijera">{selectedPerson.karijera}</dd>
-                  </>
-                ) : null}
-                {selectedPerson.notes?.trim() ? (
-                  <>
-                    <dt>Napomene</dt>
-                    <dd className="public-pretraga-modal-notes">{selectedPerson.notes}</dd>
-                  </>
-                ) : null}
-              </dl>
-
-              <h3 className="public-pretraga-modal-section-title">Aktivnosti</h3>
-              {activitiesLoading ? <p className="public-muted">Učitavanje aktivnosti…</p> : null}
-              {!activitiesLoading && activities.length === 0 ? (
-                <p className="public-muted">Nema unetih aktivnosti.</p>
-              ) : null}
-              {!activitiesLoading && activities.length > 0 ? (
-                <div className="public-pretraga-modal-activities">
-                  {activities.map((a) => (
-                    <div key={a.id} className="public-pretraga-activity">
-                      <div className="public-pretraga-activity-title">
-                        {a.naslov}
-                        {a.datum ? <span className="public-pretraga-activity-date">{a.datum}</span> : null}
-                      </div>
-                      {a.opis?.trim() ? <p className="public-pretraga-activity-opis">{a.opis}</p> : null}
-                      {a.veb_link?.trim() ? (
-                        <a
-                          href={a.veb_link.startsWith("http") ? a.veb_link : `https://${a.veb_link}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="public-pretraga-activity-link"
-                        >
-                          {a.veb_link}
-                        </a>
-                      ) : null}
-                    </div>
-                  ))}
+            {modalView === "menu" ? (
+              <div className="public-pretraga-modal-menu">
+                <p className="public-pretraga-modal-menu-label">Izaberite prikaz</p>
+                <div className="public-pretraga-modal-menu-buttons">
+                  <button type="button" className="public-pretraga-menu-btn" onClick={showDetails}>
+                    Detalji
+                  </button>
+                  <button
+                    type="button"
+                    className="public-pretraga-menu-btn"
+                    onClick={() => void showActivities()}
+                  >
+                    Aktivnosti
+                  </button>
                 </div>
-              ) : null}
-            </div>
+              </div>
+            ) : null}
+
+            {modalView === "details" ? (
+              <div className="public-pretraga-modal-body">
+                <button type="button" className="public-pretraga-modal-back" onClick={backToMenu}>
+                  ← Nazad
+                </button>
+                <h3 className="public-pretraga-modal-section-title">Detalji</h3>
+                <dl className="public-pretraga-modal-dl">
+                  {selectedPerson.middle_name?.trim() ? (
+                    <>
+                      <dt>Srednje ime</dt>
+                      <dd>{selectedPerson.middle_name}</dd>
+                    </>
+                  ) : null}
+                  {selectedPerson.maiden_name?.trim() ? (
+                    <>
+                      <dt>Devojačko prezime</dt>
+                      <dd>{selectedPerson.maiden_name}</dd>
+                    </>
+                  ) : null}
+                  <dt>Pol</dt>
+                  <dd>{genderLabel(selectedPerson.gender)}</dd>
+                  <dt>Datum rođenja</dt>
+                  <dd>{selectedPerson.birth_date ?? "—"}</dd>
+                  <dt>Mesto rođenja</dt>
+                  <dd>{getMestoRodjenjaLabel(selectedPerson) || "—"}</dd>
+                  <dt>Živ/a</dt>
+                  <dd>
+                    {selectedPerson.is_living === true
+                      ? "Da"
+                      : selectedPerson.is_living === false
+                        ? "Ne"
+                        : "—"}
+                  </dd>
+                  {selectedPerson.death_date || selectedPerson.is_living === false ? (
+                    <>
+                      <dt>Datum smrti</dt>
+                      <dd>{selectedPerson.death_date ?? "—"}</dd>
+                      <dt>Mesto smrti</dt>
+                      <dd>{selectedPerson.death_place ?? "—"}</dd>
+                    </>
+                  ) : null}
+                  <dt>Prebivalište</dt>
+                  <dd>{getLokacijaLabel(selectedPerson) || "—"}</dd>
+                  {selectedPerson.karijera?.trim() ? (
+                    <>
+                      <dt>Karijera</dt>
+                      <dd className="public-pretraga-modal-karijera">{selectedPerson.karijera}</dd>
+                    </>
+                  ) : null}
+                  {selectedPerson.notes?.trim() ? (
+                    <>
+                      <dt>Napomene</dt>
+                      <dd className="public-pretraga-modal-notes">{selectedPerson.notes}</dd>
+                    </>
+                  ) : null}
+                </dl>
+              </div>
+            ) : null}
+
+            {modalView === "activities" ? (
+              <div className="public-pretraga-modal-body">
+                <button type="button" className="public-pretraga-modal-back" onClick={backToMenu}>
+                  ← Nazad
+                </button>
+                <h3 className="public-pretraga-modal-section-title">Aktivnosti</h3>
+                {activitiesLoading ? <p className="public-muted">Učitavanje aktivnosti…</p> : null}
+                {!activitiesLoading && activities.length === 0 ? (
+                  <p className="public-muted">Nema unetih aktivnosti.</p>
+                ) : null}
+                {!activitiesLoading && activities.length > 0 ? (
+                  <div className="public-pretraga-modal-activities">
+                    {activities.map((a) => (
+                      <div key={a.id} className="public-pretraga-activity">
+                        <div className="public-pretraga-activity-title">
+                          {a.naslov}
+                          {a.datum ? <span className="public-pretraga-activity-date">{a.datum}</span> : null}
+                        </div>
+                        {a.opis?.trim() ? <p className="public-pretraga-activity-opis">{a.opis}</p> : null}
+                        {a.veb_link?.trim() ? (
+                          <a
+                            href={a.veb_link.startsWith("http") ? a.veb_link : `https://${a.veb_link}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="public-pretraga-activity-link"
+                          >
+                            {a.veb_link}
+                          </a>
+                        ) : null}
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
       ) : null}
