@@ -483,9 +483,15 @@ th {
   border: 1px solid #dbe4f0;
   border-radius: 10px;
   background: #f8fafc;
-  overflow: hidden;
+  overflow: visible;
   cursor: grab;
   position: relative;
+}
+
+/* Drži svg u zaobljenom okviru; kartica člana može da viri ispod (overflow vidljiv) */
+.tree-canvas-inner {
+  overflow: hidden;
+  border-radius: 9px;
 }
 
 .tree-canvas:active {
@@ -505,7 +511,32 @@ th {
   border-radius: 10px;
   background: #ffffff;
   box-shadow: 0 12px 26px rgba(15, 23, 42, 0.18);
-  z-index: 5;
+  z-index: 20;
+}
+
+/* Puna kartica Detalji: ne seći sadržaj — skrol unutar tela */
+.member-popover.member-popover--details {
+  display: flex;
+  flex-direction: column;
+  max-height: min(88vh, 560px);
+  overflow: hidden;
+}
+
+.member-popover--details .member-popover-head {
+  flex-shrink: 0;
+}
+
+.member-popover-details-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.member-popover--details .member-popover-multiline,
+.member-popover--details .member-popover-multiline--karijera {
+  max-height: none;
 }
 
 .member-popover-head {
@@ -765,11 +796,19 @@ th {
 
   .member-popover {
     width: min(252px, calc(100vw - 1.25rem));
+    border-radius: 8px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  }
+
+  .member-popover.member-popover--details {
+    max-height: min(86vh, calc(100dvh - 1.5rem));
+    overflow: hidden;
+  }
+
+  .member-popover:not(.member-popover--details):not(.member-popover--kontakt-choice) {
     max-height: min(72vh, 420px);
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
-    border-radius: 8px;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
   }
 
   .member-popover-head {
@@ -825,8 +864,8 @@ th {
     border-radius: 6px;
   }
 
-  .member-popover-multiline--karijera {
-    max-height: 6.5rem;
+  .member-popover--details .member-popover-multiline--karijera {
+    max-height: none;
   }
 }
 

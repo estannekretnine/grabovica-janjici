@@ -632,6 +632,7 @@ export function TreesPage() {
               onMouseUp={onCanvasMouseUp}
               onMouseLeave={onCanvasMouseUp}
             >
+              <div className="tree-canvas-inner">
               <svg width="100%" height="560" viewBox="0 0 1400 560">
                 <g transform={`translate(${offset.x},${offset.y}) scale(${zoom})`}>
                   {positionedGraph.edges.map((edge, idx) => {
@@ -742,10 +743,11 @@ export function TreesPage() {
                   ))}
                 </g>
               </svg>
+              </div>
 
               {selectedMember && memberPanelPos ? (
                 <aside
-                  className={`member-popover${memberPanelMode === "kontakt-menu" ? " member-popover--kontakt-choice" : ""}`}
+                  className={`member-popover${memberPanelMode === "kontakt-menu" ? " member-popover--kontakt-choice" : ""}${memberPanelMode === "details" ? " member-popover--details" : ""}`}
                   style={{ left: memberPanelPos.x, top: memberPanelPos.y }}
                 >
                   <div className="member-popover-head">
@@ -835,7 +837,7 @@ export function TreesPage() {
                     </div>
                   ) : null}
                   {memberPanelMode === "details" ? (
-                    <>
+                    <div className="member-popover-details-body">
                       {(() => {
                         const photoPath = getDefaultPhotoPath(selectedMember.photo_storage_path);
                         const photoUrl = toPublicPhotoUrl(photoPath);
@@ -871,7 +873,7 @@ export function TreesPage() {
                         person={selectedMember}
                         onKontaktTitleClick={() => setMemberPanelMode("kontakt-menu")}
                       />
-                    </>
+                    </div>
                   ) : null}
                 </aside>
               ) : null}
