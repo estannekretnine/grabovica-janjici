@@ -5,6 +5,7 @@ import type { Database } from "../types/database";
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
 type PcRow = Database["audit"]["Tables"]["gr_parent_child"]["Row"];
+type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
   const full = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
@@ -18,6 +19,7 @@ export function TreesPage() {
   const [selectedTreeId, setSelectedTreeId] = useState("");
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
+  const [partnerships, setPartnerships] = useState<PartRow[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -39,6 +41,7 @@ export function TreesPage() {
     if (!treeId) {
       setPersons([]);
       setRelations([]);
+      setPartnerships([]);
       return;
     }
     const { data: people, error: pErr } = await audit!
@@ -68,6 +71,17 @@ export function TreesPage() {
       return;
     }
     setRelations(rel ?? []);
+
+    const { data: parts, error: paErr } = await audit!
+      .from("gr_partnerships")
+      .select("*")
+      .in("person_a_id", ids)
+      .in("person_b_id", ids);
+    if (paErr) {
+      setError(paErr.message);
+      return;
+    }
+    setPartnerships(parts ?? []);
   }, []);
 
   useEffect(() => {
@@ -101,15 +115,37 @@ export function TreesPage() {
     return rootNodes.length ? rootNodes : persons;
   }, [persons, relations]);
 
+  const partnersByPerson = useMemo(() => {
+    const m = new Map<string, Set<string>>();
+    for (const rel of partnerships) {
+      if (!m.has(rel.person_a_id)) m.set(rel.person_a_id, new Set<string>());
+      if (!m.has(rel.person_b_id)) m.set(rel.person_b_id, new Set<string>());
+      m.get(rel.person_a_id)!.add(rel.person_b_id);
+      m.get(rel.person_b_id)!.add(rel.person_a_id);
+    }
+    return m;
+  }, [partnerships]);
+
   function renderNode(id: string, visited: Set<string>) {
     const p = personsById.get(id);
     if (!p) return null;
     const children = childByParent.get(id) ?? [];
+    const partners = Array.from(partnersByPerson.get(id) ?? [])
+      .map((pid) => personsById.get(pid))
+      .filter((x): x is PersonRow => Boolean(x))
+      .map((x) => personLabel(x));
     const nextVisited = new Set(visited);
     nextVisited.add(id);
     return (
       <li key={id}>
-        <span>{personLabel(p)}</span>
+        <span>
+          {personLabel(p)}
+          {partners.length ? (
+            <em style={{ marginLeft: "0.45rem", color: "#334155" }}>
+              + partner: {partners.join(", ")}
+            </em>
+          ) : null}
+        </span>
         {children.length ? (
           <ul style={{ marginTop: "0.35rem" }}>
             {children
