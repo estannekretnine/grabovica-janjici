@@ -4,6 +4,7 @@ import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
 import type { Database } from "../types/database";
 
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
+type PartnershipRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
 type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
@@ -29,6 +30,7 @@ function genderLabel(g: string | null): string {
 
 export function PublicPretraga() {
   const [persons, setPersons] = useState<PersonRow[]>([]);
+  const [partnerships, setPartnerships] = useState<PartnershipRow[]>([]);
   const [drzave, setDrzave] = useState<DrzavaRow[]>([]);
   const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
   const [lokacije, setLokacije] = useState<LokacijaRow[]>([]);
@@ -64,13 +66,17 @@ export function PublicPretraga() {
     setLoading(true);
     setError(null);
 
-    const [pRes, dRes, oRes, lRes] = await Promise.all([
+    const [pRes, partRes, dRes, oRes, lRes] = await Promise.all([
       audit
         .from("gr_persons")
         .select("*")
         .eq("tree_id", PUBLIC_FAMILY_TREE_ID)
         .order("last_name")
         .order("first_name"),
+      audit
+        .from("gr_partnerships")
+        .select("*")
+        .eq("tree_id", PUBLIC_FAMILY_TREE_ID),
       supabase.from("drzava").select("*").order("opis"),
       supabase.from("opstina").select("*").order("opis"),
       supabase.from("lokacija").select("*").order("opis"),
@@ -81,6 +87,7 @@ export function PublicPretraga() {
     } else {
       setPersons(pRes.data ?? []);
     }
+    setPartnerships(partRes.data ?? []);
     setDrzave(dRes.data ?? []);
     setOpstine(oRes.data ?? []);
     setLokacije(lRes.data ?? []);
@@ -90,6 +97,24 @@ export function PublicPretraga() {
   useEffect(() => {
     void loadData();
   }, [loadData]);
+
+  const personsById = useMemo(() => {
+    const m = new Map<string, PersonRow>();
+    for (const p of persons) m.set(p.id, p);
+    return m;
+  }, [persons]);
+
+  const getPartner = useCallback(
+    (personId: string): PersonRow | null => {
+      const rel = partnerships.find(
+        (r) => r.person_a_id === personId || r.person_b_id === personId
+      );
+      if (!rel) return null;
+      const partnerId = rel.person_a_id === personId ? rel.person_b_id : rel.person_a_id;
+      return personsById.get(partnerId) ?? null;
+    },
+    [partnerships, personsById]
+  );
 
   const drzavaById = useMemo(() => {
     const m = new Map<number, string>();
@@ -399,6 +424,7 @@ export function PublicPretraga() {
                   const lokLabel = getLokacijaLabel(p);
                   const statusZiv =
                     p.is_living === true ? "Živ" : p.is_living === false ? "Preminuo" : null;
+                  const partner = getPartner(p.id);
                   return (
                     <button
                       key={p.id}
@@ -407,6 +433,11 @@ export function PublicPretraga() {
                       onClick={() => openPersonModal(p)}
                     >
                       <div className="public-pretraga-card-name">{personLabel(p)}</div>
+                      {partner ? (
+                        <div className="public-pretraga-card-partner">
+                          <em>Partner/ka: {personLabel(partner)}</em>
+                        </div>
+                      ) : null}
                       <div className="public-pretraga-card-meta">
                         {genderLabel(p.gender) !== "—" ? (
                           <span className="public-pretraga-card-gender">{genderLabel(p.gender)}</span>
