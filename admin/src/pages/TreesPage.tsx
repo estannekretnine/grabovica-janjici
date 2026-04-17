@@ -6,6 +6,9 @@ type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
 type PcRow = Database["audit"]["Tables"]["gr_parent_child"]["Row"];
 type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
+type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
+
+type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
   const full = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
@@ -89,13 +92,38 @@ function toPublicPhotoUrl(path: string | null): string | null {
   return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
-function MemberKontaktBlock({ person }: { person: PersonRow }) {
+function activityWebHref(url: string | null | undefined): string | null {
+  const t = url?.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+function activityThumbUrl(path: string | null | undefined): string | null {
+  if (!supabase || !path?.trim()) return null;
+  const normalized = path.trim().replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
+}
+
+function MemberKontaktBlock({
+  person,
+  onKontaktTitleClick,
+}: {
+  person: PersonRow;
+  onKontaktTitleClick?: () => void;
+}) {
   const email = person.email?.trim() ?? "";
   const mob1 = person.mob1?.trim() ?? "";
   const mob2 = person.mob2?.trim() ?? "";
   return (
     <div className="member-popover-kontakt">
-      <div className="member-popover-kontakt-title">Kontakt</div>
+      {onKontaktTitleClick ? (
+        <button type="button" className="member-popover-kontakt-title-btn" onClick={onKontaktTitleClick}>
+          Kontakt
+        </button>
+      ) : (
+        <div className="member-popover-kontakt-title">Kontakt</div>
+      )}
       <div className="member-popover-grid">
         <span>Email</span>
         <span className="member-popover-value">
@@ -142,6 +170,9 @@ export function TreesPage() {
   const [partnerships, setPartnerships] = useState<PartRow[]>([]);
   const [selectedMember, setSelectedMember] = useState<PersonRow | null>(null);
   const [memberPanelPos, setMemberPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [memberPanelMode, setMemberPanelMode] = useState<MemberPanelMode>("details");
+  const [activitiesList, setActivitiesList] = useState<ActivityRow[]>([]);
+  const [activitiesErr, setActivitiesErr] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 90, y: 70 });
   const [error, setError] = useState<string | null>(null);
@@ -397,7 +428,19 @@ export function TreesPage() {
     dragRef.current.active = false;
   }
 
-  function openMemberCardAtNode(node: { sx: number; sy: number }, personId: string) {
+  function closeMemberPanel() {
+    setSelectedMember(null);
+    setMemberPanelPos(null);
+    setMemberPanelMode("details");
+    setActivitiesList([]);
+    setActivitiesErr(null);
+  }
+
+  function openMemberPanelAtNode(
+    node: { sx: number; sy: number },
+    personId: string,
+    mode: MemberPanelMode = "details"
+  ) {
     const person = personsById.get(personId);
     if (!person) return;
     const wrap = canvasRef.current;
@@ -417,7 +460,31 @@ export function TreesPage() {
         y: Math.max(margin, Math.min(maxY, panelY)),
       });
     }
+    setMemberPanelMode(mode);
     setSelectedMember(person);
+    if (mode !== "activities") {
+      setActivitiesList([]);
+      setActivitiesErr(null);
+    }
+  }
+
+  async function loadActivitiesForPerson(personId: string) {
+    if (!audit) return;
+    setActivitiesErr(null);
+    setActivitiesList([]);
+    const { data, error: qErr } = await audit
+      .from("gr_aktivnosti")
+      .select("*")
+      .eq("person_id", personId)
+      .order("redosled", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (qErr) setActivitiesErr(qErr.message);
+    else setActivitiesList(data ?? []);
+  }
+
+  async function openActivitiesView(personId: string) {
+    setMemberPanelMode("activities");
+    await loadActivitiesForPerson(personId);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -538,8 +605,7 @@ export function TreesPage() {
                 onClick={() => {
                   setZoom(1);
                   setOffset({ x: 90, y: 70 });
-                  setSelectedMember(null);
-                  setMemberPanelPos(null);
+                  closeMemberPanel();
                 }}
               >
                 Reset prikaza
@@ -582,7 +648,7 @@ export function TreesPage() {
                       className="tree-node"
                       onClick={(e) => {
                         e.stopPropagation();
-                        openMemberCardAtNode(node, node.id);
+                        openMemberPanelAtNode(node, node.id, "kontakt-menu");
                       }}
                     >
                       <circle r="24" fill="#1d4ed8" />
@@ -605,7 +671,7 @@ export function TreesPage() {
                               style={{ cursor: "pointer" }}
                               onClick={(e) => {
                                 e.stopPropagation();
-                                openMemberCardAtNode(node, first.id);
+                                openMemberPanelAtNode(node, first.id, "details");
                               }}
                             >
                               {first.label}
@@ -620,7 +686,7 @@ export function TreesPage() {
                                   textDecoration="underline"
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    openMemberCardAtNode(node, second.id);
+                                    openMemberPanelAtNode(node, second.id, "details");
                                   }}
                                 >
                                   {second.label}
@@ -637,13 +703,28 @@ export function TreesPage() {
                                 style={{ cursor: "pointer" }}
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  openMemberCardAtNode(node, first.id);
+                                  openMemberPanelAtNode(node, first.id, "details");
                                 }}
                               >
                                 <title>{first.person.karijera?.trim() ?? ""}</title>
                                 {kSnip}
                               </text>
                             ) : null}
+                            <text
+                              y={second ? (kSnip ? 94 : 78) : kSnip ? 76 : 58}
+                              textAnchor="middle"
+                              fill="#2563eb"
+                              fontSize="10"
+                              fontWeight="600"
+                              textDecoration="underline"
+                              style={{ cursor: "pointer" }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                              }}
+                            >
+                              Kontakt
+                            </text>
                           </>
                         );
                       })()}
@@ -659,45 +740,127 @@ export function TreesPage() {
                 >
                   <div className="member-popover-head">
                     <strong>{personLabel(selectedMember)}</strong>
-                    <button
-                      type="button"
-                      className="member-popover-close"
-                      onClick={() => {
-                        setSelectedMember(null);
-                        setMemberPanelPos(null);
-                      }}
-                    >
+                    <button type="button" className="member-popover-close" onClick={closeMemberPanel}>
                       x
                     </button>
                   </div>
-                  {(() => {
-                    const photoPath = getDefaultPhotoPath(selectedMember.photo_storage_path);
-                    const photoUrl = toPublicPhotoUrl(photoPath);
-                    return photoUrl ? (
-                      <div className="member-photo-wrap">
-                        <img className="member-photo" src={photoUrl} alt={personLabel(selectedMember)} />
+                  {memberPanelMode === "kontakt-menu" ? (
+                    <div className="member-popover-kontakt-menu">
+                      <p className="muted" style={{ margin: "0.5rem 0.65rem", fontSize: "0.85rem" }}>
+                        Izaberite prikaz:
+                      </p>
+                      <div className="member-popover-kontakt-menu-actions">
+                        <button
+                          type="button"
+                          className="primary"
+                          onClick={() => void openActivitiesView(selectedMember.id)}
+                        >
+                          Aktivnosti
+                        </button>
+                        <button type="button" onClick={() => setMemberPanelMode("details")}>
+                          Detalji
+                        </button>
                       </div>
-                    ) : null;
-                  })()}
-                  <div className="member-popover-grid">
-                    <span>Pol</span>
-                    <span>{selectedMember.gender ?? "—"}</span>
-                    <span>Rođen/a</span>
-                    <span>{selectedMember.birth_date ?? "—"}</span>
-                    <span>Živ/živa</span>
-                    <span>
-                      {selectedMember.is_living == null ? "—" : selectedMember.is_living ? "da" : "ne"}
-                    </span>
-                    <span>Napomene</span>
-                    <span className="member-popover-multiline">
-                      {selectedMember.notes?.trim() ? selectedMember.notes : "—"}
-                    </span>
-                    <span>Karijera</span>
-                    <span className="member-popover-multiline member-popover-multiline--karijera">
-                      {selectedMember.karijera?.trim() ? selectedMember.karijera : "—"}
-                    </span>
-                  </div>
-                  <MemberKontaktBlock person={selectedMember} />
+                    </div>
+                  ) : null}
+                  {memberPanelMode === "activities" ? (
+                    <div className="member-popover-activities">
+                      <button
+                        type="button"
+                        className="member-popover-back"
+                        onClick={() => {
+                          setMemberPanelMode("kontakt-menu");
+                          setActivitiesList([]);
+                          setActivitiesErr(null);
+                        }}
+                      >
+                        ← Nazad
+                      </button>
+                      <h4 className="member-popover-activities-heading">Aktivnosti</h4>
+                      {activitiesErr ? <p className="error">{activitiesErr}</p> : null}
+                      <div className="member-popover-activities-scroll">
+                        {activitiesList.length ? (
+                          activitiesList.map((a) => {
+                            const href = activityWebHref(a.veb_link);
+                            const thumb = activityThumbUrl(a.foto_storage_path);
+                            return (
+                              <div key={a.id} className="member-tree-activity-card">
+                                <div className="member-tree-activity-head">
+                                  <strong>{a.naslov}</strong>
+                                  {a.datum ? (
+                                    <span className="muted" style={{ marginLeft: "0.35rem" }}>
+                                      {a.datum}
+                                    </span>
+                                  ) : null}
+                                </div>
+                                {thumb ? (
+                                  <img className="member-tree-activity-thumb" src={thumb} alt="" />
+                                ) : null}
+                                {a.opis?.trim() ? (
+                                  <p className="member-tree-activity-opis">{a.opis}</p>
+                                ) : null}
+                                {href ? (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="member-popover-link"
+                                  >
+                                    {a.veb_link?.trim() || href}
+                                  </a>
+                                ) : null}
+                              </div>
+                            );
+                          })
+                        ) : (
+                          !activitiesErr && (
+                            <p className="muted" style={{ margin: "0.5rem 0.65rem" }}>
+                              Nema unetih aktivnosti.
+                            </p>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                  {memberPanelMode === "details" ? (
+                    <>
+                      {(() => {
+                        const photoPath = getDefaultPhotoPath(selectedMember.photo_storage_path);
+                        const photoUrl = toPublicPhotoUrl(photoPath);
+                        return photoUrl ? (
+                          <div className="member-photo-wrap">
+                            <img className="member-photo" src={photoUrl} alt={personLabel(selectedMember)} />
+                          </div>
+                        ) : null;
+                      })()}
+                      <div className="member-popover-grid">
+                        <span>Pol</span>
+                        <span>{selectedMember.gender ?? "—"}</span>
+                        <span>Rođen/a</span>
+                        <span>{selectedMember.birth_date ?? "—"}</span>
+                        <span>Živ/živa</span>
+                        <span>
+                          {selectedMember.is_living == null
+                            ? "—"
+                            : selectedMember.is_living
+                              ? "da"
+                              : "ne"}
+                        </span>
+                        <span>Napomene</span>
+                        <span className="member-popover-multiline">
+                          {selectedMember.notes?.trim() ? selectedMember.notes : "—"}
+                        </span>
+                        <span>Karijera</span>
+                        <span className="member-popover-multiline member-popover-multiline--karijera">
+                          {selectedMember.karijera?.trim() ? selectedMember.karijera : "—"}
+                        </span>
+                      </div>
+                      <MemberKontaktBlock
+                        person={selectedMember}
+                        onKontaktTitleClick={() => setMemberPanelMode("kontakt-menu")}
+                      />
+                    </>
+                  ) : null}
                 </aside>
               ) : null}
             </div>
