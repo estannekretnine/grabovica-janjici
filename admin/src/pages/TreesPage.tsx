@@ -12,6 +12,18 @@ function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
   return full || "(bez imena)";
 }
 
+function normalizeSurname(v: string | null | undefined) {
+  return (v ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isJanjicSurname(v: string | null | undefined) {
+  return normalizeSurname(v) === "janjic";
+}
+
 export function TreesPage() {
   const [rows, setRows] = useState<TreeRow[]>([]);
   const [name, setName] = useState("");
@@ -140,10 +152,23 @@ export function TreesPage() {
    */
   const hiddenPartnerOnlyIds = useMemo(() => {
     const hidden = new Set<string>();
+    const processedPairs = new Set<string>();
     for (const [id, partners] of partnersByPerson.entries()) {
       if (!partners.size) continue;
       const hasOwnGenealogy = parentIds.has(id) || childIds.has(id);
-      if (!hasOwnGenealogy) hidden.add(id);
+      if (hasOwnGenealogy) continue;
+      for (const pid of partners) {
+        const pairKey = [id, pid].sort().join("|");
+        if (processedPairs.has(pairKey)) continue;
+        processedPairs.add(pairKey);
+
+        const partnerHasOwnGenealogy = parentIds.has(pid) || childIds.has(pid);
+        if (partnerHasOwnGenealogy) continue;
+
+        // Obe osobe su "partner-only": sakrij samo jednu da par ostane vidljiv.
+        const hide = id < pid ? pid : id;
+        hidden.add(hide);
+      }
     }
     return hidden;
   }, [partnersByPerson, parentIds, childIds]);
@@ -171,7 +196,14 @@ export function TreesPage() {
   const treeGraph = useMemo(() => {
     const nodes = new Map<
       string,
-      { id: string; person: PersonRow; x: number; y: number; depth: number; partners: string[] }
+      {
+        id: string;
+        person: PersonRow;
+        x: number;
+        y: number;
+        depth: number;
+        partners: Array<{ id: string; person: PersonRow; label: string }>;
+      }
     >();
     const edges: Array<{ from: string; to: string }> = [];
     let leafCursor = 0;
@@ -190,7 +222,7 @@ export function TreesPage() {
       const partners = Array.from(partnersByPerson.get(id) ?? [])
         .map((pid) => personsById.get(pid))
         .filter((x): x is PersonRow => Boolean(x))
-        .map((x) => personLabel(x));
+        .map((x) => ({ id: x.id, person: x, label: personLabel(x) }));
 
       nodes.set(id, { id, person: p, x, y: depth, depth, partners });
       for (const cid of children) edges.push({ from: id, to: cid });
@@ -235,6 +267,23 @@ export function TreesPage() {
 
   function onCanvasMouseUp() {
     dragRef.current.active = false;
+  }
+
+  function openMemberCardAtNode(node: { sx: number; sy: number }, personId: string) {
+    const person = personsById.get(personId);
+    if (!person) return;
+    const wrap = canvasRef.current;
+    if (wrap) {
+      const panelX = offset.x + node.sx * zoom + 34;
+      const panelY = offset.y + node.sy * zoom - 12;
+      const maxX = Math.max(12, wrap.clientWidth - 320);
+      const maxY = Math.max(12, wrap.clientHeight - 220);
+      setMemberPanelPos({
+        x: Math.max(12, Math.min(maxX, panelX)),
+        y: Math.max(12, Math.min(maxY, panelY)),
+      });
+    }
+    setSelectedMember(person);
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -399,32 +448,69 @@ export function TreesPage() {
                       className="tree-node"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const wrap = canvasRef.current;
-                        if (wrap) {
-                          const panelX = offset.x + node.sx * zoom + 34;
-                          const panelY = offset.y + node.sy * zoom - 12;
-                          const maxX = Math.max(12, wrap.clientWidth - 320);
-                          const maxY = Math.max(12, wrap.clientHeight - 220);
-                          setMemberPanelPos({
-                            x: Math.max(12, Math.min(maxX, panelX)),
-                            y: Math.max(12, Math.min(maxY, panelY)),
-                          });
-                        }
-                        setSelectedMember(node.person);
+                        openMemberCardAtNode(node, node.id);
                       }}
                     >
                       <circle r="24" fill="#1d4ed8" />
                       <text y="5" textAnchor="middle" fill="#fff" fontSize="11">
                         {node.person.first_name?.slice(0, 1) || "?"}
                       </text>
-                      <text y="44" textAnchor="middle" fill="#0f172a" fontSize="12" fontWeight="600">
+                      {(() => {
+                        const malePrimary = node.person.gender === "male";
+                        const malePartner = node.partners.find((p) => p.person.gender === "male");
+                        const refMale = malePrimary
+                          ? { isPrimary: true, isJanjic: isJanjicSurname(node.person.last_name) }
+                          : malePartner
+                            ? { isPrimary: false, isJanjic: isJanjicSurname(malePartner.person.last_name) }
+                            : null;
+                        const primaryBold = refMale
+                          ? (refMale.isPrimary ? refMale.isJanjic : !refMale.isJanjic)
+                          : false;
+                        const primaryItalic = refMale
+                          ? (refMale.isPrimary ? !refMale.isJanjic : refMale.isJanjic)
+                          : false;
+                        const partnerBold = refMale
+                          ? (refMale.isPrimary ? !refMale.isJanjic : refMale.isJanjic)
+                          : false;
+                        const partnerItalic = refMale
+                          ? (refMale.isPrimary ? refMale.isJanjic : !refMale.isJanjic)
+                          : false;
+
+                        return (
+                          <>
+                            <text
+                              y="44"
+                              textAnchor="middle"
+                              fill="#0f172a"
+                              fontSize="12"
+                              fontWeight={primaryBold ? "700" : "500"}
+                              fontStyle={primaryItalic ? "italic" : "normal"}
+                            >
                         {personLabel(node.person)}
-                      </text>
-                      {node.partners.length ? (
-                        <text y="60" textAnchor="middle" fill="#475569" fontSize="11">
-                          + {node.partners.join(", ")}
-                        </text>
-                      ) : null}
+                            </text>
+                            {node.partners.length ? (
+                              <text y="60" textAnchor="middle" fill="#475569" fontSize="11">
+                                <tspan>+ </tspan>
+                                {node.partners.map((p, idx) => (
+                                  <tspan
+                                    key={p.id}
+                                    style={{ cursor: "pointer" }}
+                                    fontWeight={partnerBold ? "700" : "500"}
+                                    fontStyle={partnerItalic ? "italic" : "normal"}
+                                    textDecoration="underline"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      openMemberCardAtNode(node, p.id);
+                                    }}
+                                  >
+                                    {idx > 0 ? `, ${p.label}` : p.label}
+                                  </tspan>
+                                ))}
+                              </text>
+                            ) : null}
+                          </>
+                        );
+                      })()}
                     </g>
                   ))}
                 </g>
