@@ -661,32 +661,41 @@ export function PersonsPage() {
         <table>
           <thead>
             <tr>
+              <th>ID</th>
               <th>Ime i prezime</th>
+              <th>Default foto</th>
               <th>Pol</th>
               <th>Rođen/a</th>
               <th>Živ/živa</th>
+              <th>Kreirano</th>
               <th></th>
             </tr>
           </thead>
           <tbody>
-            {filteredPersons.map((p) => (
-              <tr key={p.id}>
-                <td>{personLabel(p)}</td>
-                <td>{p.gender ?? "—"}</td>
-                <td>{p.birth_date ?? "—"}</td>
-                <td>
-                  {p.is_living === null ? "—" : p.is_living ? "da" : "ne"}
-                </td>
-                <td>
-                  <button type="button" onClick={() => startEdit(p)}>
-                    Izmeni
-                  </button>{" "}
-                  <button type="button" className="danger" onClick={() => void handleDelete(p.id)}>
-                    Obriši
-                  </button>
-                </td>
-              </tr>
-            ))}
+            {filteredPersons.map((p) => {
+              const parsedPhotos = parsePhotoItems(p.photo_storage_path);
+              const defaultPhotoPath =
+                parsedPhotos.items[parsedPhotos.defaultIndex]?.storagePath ?? "—";
+              return (
+                <tr key={p.id}>
+                  <td>{p.id}</td>
+                  <td>{personLabel(p)}</td>
+                  <td>{defaultPhotoPath}</td>
+                  <td>{p.gender ?? "—"}</td>
+                  <td>{p.birth_date ?? "—"}</td>
+                  <td>{p.is_living === null ? "—" : p.is_living ? "da" : "ne"}</td>
+                  <td>{p.created_at ? new Date(p.created_at).toLocaleString("sr-Latn-ME") : "—"}</td>
+                  <td>
+                    <button type="button" onClick={() => startEdit(p)}>
+                      Izmeni
+                    </button>{" "}
+                    <button type="button" className="danger" onClick={() => void handleDelete(p.id)}>
+                      Obriši
+                    </button>
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
