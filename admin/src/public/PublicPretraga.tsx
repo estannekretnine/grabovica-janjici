@@ -73,10 +73,7 @@ export function PublicPretraga() {
         .eq("tree_id", PUBLIC_FAMILY_TREE_ID)
         .order("last_name")
         .order("first_name"),
-      audit
-        .from("gr_partnerships")
-        .select("*")
-        .eq("tree_id", PUBLIC_FAMILY_TREE_ID),
+      audit.from("gr_partnerships").select("*"),
       supabase.from("drzava").select("*").order("opis"),
       supabase.from("opstina").select("*").order("opis"),
       supabase.from("lokacija").select("*").order("opis"),
