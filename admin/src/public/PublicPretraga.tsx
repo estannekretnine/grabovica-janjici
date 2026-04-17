@@ -174,15 +174,15 @@ export function PublicPretraga() {
     const f = appliedFilters;
 
     if (f.drzava !== "") {
-      list = list.filter((p) => p.drzavaid === f.drzava || p.drzavaidrodio === f.drzava);
+      list = list.filter((p) => p.drzavaid === f.drzava);
     }
 
     if (f.opstina !== "") {
-      list = list.filter((p) => p.opstinaid === f.opstina || p.opstinaidrodio === f.opstina);
+      list = list.filter((p) => p.opstinaid === f.opstina);
     }
 
     if (f.lokacija !== "") {
-      list = list.filter((p) => p.lokacijaid === f.lokacija || p.lokacijaidrodio === f.lokacija);
+      list = list.filter((p) => p.lokacijaid === f.lokacija);
     }
 
     if (f.status === "ziv") {
