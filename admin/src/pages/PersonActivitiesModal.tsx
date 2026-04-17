@@ -271,12 +271,13 @@ export function PersonActivitiesModal({ open, onClose, personId, personName, tre
                 />
               </label>
             </div>
-            <label>
+            <label className="person-activities-opis-label">
               Opis
               <textarea
+                className="person-activities-opis"
                 value={form.opis}
                 onChange={(e) => setForm((f) => ({ ...f, opis: e.target.value }))}
-                rows={4}
+                rows={16}
               />
             </label>
             <div className="row">
