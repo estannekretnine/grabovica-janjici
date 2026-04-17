@@ -129,30 +129,20 @@ export function TreesPage() {
     return m;
   }, [partnerships]);
 
-  const hiddenPartnerIds = useMemo(() => {
-    const hidden = new Set<string>();
-    for (const rel of partnerships) {
-      if (!personsById.has(rel.person_a_id) || !personsById.has(rel.person_b_id)) continue;
-      const hide = rel.person_a_id < rel.person_b_id ? rel.person_b_id : rel.person_a_id;
-      hidden.add(hide);
-    }
-    return hidden;
-  }, [partnerships, personsById]);
-
   const roots = useMemo(() => {
     if (!persons.length) return [];
     const childIds = new Set(relations.map((r) => r.child_person_id));
-    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerIds.has(p.id));
+    const rootNodes = persons.filter((p) => !childIds.has(p.id));
     if (rootNodes.length) return rootNodes;
-    return persons.filter((p) => !hiddenPartnerIds.has(p.id));
-  }, [persons, relations, hiddenPartnerIds]);
+    return persons;
+  }, [persons, relations]);
 
   function childrenFor(id: string) {
     const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
     const childrenSet = new Set<string>();
     for (const pid of [id, ...partnerIds]) {
       for (const c of childByParent.get(pid) ?? []) {
-        if (!hiddenPartnerIds.has(c)) childrenSet.add(c);
+        childrenSet.add(c);
       }
     }
     return Array.from(childrenSet);
@@ -168,7 +158,7 @@ export function TreesPage() {
 
     function place(id: string, depth: number, stack: Set<string>): number {
       const p = personsById.get(id);
-      if (!p || hiddenPartnerIds.has(id) || stack.has(id)) return leafCursor++;
+      if (!p || stack.has(id)) return leafCursor++;
       if (nodes.has(id)) return nodes.get(id)!.x;
 
       const nextStack = new Set(stack);
@@ -188,7 +178,7 @@ export function TreesPage() {
 
     roots.forEach((r) => place(r.id, 0, new Set<string>()));
     return { nodes: Array.from(nodes.values()), edges };
-  }, [roots, personsById, hiddenPartnerIds, partnersByPerson, childByParent]);
+  }, [roots, personsById, partnersByPerson, childByParent]);
 
   const positionedGraph = useMemo(() => {
     const X_SPACING = 170;
