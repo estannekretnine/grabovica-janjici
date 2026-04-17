@@ -10,6 +10,7 @@ type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
+type PhotoItem = { id: string; storagePath: string; previewUrl: string | null };
 
 const emptyForm: PersonInsert = {
   tree_id: DEFAULT_TREE_ID,
@@ -38,6 +39,47 @@ function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
   return a || "(bez imena)";
 }
 
+function createPhotoId() {
+  return `p_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function parsePhotoItems(raw: string | null): { items: PhotoItem[]; defaultIndex: number } {
+  if (!raw?.trim()) return { items: [], defaultIndex: 0 };
+  try {
+    const parsed = JSON.parse(raw) as
+      | { defaultIndex?: number; items?: Array<{ path?: string }> }
+      | Array<string>;
+    if (Array.isArray(parsed)) {
+      const items = parsed
+        .map((p) => String(p ?? "").trim())
+        .filter(Boolean)
+        .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null }));
+      return { items, defaultIndex: 0 };
+    }
+    const items = (parsed.items ?? [])
+      .map((x) => String(x?.path ?? "").trim())
+      .filter(Boolean)
+      .map((path) => ({ id: createPhotoId(), storagePath: path, previewUrl: null }));
+    const d = parsed.defaultIndex ?? 0;
+    return { items, defaultIndex: d >= 0 && d < items.length ? d : 0 };
+  } catch {
+    return {
+      items: [{ id: createPhotoId(), storagePath: raw.trim(), previewUrl: null }],
+      defaultIndex: 0,
+    };
+  }
+}
+
+function serializePhotoItems(items: PhotoItem[], defaultIndex: number): string | null {
+  const cleaned = items.map((x) => x.storagePath.trim()).filter(Boolean);
+  if (!cleaned.length) return null;
+  if (cleaned.length === 1 && defaultIndex === 0) return cleaned[0];
+  return JSON.stringify({
+    defaultIndex: Math.max(0, Math.min(defaultIndex, cleaned.length - 1)),
+    items: cleaned.map((path) => ({ path })),
+  });
+}
+
 export function PersonsPage() {
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [drzave, setDrzave] = useState<DrzavaRow[]>([]);
@@ -45,8 +87,13 @@ export function PersonsPage() {
   const [lokacije, setLokacije] = useState<LokacijaRow[]>([]);
   const [treeId, setTreeId] = useState(DEFAULT_TREE_ID);
   const [persons, setPersons] = useState<PersonRow[]>([]);
+  const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
   const [form, setForm] = useState<PersonInsert>(emptyForm);
+  const [photoItems, setPhotoItems] = useState<PhotoItem[]>([]);
+  const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(0);
+  const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const loadTrees = useCallback(async () => {
@@ -129,9 +176,24 @@ export function PersonsPage() {
     [lokacije, form.opstinaid]
   );
 
+  const filteredPersons = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return persons;
+    return persons.filter((p) => {
+      const full = `${p.first_name ?? ""} ${p.middle_name ?? ""} ${p.last_name ?? ""} ${p.maiden_name ?? ""}`
+        .toLowerCase()
+        .replace(/\s+/g, " ")
+        .trim();
+      return full.includes(q);
+    });
+  }, [persons, search]);
+
   function startCreate() {
     setEditingId(null);
     setForm({ ...emptyForm, tree_id: treeId });
+    setPhotoItems([]);
+    setDefaultPhotoIndex(0);
+    setIsFormOpen(true);
   }
 
   function startEdit(p: PersonRow) {
@@ -157,12 +219,20 @@ export function PersonsPage() {
       opstinaidrodio: p.opstinaidrodio,
       lokacijaidrodio: p.lokacijaidrodio,
     });
+    const parsed = parsePhotoItems(p.photo_storage_path);
+    setPhotoItems(parsed.items);
+    setDefaultPhotoIndex(parsed.defaultIndex);
+    setIsFormOpen(true);
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    const payload = { ...form, tree_id: treeId };
+    const payload: PersonInsert = {
+      ...form,
+      tree_id: treeId,
+      photo_storage_path: serializePhotoItems(photoItems, defaultPhotoIndex),
+    };
 
     if (editingId) {
       const { error: upErr } = await audit!.from("gr_persons").update(payload).eq("id", editingId);
@@ -179,6 +249,9 @@ export function PersonsPage() {
     }
     setEditingId(null);
     setForm({ ...emptyForm, tree_id: treeId });
+    setPhotoItems([]);
+    setDefaultPhotoIndex(0);
+    setIsFormOpen(false);
     await loadPersons(treeId);
   }
 
@@ -192,6 +265,43 @@ export function PersonsPage() {
 
   function parseNullableId(v: string): number | null {
     return v ? Number(v) : null;
+  }
+
+  function addPhotoPath() {
+    setPhotoItems((prev) => {
+      if (prev.length >= 10) return prev;
+      return [...prev, { id: createPhotoId(), storagePath: "", previewUrl: null }];
+    });
+  }
+
+  function removePhotoAt(index: number) {
+    setPhotoItems((prev) => {
+      const item = prev[index];
+      if (item?.previewUrl) URL.revokeObjectURL(item.previewUrl);
+      const next = prev.filter((_, i) => i !== index);
+      setDefaultPhotoIndex((cur) => {
+        if (!next.length) return 0;
+        if (cur > index) return cur - 1;
+        if (cur >= next.length) return next.length - 1;
+        return cur;
+      });
+      return next;
+    });
+  }
+
+  function handlePhotoDrop(files: FileList | null) {
+    if (!files) return;
+    const images = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!images.length) return;
+    setPhotoItems((prev) => {
+      const slots = Math.max(0, 10 - prev.length);
+      const picked = images.slice(0, slots).map((f) => ({
+        id: createPhotoId(),
+        storagePath: `bucket/${f.name}`,
+        previewUrl: URL.createObjectURL(f),
+      }));
+      return [...prev, ...picked];
+    });
   }
 
   return (
@@ -210,14 +320,36 @@ export function PersonsPage() {
             ))}
           </select>
         </label>
+        <label style={{ flex: "1 1 16rem" }}>
+          Pretraga
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pretraži po imenu ili prezimenu…"
+          />
+        </label>
         <button type="button" className="primary" onClick={startCreate}>
           Nova osoba
         </button>
       </div>
 
-      <div className="card">
-          <h2 style={{ marginTop: 0 }}>{editingId ? "Izmena osobe" : "Nova osoba"}</h2>
+      {isFormOpen ? (
+        <div className="card person-form-card">
+          <div className="person-form-head">
+            <h2 style={{ marginTop: 0 }}>{editingId ? "Izmena osobe" : "Nova osoba"}</h2>
+            <button
+              type="button"
+              onClick={() => {
+                setIsFormOpen(false);
+                setEditingId(null);
+              }}
+            >
+              Zatvori
+            </button>
+          </div>
           <form className="stack" onSubmit={(e) => void handleSubmit(e)}>
+            <div className="person-form-section">
+              <h3>Osnovni podaci</h3>
             <div className="row">
               <label>
                 Ime
@@ -252,6 +384,9 @@ export function PersonsPage() {
                 />
               </label>
             </div>
+            </div>
+            <div className="person-form-section">
+              <h3>Mesta (relaciono)</h3>
             <div className="row">
               <label>
                 Pol
@@ -422,16 +557,74 @@ export function PersonsPage() {
                 </select>
               </label>
             </div>
-            <label>
-              Putanja fotografije (Storage)
-              <input
-                value={form.photo_storage_path ?? ""}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, photo_storage_path: e.target.value || null }))
-                }
-                placeholder="bucket/fajl.jpg"
-              />
-            </label>
+            </div>
+            <div className="person-form-section">
+              <h3>Fotografije</h3>
+              <div
+                className={`photo-dropzone${dragActive ? " active" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragActive(true);
+                }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setDragActive(false);
+                  handlePhotoDrop(e.dataTransfer.files);
+                }}
+              >
+                Prevuci fotografije ovde (maksimalno 10), ili koristi izbor fajlova.
+                <div style={{ marginTop: "0.5rem" }}>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    onChange={(e) => handlePhotoDrop(e.target.files)}
+                  />
+                </div>
+              </div>
+              <div className="row">
+                <button type="button" onClick={addPhotoPath} disabled={photoItems.length >= 10}>
+                  Dodaj putanju ručno
+                </button>
+                <span className="muted">Broj fotografija: {photoItems.length}/10</span>
+              </div>
+              {photoItems.length ? (
+                <div className="photo-list">
+                  {photoItems.map((item, idx) => (
+                    <div key={item.id} className="photo-row">
+                      <label className="photo-default-choice">
+                        <input
+                          type="radio"
+                          name="default-photo"
+                          checked={defaultPhotoIndex === idx}
+                          onChange={() => setDefaultPhotoIndex(idx)}
+                        />
+                        Podrazumevana
+                      </label>
+                      {item.previewUrl ? (
+                        <img className="photo-thumb" src={item.previewUrl} alt={`foto-${idx + 1}`} />
+                      ) : null}
+                      <input
+                        style={{ flex: 1 }}
+                        value={item.storagePath}
+                        onChange={(e) =>
+                          setPhotoItems((prev) =>
+                            prev.map((p, i) =>
+                              i === idx ? { ...p, storagePath: e.target.value } : p
+                            )
+                          )
+                        }
+                        placeholder="bucket/fajl.jpg"
+                      />
+                      <button type="button" className="danger" onClick={() => removePhotoAt(idx)}>
+                        Ukloni
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
             <label>
               Napomene
               <textarea
@@ -449,6 +642,8 @@ export function PersonsPage() {
                   onClick={() => {
                     setEditingId(null);
                     setForm({ ...emptyForm, tree_id: treeId });
+                    setPhotoItems([]);
+                    setDefaultPhotoIndex(0);
                   }}
                 >
                   Otkaži
@@ -457,11 +652,12 @@ export function PersonsPage() {
             </div>
           </form>
         </div>
+      ) : null}
 
       {error ? <p className="error">{error}</p> : null}
 
       <div className="card">
-        <h2 style={{ marginTop: 0 }}>Lista ({persons.length})</h2>
+        <h2 style={{ marginTop: 0 }}>Lista ({filteredPersons.length})</h2>
         <table>
           <thead>
             <tr>
@@ -473,7 +669,7 @@ export function PersonsPage() {
             </tr>
           </thead>
           <tbody>
-            {persons.map((p) => (
+            {filteredPersons.map((p) => (
               <tr key={p.id}>
                 <td>{personLabel(p)}</td>
                 <td>{p.gender ?? "—"}</td>
