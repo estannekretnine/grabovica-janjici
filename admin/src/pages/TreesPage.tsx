@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { audit } from "../lib/supabase";
+import { audit, supabase } from "../lib/supabase";
 import type { Database } from "../types/database";
 
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
@@ -22,6 +22,31 @@ function normalizeSurname(v: string | null | undefined) {
 
 function isJanjicSurname(v: string | null | undefined) {
   return normalizeSurname(v) === "janjic";
+}
+
+function getDefaultPhotoPath(raw: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed) as
+      | { defaultIndex?: number; items?: Array<{ path?: string }> }
+      | Array<string>;
+    if (Array.isArray(parsed)) return parsed[0] ? String(parsed[0]) : null;
+    const items = parsed.items ?? [];
+    if (!items.length) return null;
+    const idx = parsed.defaultIndex ?? 0;
+    const safe = idx >= 0 && idx < items.length ? idx : 0;
+    return items[safe]?.path ? String(items[safe].path) : null;
+  } catch {
+    return null;
+  }
+}
+
+function toPublicPhotoUrl(path: string | null): string | null {
+  if (!path || !supabase) return null;
+  const normalized = path.replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
 }
 
 export function TreesPage() {
@@ -560,6 +585,15 @@ export function TreesPage() {
                       x
                     </button>
                   </div>
+                  {(() => {
+                    const photoPath = getDefaultPhotoPath(selectedMember.photo_storage_path);
+                    const photoUrl = toPublicPhotoUrl(photoPath);
+                    return photoUrl ? (
+                      <div className="member-photo-wrap">
+                        <img className="member-photo" src={photoUrl} alt={personLabel(selectedMember)} />
+                      </div>
+                    ) : null;
+                  })()}
                   <div className="member-popover-grid">
                     <span>Pol</span>
                     <span>{selectedMember.gender ?? "—"}</span>
