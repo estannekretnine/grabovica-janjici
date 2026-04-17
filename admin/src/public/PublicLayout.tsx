@@ -23,6 +23,9 @@ function PublicLayoutInner() {
             <NavLink to="/stablo" className={navClass}>
               Stablo
             </NavLink>
+            <NavLink to="/pretraga" className={navClass}>
+              Pretraga
+            </NavLink>
             <NavLink to="/kontakt" className={navClass}>
               Kontakt forma
             </NavLink>

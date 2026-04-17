@@ -16,6 +16,7 @@ import { PublicShell } from "./public/PublicLayout";
 import { PublicHome } from "./public/PublicHome";
 import { PublicStablo } from "./public/PublicStablo";
 import { PublicKontakt } from "./public/PublicKontakt";
+import { PublicPretraga } from "./public/PublicPretraga";
 import {
   clearKorisnikFromStorage,
   readKorisnikFromStorage,
@@ -70,6 +71,7 @@ export default function App() {
       <Route path="/" element={<PublicShell />}>
         <Route index element={<PublicHome />} />
         <Route path="stablo" element={<PublicStablo />} />
+        <Route path="pretraga" element={<PublicPretraga />} />
         <Route path="kontakt" element={<PublicKontakt />} />
       </Route>
 

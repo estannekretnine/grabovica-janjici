@@ -708,3 +708,111 @@
   line-height: 1.6;
   color: var(--pub-muted);
 }
+
+/* Pretraga članova */
+.public-pretraga-page {
+  flex: 1;
+}
+
+.public-pretraga-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: flex-end;
+  margin-bottom: 1.5rem;
+  padding: 1.25rem;
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 12px;
+}
+
+.public-pretraga-label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--pub-muted);
+  min-width: 140px;
+}
+
+.public-pretraga-label--wide {
+  flex: 1;
+  min-width: 200px;
+}
+
+.public-pretraga-label select,
+.public-pretraga-label input {
+  font: inherit;
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid var(--pub-border);
+  background: var(--pub-input-bg);
+  color: var(--pub-text);
+}
+
+.public-pretraga-label select:focus,
+.public-pretraga-label input:focus {
+  outline: 2px solid rgba(212, 168, 83, 0.35);
+  border-color: var(--pub-gold);
+}
+
+.public-pretraga-reset {
+  padding: 0.55rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--pub-border);
+  background: var(--pub-surface2);
+  color: var(--pub-muted);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.public-pretraga-reset:hover {
+  color: var(--pub-text);
+  border-color: var(--pub-muted);
+}
+
+.public-pretraga-count {
+  margin: 0 0 1rem;
+}
+
+.public-pretraga-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 1rem;
+}
+
+.public-pretraga-card {
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-border);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.public-pretraga-card-name {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: var(--pub-text);
+}
+
+.public-pretraga-card-life {
+  font-size: 0.88rem;
+  color: var(--pub-muted);
+}
+
+.public-pretraga-card-loc {
+  font-size: 0.82rem;
+  color: var(--pub-gold);
+}
+
+.public-pretraga-card-karijera {
+  font-size: 0.82rem;
+  color: var(--pub-muted);
+  font-style: italic;
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
