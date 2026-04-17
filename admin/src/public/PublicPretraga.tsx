@@ -242,6 +242,15 @@ export function PublicPretraga() {
     return [lokNaziv, opNaziv, drzNaziv].filter(Boolean).join(", ");
   }
 
+  function getMestoRodjenjaLabel(p: PersonRow): string {
+    const lokNaziv = p.lokacijaidrodio ? lokacijaById.get(p.lokacijaidrodio) : null;
+    const opNaziv = p.opstinaidrodio ? opstinaById.get(p.opstinaidrodio) : null;
+    const drzNaziv = p.drzavaidrodio ? drzavaById.get(p.drzavaidrodio) : null;
+    const fromDb = [lokNaziv, opNaziv, drzNaziv].filter(Boolean).join(", ");
+    if (fromDb) return fromDb;
+    return p.birth_place ?? "";
+  }
+
   return (
     <div className="public-page public-pretraga-page">
       <section className="public-section">
@@ -405,12 +414,32 @@ export function PublicPretraga() {
             <div className="public-pretraga-modal-body">
               <h3 className="public-pretraga-modal-section-title">Detalji</h3>
               <dl className="public-pretraga-modal-dl">
+                {selectedPerson.middle_name?.trim() ? (
+                  <>
+                    <dt>Srednje ime</dt>
+                    <dd>{selectedPerson.middle_name}</dd>
+                  </>
+                ) : null}
+                {selectedPerson.maiden_name?.trim() ? (
+                  <>
+                    <dt>Devojačko prezime</dt>
+                    <dd>{selectedPerson.maiden_name}</dd>
+                  </>
+                ) : null}
                 <dt>Pol</dt>
                 <dd>{genderLabel(selectedPerson.gender)}</dd>
                 <dt>Datum rođenja</dt>
                 <dd>{selectedPerson.birth_date ?? "—"}</dd>
                 <dt>Mesto rođenja</dt>
-                <dd>{selectedPerson.birth_place ?? "—"}</dd>
+                <dd>{getMestoRodjenjaLabel(selectedPerson) || "—"}</dd>
+                <dt>Živ/a</dt>
+                <dd>
+                  {selectedPerson.is_living === true
+                    ? "Da"
+                    : selectedPerson.is_living === false
+                      ? "Ne"
+                      : "—"}
+                </dd>
                 {selectedPerson.death_date || selectedPerson.is_living === false ? (
                   <>
                     <dt>Datum smrti</dt>
