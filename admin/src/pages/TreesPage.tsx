@@ -108,13 +108,6 @@ export function TreesPage() {
     return m;
   }, [relations]);
 
-  const roots = useMemo(() => {
-    if (!persons.length) return [];
-    const childIds = new Set(relations.map((r) => r.child_person_id));
-    const rootNodes = persons.filter((p) => !childIds.has(p.id));
-    return rootNodes.length ? rootNodes : persons;
-  }, [persons, relations]);
-
   const partnersByPerson = useMemo(() => {
     const m = new Map<string, Set<string>>();
     for (const rel of partnerships) {
@@ -126,10 +119,37 @@ export function TreesPage() {
     return m;
   }, [partnerships]);
 
+  const hiddenPartnerIds = useMemo(() => {
+    const hidden = new Set<string>();
+    for (const rel of partnerships) {
+      if (!personsById.has(rel.person_a_id) || !personsById.has(rel.person_b_id)) continue;
+      const hide = rel.person_a_id < rel.person_b_id ? rel.person_b_id : rel.person_a_id;
+      hidden.add(hide);
+    }
+    return hidden;
+  }, [partnerships, personsById]);
+
+  const roots = useMemo(() => {
+    if (!persons.length) return [];
+    const childIds = new Set(relations.map((r) => r.child_person_id));
+    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerIds.has(p.id));
+    if (rootNodes.length) return rootNodes;
+    return persons.filter((p) => !hiddenPartnerIds.has(p.id));
+  }, [persons, relations, hiddenPartnerIds]);
+
   function renderNode(id: string, visited: Set<string>) {
     const p = personsById.get(id);
-    if (!p) return null;
-    const children = childByParent.get(id) ?? [];
+    if (!p || hiddenPartnerIds.has(id)) return null;
+
+    const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
+    const childrenSet = new Set<string>();
+    for (const pid of [id, ...partnerIds]) {
+      for (const c of childByParent.get(pid) ?? []) {
+        if (!hiddenPartnerIds.has(c)) childrenSet.add(c);
+      }
+    }
+    const children = Array.from(childrenSet);
+
     const partners = Array.from(partnersByPerson.get(id) ?? [])
       .map((pid) => personsById.get(pid))
       .filter((x): x is PersonRow => Boolean(x))
