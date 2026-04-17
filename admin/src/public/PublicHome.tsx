@@ -1,61 +1,66 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { audit } from "../lib/supabase";
-import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
-import { PUBLIC_IMG_DURMITOR, PUBLIC_IMG_TREE } from "./publicMedia";
-
-type HomePerson = {
-  first_name?: string | null;
-  last_name?: string | null;
-  birth_date?: string | null;
-  birth_place?: string | null;
-  death_date?: string | null;
-  gender?: string | null;
-  is_living?: boolean | null;
-};
+import { loadFamilyGraph, type PersonRow } from "../lib/familyTreeGraphLoad";
+import { findAnchorPersonId } from "../lib/homeAncestorTree";
+import {
+  HOME_TREE_ANCHOR_FIRST,
+  HOME_TREE_ANCHOR_LAST,
+  PUBLIC_FAMILY_TREE_ID,
+} from "../lib/publicFamilyTree";
+import { PUBLIC_IMG_DURMITOR } from "./publicMedia";
+import { HomeAncestorFan } from "./HomeAncestorFan";
 
 export function PublicHome() {
-  const [person, setPerson] = useState<HomePerson | null>(null);
-  const [personErr, setPersonErr] = useState<string | null>(null);
-  const [personEmpty, setPersonEmpty] = useState(false);
+  const [persons, setPersons] = useState<PersonRow[]>([]);
+  const [relations, setRelations] = useState<
+    { parent_person_id: string; child_person_id: string }[]
+  >([]);
+  const [rootId, setRootId] = useState<string | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [anchorMissing, setAnchorMissing] = useState(false);
 
   useEffect(() => {
     if (!audit) {
-      setPersonErr("Aplikacija nije povezana sa bazom.");
+      setLoadErr("Aplikacija nije povezana sa bazom.");
+      setLoading(false);
       return;
     }
     let cancelled = false;
     void (async () => {
-      const { data, error } = await audit
-        .from("gr_persons")
-        .select("first_name,last_name,birth_date,birth_place,death_date,gender,is_living")
-        .eq("tree_id", PUBLIC_FAMILY_TREE_ID);
+      setLoading(true);
+      const { data, error } = await loadFamilyGraph(PUBLIC_FAMILY_TREE_ID);
       if (cancelled) return;
       if (error) {
-        setPersonErr(error.message);
-        setPersonEmpty(false);
-        setPerson(null);
-        return;
+        setLoadErr(error);
+        setPersons([]);
+        setRelations([]);
+        setRootId(null);
+        setAnchorMissing(false);
+      } else {
+        setLoadErr(null);
+        setPersons(data.persons);
+        setRelations(data.relations);
+        const anchor = findAnchorPersonId(data.persons, HOME_TREE_ANCHOR_FIRST, HOME_TREE_ANCHOR_LAST);
+        if (anchor) {
+          setRootId(anchor);
+          setAnchorMissing(false);
+        } else {
+          setRootId(null);
+          setAnchorMissing(true);
+        }
       }
-      setPersonErr(null);
-      const rows = data ?? [];
-      if (!rows.length) {
-        setPerson(null);
-        setPersonEmpty(true);
-        return;
-      }
-      setPersonEmpty(false);
-      const i = Math.floor(Math.random() * rows.length);
-      setPerson(rows[i] as HomePerson);
+      setLoading(false);
     })();
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const name =
-    person && `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim()
-      ? `${person.first_name ?? ""} ${person.last_name ?? ""}`.trim()
-      : null;
+  const rootPerson = useMemo(
+    () => (rootId ? persons.find((p) => p.id === rootId) ?? null : null),
+    [persons, rootId]
+  );
 
   return (
     <div className="public-page">
@@ -69,57 +74,27 @@ export function PublicHome() {
         </div>
       </section>
 
-      <section className="public-section public-section--split">
-        <div className="public-card public-card--person">
-          <h2 className="public-section-title">Nasumičan član</h2>
-          {personErr ? <p className="public-muted">{personErr}</p> : null}
-          {!personErr && personEmpty ? (
-            <p className="public-muted">Još nema članova u glavnom stablu.</p>
-          ) : null}
-          {!personErr && !person && !personEmpty ? <p className="public-muted">Učitavanje…</p> : null}
-          {person && name ? (
-            <dl className="public-dl">
-              <dt>Ime i prezime</dt>
-              <dd>{name}</dd>
-              {person.birth_date ? (
-                <>
-                  <dt>Datum rođenja</dt>
-                  <dd>{person.birth_date}</dd>
-                </>
-              ) : null}
-              {person.birth_place ? (
-                <>
-                  <dt>Mesto rođenja</dt>
-                  <dd>{person.birth_place}</dd>
-                </>
-              ) : null}
-              {person.gender ? (
-                <>
-                  <dt>Pol</dt>
-                  <dd>{person.gender}</dd>
-                </>
-              ) : null}
-              {person.is_living != null ? (
-                <>
-                  <dt>Živ/živa</dt>
-                  <dd>{person.is_living ? "da" : "ne"}</dd>
-                </>
-              ) : null}
-            </dl>
-          ) : null}
-          {person && !name ? <p className="public-muted">Nema podataka o članu u stablu.</p> : null}
-        </div>
-        <div className="public-card public-card--tree">
-          <h2 className="public-section-title">Rodoslovno stablo</h2>
-          <p className="public-muted public-tree-caption">
-            Inspiracija vizuelnog prikaza veza između generacija (ilustracija).
+      <section className="public-section">
+        <div className="public-card public-home-tree-card">
+          <h2 className="public-section-title">Stablo predaka</h2>
+          <p className="public-muted public-home-tree-lead">
+            <strong>{HOME_TREE_ANCHOR_FIRST} {HOME_TREE_ANCHOR_LAST}</strong> u korenu (dno drveta); linije vode
+            naviše ka roditeljima i daljim pretcima iz baze.
           </p>
-          <img
-            src={PUBLIC_IMG_TREE}
-            alt="Ilustracija rodoslovnog stabla"
-            className="public-tree-img"
-            loading="lazy"
-          />
+
+          {loadErr ? <p className="public-muted">{loadErr}</p> : null}
+          {loading ? <p className="public-muted">Učitavanje stabla…</p> : null}
+
+          {!loading && !loadErr && anchorMissing ? (
+            <p className="public-muted">
+              U glavnom stablu nije pronađena osoba „{HOME_TREE_ANCHOR_FIRST} {HOME_TREE_ANCHOR_LAST}“. Proverite
+              ime i prezime u administraciji (osobe).
+            </p>
+          ) : null}
+
+          {!loading && !loadErr && rootId && rootPerson ? (
+            <HomeAncestorFan rootId={rootId} persons={persons} relations={relations} />
+          ) : null}
         </div>
       </section>
     </div>
