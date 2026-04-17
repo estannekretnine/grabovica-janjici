@@ -657,7 +657,6 @@
 .public-home-parents {
   display: flex;
   justify-content: center;
-  gap: 2.5rem;
   flex-wrap: wrap;
   margin-bottom: 1.5rem;
 }
@@ -669,13 +668,30 @@
   text-align: center;
 }
 
+.public-home-person:nth-child(2) {
+  margin-left: -40px;
+}
+
 .public-home-person-photo {
   width: 140px;
   height: 140px;
   border-radius: 50%;
   object-fit: cover;
-  border: 3px solid var(--pub-gold);
+  border: 4px solid var(--pub-surface);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
   margin-bottom: 0.75rem;
+  position: relative;
+  z-index: 1;
+}
+
+.public-home-person:first-child .public-home-person-photo {
+  z-index: 2;
+  border-color: var(--pub-gold);
+}
+
+.public-home-person:nth-child(2) .public-home-person-photo {
+  z-index: 1;
+  border-color: var(--pub-gold);
 }
 
 .public-home-person-photo--placeholder {
@@ -692,6 +708,11 @@
   font-weight: 700;
   font-size: 1.1rem;
   color: var(--pub-text);
+  margin-top: 0.25rem;
+}
+
+.public-home-person:nth-child(2) .public-home-person-name {
+  margin-left: 40px;
 }
 
 .public-home-person-life {
