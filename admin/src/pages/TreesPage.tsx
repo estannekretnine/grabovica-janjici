@@ -21,9 +21,11 @@ export function TreesPage() {
   const [relations, setRelations] = useState<PcRow[]>([]);
   const [partnerships, setPartnerships] = useState<PartRow[]>([]);
   const [selectedMember, setSelectedMember] = useState<PersonRow | null>(null);
+  const [memberPanelPos, setMemberPanelPos] = useState<{ x: number; y: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 90, y: 70 });
   const [error, setError] = useState<string | null>(null);
+  const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ active: boolean; x: number; y: number; ox: number; oy: number }>({
     active: false,
     x: 0,
@@ -129,19 +131,37 @@ export function TreesPage() {
     return m;
   }, [partnerships]);
 
+  const parentIds = useMemo(() => new Set(relations.map((r) => r.parent_person_id)), [relations]);
+  const childIds = useMemo(() => new Set(relations.map((r) => r.child_person_id)), [relations]);
+
+  /**
+   * Sakrij "partner-only" čvorove (bez svoje roditelj-dete grane), kako se ne bi
+   * duplirao prikaz para na vrhu i u grani potomaka.
+   */
+  const hiddenPartnerOnlyIds = useMemo(() => {
+    const hidden = new Set<string>();
+    for (const [id, partners] of partnersByPerson.entries()) {
+      if (!partners.size) continue;
+      const hasOwnGenealogy = parentIds.has(id) || childIds.has(id);
+      if (!hasOwnGenealogy) hidden.add(id);
+    }
+    return hidden;
+  }, [partnersByPerson, parentIds, childIds]);
+
   const roots = useMemo(() => {
     if (!persons.length) return [];
     const childIds = new Set(relations.map((r) => r.child_person_id));
-    const rootNodes = persons.filter((p) => !childIds.has(p.id));
+    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerOnlyIds.has(p.id));
     if (rootNodes.length) return rootNodes;
-    return persons;
-  }, [persons, relations]);
+    return persons.filter((p) => !hiddenPartnerOnlyIds.has(p.id));
+  }, [persons, relations, hiddenPartnerOnlyIds]);
 
   function childrenFor(id: string) {
     const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
     const childrenSet = new Set<string>();
     for (const pid of [id, ...partnerIds]) {
       for (const c of childByParent.get(pid) ?? []) {
+        if (hiddenPartnerOnlyIds.has(c)) continue;
         childrenSet.add(c);
       }
     }
@@ -158,6 +178,7 @@ export function TreesPage() {
 
     function place(id: string, depth: number, stack: Set<string>): number {
       const p = personsById.get(id);
+      if (hiddenPartnerOnlyIds.has(id)) return leafCursor++;
       if (!p || stack.has(id)) return leafCursor++;
       if (nodes.has(id)) return nodes.get(id)!.x;
 
@@ -178,7 +199,7 @@ export function TreesPage() {
 
     roots.forEach((r) => place(r.id, 0, new Set<string>()));
     return { nodes: Array.from(nodes.values()), edges };
-  }, [roots, personsById, partnersByPerson, childByParent]);
+  }, [roots, personsById, partnersByPerson, childByParent, hiddenPartnerOnlyIds]);
 
   const positionedGraph = useMemo(() => {
     const X_SPACING = 170;
@@ -200,6 +221,8 @@ export function TreesPage() {
   }
 
   function onCanvasMouseDown(e: React.MouseEvent<HTMLDivElement>) {
+    const target = e.target as Element;
+    if (target.closest(".tree-node")) return;
     dragRef.current = { active: true, x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
   }
 
@@ -332,6 +355,8 @@ export function TreesPage() {
                 onClick={() => {
                   setZoom(1);
                   setOffset({ x: 90, y: 70 });
+                  setSelectedMember(null);
+                  setMemberPanelPos(null);
                 }}
               >
                 Reset prikaza
@@ -340,6 +365,7 @@ export function TreesPage() {
             </div>
 
             <div
+              ref={canvasRef}
               className="tree-canvas"
               onWheel={onCanvasWheel}
               onMouseDown={onCanvasMouseDown}
@@ -371,7 +397,21 @@ export function TreesPage() {
                       key={node.id}
                       transform={`translate(${node.sx},${node.sy})`}
                       className="tree-node"
-                      onClick={() => setSelectedMember(node.person)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const wrap = canvasRef.current;
+                        if (wrap) {
+                          const panelX = offset.x + node.sx * zoom + 34;
+                          const panelY = offset.y + node.sy * zoom - 12;
+                          const maxX = Math.max(12, wrap.clientWidth - 320);
+                          const maxY = Math.max(12, wrap.clientHeight - 220);
+                          setMemberPanelPos({
+                            x: Math.max(12, Math.min(maxX, panelX)),
+                            y: Math.max(12, Math.min(maxY, panelY)),
+                          });
+                        }
+                        setSelectedMember(node.person);
+                      }}
                     >
                       <circle r="24" fill="#1d4ed8" />
                       <text y="5" textAnchor="middle" fill="#fff" fontSize="11">
@@ -389,18 +429,40 @@ export function TreesPage() {
                   ))}
                 </g>
               </svg>
-            </div>
 
-            {selectedMember ? (
-              <div className="card" style={{ marginTop: "0.8rem" }}>
-                <h3 style={{ marginTop: 0 }}>Član</h3>
-                <p><strong>Ime i prezime:</strong> {personLabel(selectedMember)}</p>
-                <p><strong>Pol:</strong> {selectedMember.gender ?? "—"}</p>
-                <p><strong>Rođen/a:</strong> {selectedMember.birth_date ?? "—"}</p>
-                <p><strong>Živ/živa:</strong> {selectedMember.is_living == null ? "—" : selectedMember.is_living ? "da" : "ne"}</p>
-                <p><strong>Napomene:</strong> {selectedMember.notes ?? "—"}</p>
-              </div>
-            ) : null}
+              {selectedMember && memberPanelPos ? (
+                <aside
+                  className="member-popover"
+                  style={{ left: memberPanelPos.x, top: memberPanelPos.y }}
+                >
+                  <div className="member-popover-head">
+                    <strong>{personLabel(selectedMember)}</strong>
+                    <button
+                      type="button"
+                      className="member-popover-close"
+                      onClick={() => {
+                        setSelectedMember(null);
+                        setMemberPanelPos(null);
+                      }}
+                    >
+                      x
+                    </button>
+                  </div>
+                  <div className="member-popover-grid">
+                    <span>Pol</span>
+                    <span>{selectedMember.gender ?? "—"}</span>
+                    <span>Rođen/a</span>
+                    <span>{selectedMember.birth_date ?? "—"}</span>
+                    <span>Živ/živa</span>
+                    <span>
+                      {selectedMember.is_living == null ? "—" : selectedMember.is_living ? "da" : "ne"}
+                    </span>
+                    <span>Napomene</span>
+                    <span>{selectedMember.notes ?? "—"}</span>
+                  </div>
+                </aside>
+              ) : null}
+            </div>
           </>
         )}
       </div>
