@@ -417,6 +417,8 @@ th {
 .member-popover {
   position: absolute;
   width: 300px;
+  max-width: calc(100vw - 1.25rem);
+  box-sizing: border-box;
   border: 1px solid #bfdbfe;
   border-radius: 10px;
   background: #ffffff;
@@ -489,5 +491,86 @@ th {
   object-fit: cover;
   border-radius: 8px;
   border: 1px solid #dbe4f0;
+}
+
+/* Stablo: kompaktniji kartica člana na telefonu */
+@media (max-width: 640px) {
+  .member-popover {
+    width: min(252px, calc(100vw - 1.25rem));
+    max-height: min(72vh, 420px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 8px;
+    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  }
+
+  .member-popover-head {
+    padding: 0.35rem 0.45rem;
+  }
+
+  .member-popover-head strong {
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.25;
+    word-break: break-word;
+  }
+
+  .member-popover-close {
+    flex-shrink: 0;
+    padding: 0.1rem 0.35rem;
+    font-size: 0.85rem;
+  }
+
+  .member-popover-grid {
+    grid-template-columns: 4.35rem 1fr;
+    gap: 0.18rem 0.35rem;
+    padding: 0.35rem 0.45rem;
+    font-size: 0.7rem;
+  }
+
+  .member-popover-kontakt-title {
+    padding: 0.28rem 0.45rem 0;
+    font-size: 0.58rem;
+    letter-spacing: 0.05em;
+  }
+
+  .member-popover-kontakt .member-popover-grid {
+    padding-top: 0.22rem;
+    padding-bottom: 0.35rem;
+  }
+
+  .member-popover-link {
+    font-size: 0.68rem;
+  }
+
+  .member-photo-wrap {
+    padding: 0.3rem 0.45rem 0;
+    text-align: center;
+  }
+
+  .member-photo {
+    width: auto;
+    max-width: 56px;
+    max-height: 56px;
+    margin: 0 auto;
+    display: block;
+    border-radius: 6px;
+  }
+}
+
+@media (max-width: 400px) {
+  .member-popover {
+    width: calc(100vw - 1rem);
+  }
+
+  .member-popover-grid {
+    grid-template-columns: 3.85rem 1fr;
+    font-size: 0.66rem;
+  }
+
+  .member-photo {
+    max-width: 48px;
+    max-height: 48px;
+  }
 }
 

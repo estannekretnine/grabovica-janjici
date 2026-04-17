@@ -364,11 +364,17 @@ export function TreesPage() {
     if (wrap) {
       const panelX = offset.x + node.sx * zoom + 34;
       const panelY = offset.y + node.sy * zoom - 12;
-      const maxX = Math.max(12, wrap.clientWidth - 320);
-      const maxY = Math.max(12, wrap.clientHeight - 220);
+      const narrow = typeof window !== "undefined" && window.innerWidth < 640;
+      const panelW = narrow ? Math.min(252, Math.max(168, wrap.clientWidth - 20)) : 300;
+      const panelH = narrow
+        ? Math.min(300, Math.max(140, Math.round(wrap.clientHeight * 0.5)))
+        : 220;
+      const margin = 8;
+      const maxX = Math.max(margin, wrap.clientWidth - panelW - margin);
+      const maxY = Math.max(margin, wrap.clientHeight - panelH);
       setMemberPanelPos({
-        x: Math.max(12, Math.min(maxX, panelX)),
-        y: Math.max(12, Math.min(maxY, panelY)),
+        x: Math.max(margin, Math.min(maxX, panelX)),
+        y: Math.max(margin, Math.min(maxY, panelY)),
       });
     }
     setSelectedMember(person);
