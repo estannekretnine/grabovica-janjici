@@ -127,6 +127,10 @@ function personLifeLine(p: PersonRow) {
   return b ? `${birth} –` : "—";
 }
 
+function personBirthPlace(p: PersonRow) {
+  return p.birth_place?.trim() || "—";
+}
+
 function orthConnectors(
   px: number,
   py: number,
@@ -228,6 +232,11 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     ox: 0,
     oy: 0,
   });
+  const locateWrapRef = useRef<HTMLDivElement | null>(null);
+  const [memberLocateQuery, setMemberLocateQuery] = useState("");
+  const [memberLocateOpen, setMemberLocateOpen] = useState(false);
+  const [highlightedLocatePersonId, setHighlightedLocatePersonId] = useState<string | null>(null);
+  const [locateHint, setLocateHint] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const { data, error: qErr } = await audit!
@@ -446,6 +455,76 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     return `${minX - pad} ${minY - pad} ${w} ${h}`;
   }, [positionedGraph.nodes]);
 
+  const pedigreeViewBoxRect = useMemo(() => {
+    const parts = pedigreeViewBox.trim().split(/\s+/).map(Number);
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
+      return { vx: 0, vy: 0, vw: 980, vh: 520 };
+    }
+    return { vx: parts[0]!, vy: parts[1]!, vw: parts[2]!, vh: parts[3]! };
+  }, [pedigreeViewBox]);
+
+  type PositionedNode = (typeof positionedGraph.nodes)[number];
+
+  const graphNodeByPersonId = useMemo(() => {
+    const m = new Map<string, PositionedNode>();
+    for (const n of positionedGraph.nodes) {
+      m.set(n.id, n);
+      for (const p of n.partners) {
+        if (!m.has(p.id)) m.set(p.id, n);
+      }
+    }
+    return m;
+  }, [positionedGraph.nodes]);
+
+  const memberLocateFiltered = useMemo(() => {
+    const visible = persons.filter((p) => graphNodeByPersonId.has(p.id));
+    const sorted = [...visible].sort((a, b) =>
+      personLabel(a).localeCompare(personLabel(b), "sr", { sensitivity: "base" })
+    );
+    const q = memberLocateQuery.trim().toLowerCase();
+    if (!q) return sorted.slice(0, 120);
+    return sorted
+      .filter((p) => {
+        const hay = `${p.first_name} ${p.last_name} ${p.birth_place ?? ""} ${p.birth_date ?? ""}`
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+        return hay.includes(q);
+      })
+      .slice(0, 120);
+  }, [persons, memberLocateQuery, graphNodeByPersonId]);
+
+  const locatePersonOnGraph = useCallback(
+    (personId: string) => {
+      const node = graphNodeByPersonId.get(personId);
+      if (!node) {
+        setLocateHint("Ova osoba nije na trenutnom prikazu stabla (npr. spojeni čvor sa partnerom).");
+        window.setTimeout(() => setLocateHint(null), 4500);
+        return;
+      }
+      setLocateHint(null);
+      const { vx, vy, vw, vh } = pedigreeViewBoxRect;
+      const cx = vx + vw / 2;
+      const cy = vy + vh / 2;
+      setOffset({ x: cx - node.sx * zoom, y: cy - node.sy * zoom });
+      setHighlightedLocatePersonId(personId);
+      setMemberLocateOpen(false);
+      setMemberLocateQuery("");
+      closeMemberPanel();
+    },
+    [graphNodeByPersonId, pedigreeViewBoxRect, zoom]
+  );
+
+  useEffect(() => {
+    if (!memberLocateOpen) return;
+    function onDocDown(e: MouseEvent) {
+      if (locateWrapRef.current && !locateWrapRef.current.contains(e.target as Node)) {
+        setMemberLocateOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [memberLocateOpen]);
+
   function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
     e.preventDefault();
     const next = e.deltaY > 0 ? zoom * 0.92 : zoom * 1.08;
@@ -455,6 +534,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   function onCanvasMouseDown(e: React.MouseEvent<HTMLDivElement>) {
     const target = e.target as Element;
     if (target.closest(".tree-node")) return;
+    setHighlightedLocatePersonId(null);
     dragRef.current = { active: true, x: e.clientX, y: e.clientY, ox: offset.x, oy: offset.y };
   }
 
@@ -660,7 +740,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
           <p className="muted">Nema članova u izabranom stablu.</p>
         ) : (
           <>
-            <div className="row" style={{ marginTop: "0.65rem" }}>
+            <div className="row tree-toolbar" style={{ marginTop: "0.65rem" }}>
               <button type="button" onClick={() => setZoom((z) => Math.min(2.6, z * 1.12))}>
                 +
               </button>
@@ -673,12 +753,52 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                   setZoom(1);
                   setOffset({ x: 90, y: 70 });
                   closeMemberPanel();
+                  setHighlightedLocatePersonId(null);
+                  setMemberLocateQuery("");
+                  setMemberLocateOpen(false);
                 }}
               >
                 Reset prikaza
               </button>
               <span className="muted">Zoom: {Math.round(zoom * 100)}%</span>
+              <div className="tree-toolbar-locate" ref={locateWrapRef}>
+                <input
+                  type="search"
+                  className="tree-locate-input"
+                  placeholder="Pretraži člana (ime, prezime, mesto, datum)…"
+                  value={memberLocateQuery}
+                  onChange={(e) => {
+                    setMemberLocateQuery(e.target.value);
+                    setMemberLocateOpen(true);
+                  }}
+                  onFocus={() => setMemberLocateOpen(true)}
+                  aria-label="Pretraga člana na stablu"
+                  autoComplete="off"
+                />
+                {memberLocateOpen && memberLocateFiltered.length ? (
+                  <ul className="tree-locate-dropdown" role="listbox">
+                    {memberLocateFiltered.map((p) => (
+                      <li key={p.id} role="option">
+                        <button
+                          type="button"
+                          className="tree-locate-item"
+                          onMouseDown={(e) => e.preventDefault()}
+                          onClick={() => locatePersonOnGraph(p.id)}
+                        >
+                          <span className="tree-locate-item-name">{personLabel(p)}</span>
+                          <span className="tree-locate-item-meta">
+                            {personBirthPlace(p)}
+                            <span className="tree-locate-item-sep"> · </span>
+                            {p.birth_date?.trim() || "—"}
+                          </span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
             </div>
+            {locateHint ? <p className="muted tree-locate-hint">{locateHint}</p> : null}
 
             <div
               ref={canvasRef}
@@ -723,6 +843,10 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                     const kSnip = karijeraTreeSnippet(first.person.karijera, 40);
                     const life1 = personLifeLine(first.person);
                     const life2 = second ? personLifeLine(second.person) : "";
+                    const isLocateHighlight =
+                      highlightedLocatePersonId &&
+                      (node.id === highlightedLocatePersonId ||
+                        node.partners.some((x) => x.id === highlightedLocatePersonId));
                     return (
                       <g
                         key={node.id}
@@ -733,6 +857,20 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
                           openMemberPanelAtNode(node, node.id, "kontakt-menu");
                         }}
                       >
+                        {isLocateHighlight ? (
+                          <rect
+                            x={-PEDIGREE_HALF_W - 4}
+                            y={-PEDIGREE_HALF_H - 4}
+                            width={PEDIGREE_CARD_W + 8}
+                            height={PEDIGREE_CARD_H + 8}
+                            fill="none"
+                            stroke="#f59e0b"
+                            strokeWidth="3"
+                            rx="2"
+                            pointerEvents="none"
+                            className="pedigree-locate-ring"
+                          />
+                        ) : null}
                         <rect
                           x={-PEDIGREE_HALF_W}
                           y={-PEDIGREE_HALF_H}

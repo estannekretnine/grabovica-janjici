@@ -509,6 +509,78 @@ th {
   pointer-events: none;
 }
 
+.row.tree-toolbar {
+  align-items: center;
+}
+
+.tree-toolbar-locate {
+  position: relative;
+  flex: 1 1 16rem;
+  max-width: 24rem;
+  min-width: 12rem;
+  margin-left: auto;
+}
+
+.tree-locate-input {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.tree-locate-dropdown {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0.25rem 0;
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  max-height: min(18rem, 50vh);
+  overflow-y: auto;
+  background: #fff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.12);
+}
+
+.tree-locate-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.45rem 0.65rem;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+}
+
+.tree-locate-item:hover,
+.tree-locate-item:focus-visible {
+  background: #f1f5f9;
+}
+
+.tree-locate-item-name {
+  display: block;
+  font-weight: 600;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.tree-locate-item-meta {
+  display: block;
+  font-size: 0.78rem;
+  color: #64748b;
+  margin-top: 0.15rem;
+}
+
+.tree-locate-item-sep {
+  color: #94a3b8;
+}
+
+.tree-locate-hint {
+  margin: 0.35rem 0 0;
+  font-size: 0.88rem;
+}
+
 .tree-canvas:active {
   cursor: grabbing;
 }
