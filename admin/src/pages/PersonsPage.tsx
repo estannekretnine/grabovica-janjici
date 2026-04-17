@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { audit } from "../lib/supabase";
+import { audit, supabase } from "../lib/supabase";
 import { DEFAULT_TREE_ID } from "../constants";
 import type { Database } from "../types/database";
 import type { Gender } from "../types/database";
@@ -7,6 +7,9 @@ import type { Gender } from "../types/database";
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
 type PersonInsert = Database["audit"]["Tables"]["gr_persons"]["Insert"];
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
+type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
+type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
+type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
 
 const emptyForm: PersonInsert = {
   tree_id: DEFAULT_TREE_ID,
@@ -22,6 +25,12 @@ const emptyForm: PersonInsert = {
   is_living: null,
   photo_storage_path: null,
   notes: null,
+  drzavaid: null,
+  opstinaid: null,
+  lokacijaid: null,
+  drzavaidrodio: null,
+  opstinaidrodio: null,
+  lokacijaidrodio: null,
 };
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
@@ -31,6 +40,9 @@ function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
 
 export function PersonsPage() {
   const [trees, setTrees] = useState<TreeRow[]>([]);
+  const [drzave, setDrzave] = useState<DrzavaRow[]>([]);
+  const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
+  const [lokacije, setLokacije] = useState<LokacijaRow[]>([]);
   const [treeId, setTreeId] = useState(DEFAULT_TREE_ID);
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -40,6 +52,22 @@ export function PersonsPage() {
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
     setTrees(data ?? []);
+  }, []);
+
+  const loadLocations = useCallback(async () => {
+    if (!supabase) return;
+    const [drRes, opRes, loRes] = await Promise.all([
+      supabase.from("drzava").select("*").order("opis", { ascending: true }),
+      supabase.from("opstina").select("*").order("opis", { ascending: true }),
+      supabase.from("lokacija").select("*").order("opis", { ascending: true }),
+    ]);
+    if (drRes.error || opRes.error || loRes.error) {
+      setError(drRes.error?.message ?? opRes.error?.message ?? loRes.error?.message ?? null);
+      return;
+    }
+    setDrzave(drRes.data ?? []);
+    setOpstine(opRes.data ?? []);
+    setLokacije(loRes.data ?? []);
   }, []);
 
   const loadPersons = useCallback(async (tid: string) => {
@@ -58,7 +86,8 @@ export function PersonsPage() {
 
   useEffect(() => {
     void loadTrees();
-  }, [loadTrees]);
+    void loadLocations();
+  }, [loadTrees, loadLocations]);
 
   useEffect(() => {
     void loadPersons(treeId);
@@ -70,6 +99,34 @@ export function PersonsPage() {
         ? trees
         : [{ id: DEFAULT_TREE_ID, name: "Glavno (podrazumevano)", slug: "default", created_at: "" }],
     [trees]
+  );
+
+  const opstineRodjenja = useMemo(
+    () =>
+      form.drzavaidrodio != null
+        ? opstine.filter((o) => o.iddrzava === form.drzavaidrodio)
+        : [],
+    [opstine, form.drzavaidrodio]
+  );
+
+  const lokacijeRodjenja = useMemo(
+    () =>
+      form.opstinaidrodio != null
+        ? lokacije.filter((l) => l.idopstina === form.opstinaidrodio)
+        : [],
+    [lokacije, form.opstinaidrodio]
+  );
+
+  const opstineZivljenja = useMemo(
+    () =>
+      form.drzavaid != null ? opstine.filter((o) => o.iddrzava === form.drzavaid) : [],
+    [opstine, form.drzavaid]
+  );
+
+  const lokacijeZivljenja = useMemo(
+    () =>
+      form.opstinaid != null ? lokacije.filter((l) => l.idopstina === form.opstinaid) : [],
+    [lokacije, form.opstinaid]
   );
 
   function startCreate() {
@@ -93,6 +150,12 @@ export function PersonsPage() {
       is_living: p.is_living,
       photo_storage_path: p.photo_storage_path,
       notes: p.notes,
+      drzavaid: p.drzavaid,
+      opstinaid: p.opstinaid,
+      lokacijaid: p.lokacijaid,
+      drzavaidrodio: p.drzavaidrodio,
+      opstinaidrodio: p.opstinaidrodio,
+      lokacijaidrodio: p.lokacijaidrodio,
     });
   }
 
@@ -125,6 +188,10 @@ export function PersonsPage() {
     const { error: delErr } = await audit!.from("gr_persons").delete().eq("id", id);
     if (delErr) setError(delErr.message);
     else await loadPersons(treeId);
+  }
+
+  function parseNullableId(v: string): number | null {
+    return v ? Number(v) : null;
   }
 
   return (
@@ -243,23 +310,116 @@ export function PersonsPage() {
               </label>
             </div>
             <div className="row">
-              <label style={{ flex: "1 1 12rem" }}>
-                Mesto rođenja
-                <input
-                  value={form.birth_place ?? ""}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, birth_place: e.target.value || null }))
-                  }
-                />
+              <label>
+                Mesto rođenja: država
+                <select
+                  value={form.drzavaidrodio != null ? String(form.drzavaidrodio) : ""}
+                  onChange={(e) => {
+                    const id = parseNullableId(e.target.value);
+                    setForm((f) => ({
+                      ...f,
+                      drzavaidrodio: id,
+                      opstinaidrodio: null,
+                      lokacijaidrodio: null,
+                    }));
+                  }}
+                >
+                  <option value="">—</option>
+                  {drzave.map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.opis ?? `id ${d.id}`}
+                    </option>
+                  ))}
+                </select>
               </label>
-              <label style={{ flex: "1 1 12rem" }}>
-                Mesto smrti
-                <input
-                  value={form.death_place ?? ""}
+              <label>
+                Mesto rođenja: opština
+                <select
+                  value={form.opstinaidrodio != null ? String(form.opstinaidrodio) : ""}
+                  onChange={(e) => {
+                    const id = parseNullableId(e.target.value);
+                    setForm((f) => ({ ...f, opstinaidrodio: id, lokacijaidrodio: null }));
+                  }}
+                  disabled={form.drzavaidrodio == null}
+                >
+                  <option value="">—</option>
+                  {opstineRodjenja.map((o) => (
+                    <option key={o.id} value={String(o.id)}>
+                      {o.opis ?? `id ${o.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mesto rođenja: lokalitet
+                <select
+                  value={form.lokacijaidrodio != null ? String(form.lokacijaidrodio) : ""}
                   onChange={(e) =>
-                    setForm((f) => ({ ...f, death_place: e.target.value || null }))
+                    setForm((f) => ({ ...f, lokacijaidrodio: parseNullableId(e.target.value) }))
                   }
-                />
+                  disabled={form.opstinaidrodio == null}
+                >
+                  <option value="">—</option>
+                  {lokacijeRodjenja.map((l) => (
+                    <option key={l.id} value={String(l.id)}>
+                      {l.opis ?? `id ${l.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div className="row">
+              <label>
+                Mesto življenja: država
+                <select
+                  value={form.drzavaid != null ? String(form.drzavaid) : ""}
+                  onChange={(e) => {
+                    const id = parseNullableId(e.target.value);
+                    setForm((f) => ({ ...f, drzavaid: id, opstinaid: null, lokacijaid: null }));
+                  }}
+                >
+                  <option value="">—</option>
+                  {drzave.map((d) => (
+                    <option key={d.id} value={String(d.id)}>
+                      {d.opis ?? `id ${d.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mesto življenja: opština
+                <select
+                  value={form.opstinaid != null ? String(form.opstinaid) : ""}
+                  onChange={(e) => {
+                    const id = parseNullableId(e.target.value);
+                    setForm((f) => ({ ...f, opstinaid: id, lokacijaid: null }));
+                  }}
+                  disabled={form.drzavaid == null}
+                >
+                  <option value="">—</option>
+                  {opstineZivljenja.map((o) => (
+                    <option key={o.id} value={String(o.id)}>
+                      {o.opis ?? `id ${o.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Mesto življenja: lokalitet
+                <select
+                  value={form.lokacijaid != null ? String(form.lokacijaid) : ""}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, lokacijaid: parseNullableId(e.target.value) }))
+                  }
+                  disabled={form.opstinaid == null}
+                >
+                  <option value="">—</option>
+                  {lokacijeZivljenja.map((l) => (
+                    <option key={l.id} value={String(l.id)}>
+                      {l.opis ?? `id ${l.id}`}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
             <label>

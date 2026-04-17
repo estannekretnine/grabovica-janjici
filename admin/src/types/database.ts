@@ -50,6 +50,12 @@ type GenealogyTables = {
       notes: string | null;
       created_at: string;
       updated_at: string;
+      drzavaid: number | null;
+      opstinaid: number | null;
+      lokacijaid: number | null;
+      drzavaidrodio: number | null;
+      opstinaidrodio: number | null;
+      lokacijaidrodio: number | null;
     };
     Insert: {
       id?: string;
@@ -68,6 +74,12 @@ type GenealogyTables = {
       notes?: string | null;
       created_at?: string;
       updated_at?: string;
+      drzavaid?: number | null;
+      opstinaid?: number | null;
+      lokacijaid?: number | null;
+      drzavaidrodio?: number | null;
+      opstinaidrodio?: number | null;
+      lokacijaidrodio?: number | null;
     };
     Update: {
       id?: string;
@@ -86,6 +98,12 @@ type GenealogyTables = {
       notes?: string | null;
       created_at?: string;
       updated_at?: string;
+      drzavaid?: number | null;
+      opstinaid?: number | null;
+      lokacijaid?: number | null;
+      drzavaidrodio?: number | null;
+      opstinaidrodio?: number | null;
+      lokacijaidrodio?: number | null;
     };
   };
   gr_parent_child: {
@@ -146,6 +164,75 @@ type GenealogyTables = {
       end_date?: string | null;
       place?: string | null;
       notes?: string | null;
+      created_at?: string;
+    };
+  };
+  gr_countries: {
+    Row: {
+      id: string;
+      name: string;
+      code: string | null;
+      created_at: string;
+    };
+    Insert: {
+      id?: string;
+      name: string;
+      code?: string | null;
+      created_at?: string;
+    };
+    Update: {
+      id?: string;
+      name?: string;
+      code?: string | null;
+      created_at?: string;
+    };
+  };
+  gr_municipalities: {
+    Row: {
+      id: string;
+      country_id: string;
+      name: string;
+      created_at: string;
+    };
+    Insert: {
+      id?: string;
+      country_id: string;
+      name: string;
+      created_at?: string;
+    };
+    Update: {
+      id?: string;
+      country_id?: string;
+      name?: string;
+      created_at?: string;
+    };
+  };
+  gr_locations: {
+    Row: {
+      id: string;
+      municipality_id: string;
+      name: string;
+      address: string | null;
+      lat: number | null;
+      lng: number | null;
+      created_at: string;
+    };
+    Insert: {
+      id?: string;
+      municipality_id: string;
+      name: string;
+      address?: string | null;
+      lat?: number | null;
+      lng?: number | null;
+      created_at?: string;
+    };
+    Update: {
+      id?: string;
+      municipality_id?: string;
+      name?: string;
+      address?: string | null;
+      lat?: number | null;
+      lng?: number | null;
       created_at?: string;
     };
   };
