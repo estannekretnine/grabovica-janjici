@@ -2,9 +2,9 @@
 export const PUBLIC_IMG_DURMITOR =
   "https://upload.wikimedia.org/wikipedia/commons/3/3e/Crno_jezero_%28Black_Lake%29%2C_Durmitor%2C_Montenegro_-_July_2012.jpg";
 
-/** Unsplash — Durmitor pejzaž (umetnički prikaz na početnoj). */
+/** Wikimedia Commons — Durmitor pejzaž (umetnički prikaz na početnoj). */
 export const PUBLIC_IMG_DURMITOR_ART =
-  "https://images.unsplash.com/photo-1592846539891-415c66c89040?q=80&w=1920&auto=format&fit=crop";
+  "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Durmitor_-_Bobotov_Kuk.jpg/1280px-Durmitor_-_Bobotov_Kuk.jpg";
 
 /** Ilustracija rodoslovnog stabla (referenca vizuala). */
 export const PUBLIC_IMG_TREE =
