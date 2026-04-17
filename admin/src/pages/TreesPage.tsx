@@ -147,46 +147,66 @@ export function TreesPage() {
   const childIds = useMemo(() => new Set(relations.map((r) => r.child_person_id)), [relations]);
 
   /**
-   * Sakrij "partner-only" čvorove (bez svoje roditelj-dete grane), kako se ne bi
-   * duplirao prikaz para na vrhu i u grani potomaka.
+   * Sakrij dupli čvor partnera po paru, zadržavajući "glavni" čvor:
+   * prioritet ima onaj ko je dete u nekoj grani (ima roditelja),
+   * zatim Janjić muškarac, zatim muškarac, pa broj dece.
    */
-  const hiddenPartnerOnlyIds = useMemo(() => {
+  const hiddenPartnerIds = useMemo(() => {
     const hidden = new Set<string>();
     const processedPairs = new Set<string>();
     for (const [id, partners] of partnersByPerson.entries()) {
       if (!partners.size) continue;
-      const hasOwnGenealogy = parentIds.has(id) || childIds.has(id);
-      if (hasOwnGenealogy) continue;
       for (const pid of partners) {
         const pairKey = [id, pid].sort().join("|");
         if (processedPairs.has(pairKey)) continue;
         processedPairs.add(pairKey);
 
-        const partnerHasOwnGenealogy = parentIds.has(pid) || childIds.has(pid);
-        if (partnerHasOwnGenealogy) continue;
+        const a = personsById.get(id);
+        const b = personsById.get(pid);
+        if (!a || !b) continue;
 
-        // Obe osobe su "partner-only": sakrij samo jednu da par ostane vidljiv.
-        const hide = id < pid ? pid : id;
+        const score = (p: PersonRow) => {
+          const hasParent = childIds.has(p.id) ? 1 : 0;
+          const male = p.gender === "male" ? 1 : 0;
+          const maleJanjic = male && isJanjicSurname(p.last_name) ? 1 : 0;
+          const childrenCount = (childByParent.get(p.id) ?? []).length;
+          return [hasParent, maleJanjic, male, childrenCount] as const;
+        };
+
+        const sa = score(a);
+        const sb = score(b);
+        const aWins =
+          sa[0] !== sb[0]
+            ? sa[0] > sb[0]
+            : sa[1] !== sb[1]
+              ? sa[1] > sb[1]
+              : sa[2] !== sb[2]
+                ? sa[2] > sb[2]
+                : sa[3] !== sb[3]
+                  ? sa[3] >= sb[3]
+                  : a.id <= b.id;
+
+        const hide = aWins ? b.id : a.id;
         hidden.add(hide);
       }
     }
     return hidden;
-  }, [partnersByPerson, parentIds, childIds]);
+  }, [partnersByPerson, parentIds, childIds, personsById, childByParent]);
 
   const roots = useMemo(() => {
     if (!persons.length) return [];
     const childIds = new Set(relations.map((r) => r.child_person_id));
-    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerOnlyIds.has(p.id));
+    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerIds.has(p.id));
     if (rootNodes.length) return rootNodes;
-    return persons.filter((p) => !hiddenPartnerOnlyIds.has(p.id));
-  }, [persons, relations, hiddenPartnerOnlyIds]);
+    return persons.filter((p) => !hiddenPartnerIds.has(p.id));
+  }, [persons, relations, hiddenPartnerIds]);
 
   function childrenFor(id: string) {
     const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
     const childrenSet = new Set<string>();
     for (const pid of [id, ...partnerIds]) {
       for (const c of childByParent.get(pid) ?? []) {
-        if (hiddenPartnerOnlyIds.has(c)) continue;
+          if (hiddenPartnerIds.has(c)) continue;
         childrenSet.add(c);
       }
     }
@@ -210,7 +230,7 @@ export function TreesPage() {
 
     function place(id: string, depth: number, stack: Set<string>): number {
       const p = personsById.get(id);
-      if (hiddenPartnerOnlyIds.has(id)) return leafCursor++;
+      if (hiddenPartnerIds.has(id)) return leafCursor++;
       if (!p || stack.has(id)) return leafCursor++;
       if (nodes.has(id)) return nodes.get(id)!.x;
 
@@ -231,7 +251,7 @@ export function TreesPage() {
 
     roots.forEach((r) => place(r.id, 0, new Set<string>()));
     return { nodes: Array.from(nodes.values()), edges };
-  }, [roots, personsById, partnersByPerson, childByParent, hiddenPartnerOnlyIds]);
+  }, [roots, personsById, partnersByPerson, childByParent, hiddenPartnerIds]);
 
   const positionedGraph = useMemo(() => {
     const X_SPACING = 170;
