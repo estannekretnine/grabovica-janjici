@@ -657,7 +657,7 @@ export function TreesPage() {
                       {selectedMember.notes?.trim() ? selectedMember.notes : "—"}
                     </span>
                     <span>Karijera</span>
-                    <span className="member-popover-multiline">
+                    <span className="member-popover-multiline member-popover-multiline--karijera">
                       {selectedMember.karijera?.trim() ? selectedMember.karijera : "—"}
                     </span>
                   </div>

@@ -506,6 +506,10 @@ th {
   padding-top: 0.35rem;
 }
 
+.member-popover-multiline--karijera {
+  max-height: 9rem;
+}
+
 .member-popover-value {
   word-break: break-word;
 }
@@ -602,6 +606,10 @@ th {
     margin: 0 auto;
     display: block;
     border-radius: 6px;
+  }
+
+  .member-popover-multiline--karijera {
+    max-height: 6.5rem;
   }
 }
 

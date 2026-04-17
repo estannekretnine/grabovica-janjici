@@ -444,6 +444,24 @@ export function PersonsPage() {
                   }
                 />
               </label>
+              <label>
+                Pol
+                <select
+                  value={form.gender ?? ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      gender: (e.target.value || null) as Gender | null,
+                    }))
+                  }
+                >
+                  <option value="">—</option>
+                  <option value="male">Muški</option>
+                  <option value="female">Ženski</option>
+                  <option value="other">Drugo</option>
+                  <option value="unknown">Nepoznato</option>
+                </select>
+              </label>
             </div>
             </div>
             <div className="person-form-section">
@@ -481,24 +499,6 @@ export function PersonsPage() {
             <div className="person-form-section">
             <div className="person-form-places-block">
             <div className="row">
-              <label>
-                Pol
-                <select
-                  value={form.gender ?? ""}
-                  onChange={(e) =>
-                    setForm((f) => ({
-                      ...f,
-                      gender: (e.target.value || null) as Gender | null,
-                    }))
-                  }
-                >
-                  <option value="">—</option>
-                  <option value="male">Muški</option>
-                  <option value="female">Ženski</option>
-                  <option value="other">Drugo</option>
-                  <option value="unknown">Nepoznato</option>
-                </select>
-              </label>
               <label>
                 Datum rođenja
                 <input
