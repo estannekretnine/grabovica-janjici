@@ -653,7 +653,13 @@ export function TreesPage() {
                       {selectedMember.is_living == null ? "—" : selectedMember.is_living ? "da" : "ne"}
                     </span>
                     <span>Napomene</span>
-                    <span>{selectedMember.notes ?? "—"}</span>
+                    <span className="member-popover-multiline">
+                      {selectedMember.notes?.trim() ? selectedMember.notes : "—"}
+                    </span>
+                    <span>Karijera</span>
+                    <span className="member-popover-multiline">
+                      {selectedMember.karijera?.trim() ? selectedMember.karijera : "—"}
+                    </span>
                   </div>
                   <MemberKontaktBlock person={selectedMember} />
                 </aside>

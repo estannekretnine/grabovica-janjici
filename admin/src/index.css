@@ -265,6 +265,12 @@ textarea {
   max-width: 40rem;
 }
 
+.person-form-karijera {
+  min-height: 12rem;
+  max-width: 100%;
+  resize: vertical;
+}
+
 button {
   font: inherit;
   cursor: pointer;
@@ -469,6 +475,14 @@ th {
 
 .member-popover-value {
   word-break: break-word;
+}
+
+.member-popover-multiline {
+  word-break: break-word;
+  white-space: pre-wrap;
+  max-height: 5.5rem;
+  overflow-y: auto;
+  line-height: 1.35;
 }
 
 .member-popover-link {

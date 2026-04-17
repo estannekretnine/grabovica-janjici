@@ -59,6 +59,7 @@ type GenealogyTables = {
       email: string | null;
       mob1: string | null;
       mob2: string | null;
+      karijera: string | null;
     };
     Insert: {
       id?: string;
@@ -86,6 +87,7 @@ type GenealogyTables = {
       email?: string | null;
       mob1?: string | null;
       mob2?: string | null;
+      karijera?: string | null;
     };
     Update: {
       id?: string;
@@ -113,6 +115,7 @@ type GenealogyTables = {
       email?: string | null;
       mob1?: string | null;
       mob2?: string | null;
+      karijera?: string | null;
     };
   };
   gr_parent_child: {

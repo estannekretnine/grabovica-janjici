@@ -36,6 +36,7 @@ const emptyForm: PersonInsert = {
   email: null,
   mob1: null,
   mob2: null,
+  karijera: null,
 };
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
@@ -242,6 +243,7 @@ export function PersonsPage() {
       email: p.email,
       mob1: p.mob1,
       mob2: p.mob2,
+      karijera: p.karijera,
     });
     const parsed = parsePhotoItems(p.photo_storage_path);
     setPhotoItems(
@@ -727,6 +729,16 @@ export function PersonsPage() {
               <textarea
                 value={form.notes ?? ""}
                 onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value || null }))}
+              />
+            </label>
+            <label>
+              Karijera
+              <textarea
+                className="person-form-karijera"
+                rows={10}
+                value={form.karijera ?? ""}
+                onChange={(e) => setForm((f) => ({ ...f, karijera: e.target.value || null }))}
+                placeholder="Radno mesto, obrazovanje, iskustvo…"
               />
             </label>
             <div className="row">
