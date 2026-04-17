@@ -11,7 +11,7 @@ type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
-  const a = `${p.last_name} ${p.first_name}`.trim();
+  const a = `${p.first_name} ${p.last_name}`.trim();
   return a || "(bez imena)";
 }
 

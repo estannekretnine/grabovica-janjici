@@ -5,7 +5,7 @@ import {
   writeKorisnikToStorage,
   type KorisnikProfile,
 } from "../lib/korisnikSession";
-import { DEFAULT_LOGIN_EMAIL } from "../constants";
+import { DEFAULT_LOGIN_EMAIL, DEFAULT_LOGIN_PASSWORD } from "../constants";
 import { SupabaseEnvHelp } from "../components/MissingSupabaseConfig";
 import "./LoginPage.css";
 
@@ -60,7 +60,7 @@ function LoginBrandPanel() {
 
 export function LoginPage() {
   const [email, setEmail] = useState(DEFAULT_LOGIN_EMAIL);
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState(DEFAULT_LOGIN_PASSWORD);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const updatedAt = formatBuildUpdatedAt();
@@ -167,13 +167,6 @@ export function LoginPage() {
               {busy ? "Prijava…" : "Prijavi se"} <span aria-hidden>→</span>
             </button>
           </form>
-
-          <div className="login-or">ILI</div>
-
-          <p className="login-footer-note">
-            Nemate nalog? Kontaktirajte administratora na{" "}
-            <a href="mailto:admin@grabovica-janjici.local">admin@grabovica-janjici.local</a>
-          </p>
 
           <div className="login-meta">
             Poslednje ažuriranje aplikacije: {updatedAt}
