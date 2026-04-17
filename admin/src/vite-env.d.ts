@@ -2,6 +2,7 @@
 
 declare const __GR_SUPABASE_URL__: string;
 declare const __GR_SUPABASE_ANON__: string;
+declare const __GR_BUILD_AT__: string;
 
 interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;

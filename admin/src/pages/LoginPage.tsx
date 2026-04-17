@@ -9,6 +9,15 @@ import { DEFAULT_LOGIN_EMAIL } from "../constants";
 import { SupabaseEnvHelp } from "../components/MissingSupabaseConfig";
 import "./LoginPage.css";
 
+function formatBuildUpdatedAt() {
+  const raw = typeof __GR_BUILD_AT__ !== "undefined" ? __GR_BUILD_AT__ : "";
+  const dt = raw ? new Date(raw) : null;
+  if (dt && !Number.isNaN(dt.getTime())) {
+    return dt.toLocaleString("sr-Latn-ME");
+  }
+  return "nepoznato";
+}
+
 function LoginBrandPanel() {
   return (
     <section className="login-brand" aria-label="Brending">
@@ -54,6 +63,7 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const updatedAt = formatBuildUpdatedAt();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -166,7 +176,7 @@ export function LoginPage() {
           </p>
 
           <div className="login-meta">
-            Poslednje ažuriranje aplikacije: {new Date().toLocaleString("sr-Latn-ME")}
+            Poslednje ažuriranje aplikacije: {updatedAt}
           </div>
 
           <div className="login-version">Porodično stablo v1 • 2026</div>

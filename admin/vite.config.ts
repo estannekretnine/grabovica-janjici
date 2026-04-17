@@ -43,6 +43,7 @@ function pickSupabaseFromEnv(mode: string): { url: string; anon: string } {
 
 export default defineConfig(({ mode }) => {
   const { url, anon } = pickSupabaseFromEnv(mode);
+  const buildAtIso = new Date().toISOString();
 
   console.log("[vite.config] mode:", mode);
   console.log("[vite.config] cwd:", process.cwd());
@@ -60,6 +61,7 @@ export default defineConfig(({ mode }) => {
     define: {
       __GR_SUPABASE_URL__: JSON.stringify(url),
       __GR_SUPABASE_ANON__: JSON.stringify(anon),
+      __GR_BUILD_AT__: JSON.stringify(buildAtIso),
     },
   };
 });
