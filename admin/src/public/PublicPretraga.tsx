@@ -7,6 +7,7 @@ type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
 type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
+type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
 
 function personLabel(p: Pick<PersonRow, "first_name" | "last_name">): string {
   return `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "—";
@@ -18,6 +19,12 @@ function lifeLineShort(p: Pick<PersonRow, "birth_date" | "death_date" | "is_livi
   if (d) return `${b} – ${d}`;
   if (p.is_living === false) return `${b} –`;
   return b;
+}
+
+function genderLabel(g: string | null): string {
+  if (g === "male") return "Muško";
+  if (g === "female") return "Žensko";
+  return g ?? "—";
 }
 
 export function PublicPretraga() {
@@ -33,6 +40,19 @@ export function PublicPretraga() {
   const [filterLokacija, setFilterLokacija] = useState<number | "">("");
   const [filterStatus, setFilterStatus] = useState<"" | "ziv" | "mrtav">("");
   const [filterKeyword, setFilterKeyword] = useState("");
+
+  const [searchTriggered, setSearchTriggered] = useState(false);
+  const [appliedFilters, setAppliedFilters] = useState<{
+    drzava: number | "";
+    opstina: number | "";
+    lokacija: number | "";
+    status: "" | "ziv" | "mrtav";
+    keyword: string;
+  }>({ drzava: "", opstina: "", lokacija: "", status: "", keyword: "" });
+
+  const [selectedPerson, setSelectedPerson] = useState<PersonRow | null>(null);
+  const [activities, setActivities] = useState<ActivityRow[]>([]);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!audit || !supabase) {
@@ -117,44 +137,64 @@ export function PublicPretraga() {
     }
   }, [filterOpstina, filterLokacija, lokacije]);
 
+  const hasAnyFilter =
+    filterDrzava !== "" ||
+    filterOpstina !== "" ||
+    filterLokacija !== "" ||
+    filterStatus !== "";
+
+  const hasKeyword = filterKeyword.trim() !== "";
+
+  function doSearch() {
+    setAppliedFilters({
+      drzava: filterDrzava,
+      opstina: filterOpstina,
+      lokacija: filterLokacija,
+      status: filterStatus,
+      keyword: filterKeyword.trim(),
+    });
+    setSearchTriggered(true);
+  }
+
+  function doKeywordSearch() {
+    setAppliedFilters({
+      drzava: "",
+      opstina: "",
+      lokacija: "",
+      status: "",
+      keyword: filterKeyword.trim(),
+    });
+    setSearchTriggered(true);
+  }
+
   const filtered = useMemo(() => {
+    if (!searchTriggered) return [];
+
     let list = persons;
+    const f = appliedFilters;
 
-    if (filterDrzava !== "") {
-      list = list.filter(
-        (p) => p.drzavaid === filterDrzava || p.drzavaidrodio === filterDrzava
-      );
+    if (f.drzava !== "") {
+      list = list.filter((p) => p.drzavaid === f.drzava || p.drzavaidrodio === f.drzava);
     }
 
-    if (filterOpstina !== "") {
-      list = list.filter(
-        (p) => p.opstinaid === filterOpstina || p.opstinaidrodio === filterOpstina
-      );
+    if (f.opstina !== "") {
+      list = list.filter((p) => p.opstinaid === f.opstina || p.opstinaidrodio === f.opstina);
     }
 
-    if (filterLokacija !== "") {
-      list = list.filter(
-        (p) => p.lokacijaid === filterLokacija || p.lokacijaidrodio === filterLokacija
-      );
+    if (f.lokacija !== "") {
+      list = list.filter((p) => p.lokacijaid === f.lokacija || p.lokacijaidrodio === f.lokacija);
     }
 
-    if (filterStatus === "ziv") {
+    if (f.status === "ziv") {
       list = list.filter((p) => p.is_living === true);
-    } else if (filterStatus === "mrtav") {
+    } else if (f.status === "mrtav") {
       list = list.filter((p) => p.is_living === false || (p.death_date && p.death_date.trim() !== ""));
     }
 
-    const kw = filterKeyword.trim().toLowerCase();
+    const kw = f.keyword.toLowerCase();
     if (kw) {
       list = list.filter((p) => {
-        const hay = [
-          p.first_name,
-          p.last_name,
-          p.notes,
-          p.karijera,
-          p.birth_place,
-          p.death_place,
-        ]
+        const hay = [p.first_name, p.last_name, p.notes, p.karijera, p.birth_place, p.death_place]
           .filter(Boolean)
           .join(" ")
           .toLowerCase();
@@ -163,7 +203,7 @@ export function PublicPretraga() {
     }
 
     return list;
-  }, [persons, filterDrzava, filterOpstina, filterLokacija, filterStatus, filterKeyword]);
+  }, [persons, searchTriggered, appliedFilters]);
 
   function resetFilters() {
     setFilterDrzava("");
@@ -171,6 +211,35 @@ export function PublicPretraga() {
     setFilterLokacija("");
     setFilterStatus("");
     setFilterKeyword("");
+    setSearchTriggered(false);
+    setAppliedFilters({ drzava: "", opstina: "", lokacija: "", status: "", keyword: "" });
+  }
+
+  async function openPersonDetail(p: PersonRow) {
+    setSelectedPerson(p);
+    setActivities([]);
+    if (!audit) return;
+    setActivitiesLoading(true);
+    const { data } = await audit
+      .from("gr_aktivnosti")
+      .select("*")
+      .eq("person_id", p.id)
+      .order("redosled")
+      .order("created_at");
+    setActivities(data ?? []);
+    setActivitiesLoading(false);
+  }
+
+  function closeDetail() {
+    setSelectedPerson(null);
+    setActivities([]);
+  }
+
+  function getLokacijaLabel(p: PersonRow): string {
+    const lokNaziv = p.lokacijaid ? lokacijaById.get(p.lokacijaid) : null;
+    const opNaziv = p.opstinaid ? opstinaById.get(p.opstinaid) : null;
+    const drzNaziv = p.drzavaid ? drzavaById.get(p.drzavaid) : null;
+    return [lokNaziv, opNaziv, drzNaziv].filter(Boolean).join(", ");
   }
 
   return (
@@ -178,7 +247,8 @@ export function PublicPretraga() {
       <section className="public-section">
         <h1 className="public-page-title">Pretraga članova</h1>
         <p className="public-lead">
-          Pronađite članove porodice po lokaciji, statusu ili ključnoj reči (ime, napomene, karijera).
+          Pronađite članove porodice po lokaciji, statusu ili ključnoj reči. Unesite bar jedan kriterijum i kliknite
+          „Traži".
         </p>
 
         {error ? <p className="public-muted">{error}</p> : null}
@@ -241,24 +311,52 @@ export function PublicPretraga() {
             </select>
           </label>
 
+          <button
+            type="button"
+            className="public-pretraga-search"
+            onClick={doSearch}
+            disabled={!hasAnyFilter}
+          >
+            Traži
+          </button>
+
+          <button type="button" className="public-pretraga-reset" onClick={resetFilters}>
+            Resetuj
+          </button>
+        </div>
+
+        <div className="public-pretraga-keyword-section">
           <label className="public-pretraga-label public-pretraga-label--wide">
-            Ključna reč
+            Ključna reč (ime, napomena, karijera…)
             <input
               type="search"
               value={filterKeyword}
               onChange={(e) => setFilterKeyword(e.target.value)}
-              placeholder="Ime, napomena, karijera…"
+              placeholder="Unesite tekst za pretragu…"
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && hasKeyword) doKeywordSearch();
+              }}
             />
           </label>
-
-          <button type="button" className="public-pretraga-reset" onClick={resetFilters}>
-            Resetuj filtere
+          <button
+            type="button"
+            className="public-pretraga-search"
+            onClick={doKeywordSearch}
+            disabled={!hasKeyword}
+          >
+            Traži po ključnoj reči
           </button>
         </div>
 
-        {loading ? <p className="public-muted">Učitavanje…</p> : null}
+        {loading ? <p className="public-muted">Učitavanje podataka…</p> : null}
 
-        {!loading && !error ? (
+        {!loading && !error && !searchTriggered ? (
+          <p className="public-muted public-pretraga-hint">
+            Izaberite filtere ili unesite ključnu reč, zatim kliknite „Traži".
+          </p>
+        ) : null}
+
+        {!loading && !error && searchTriggered ? (
           <div className="public-pretraga-results">
             <p className="public-muted public-pretraga-count">
               Pronađeno: <strong>{filtered.length}</strong> {filtered.length === 1 ? "član" : "članova"}
@@ -267,32 +365,108 @@ export function PublicPretraga() {
             {filtered.length > 0 ? (
               <div className="public-pretraga-grid">
                 {filtered.map((p) => {
-                  const drzNaziv = p.drzavaid ? drzavaById.get(p.drzavaid) : null;
-                  const opNaziv = p.opstinaid ? opstinaById.get(p.opstinaid) : null;
-                  const lokNaziv = p.lokacijaid ? lokacijaById.get(p.lokacijaid) : null;
-                  const lokLabel = [lokNaziv, opNaziv, drzNaziv].filter(Boolean).join(", ");
+                  const lokLabel = getLokacijaLabel(p);
                   return (
-                    <div key={p.id} className="public-pretraga-card">
+                    <button
+                      key={p.id}
+                      type="button"
+                      className="public-pretraga-card"
+                      onClick={() => void openPersonDetail(p)}
+                    >
                       <div className="public-pretraga-card-name">{personLabel(p)}</div>
                       <div className="public-pretraga-card-life">{lifeLineShort(p)}</div>
-                      {lokLabel ? (
-                        <div className="public-pretraga-card-loc">{lokLabel}</div>
-                      ) : null}
+                      {lokLabel ? <div className="public-pretraga-card-loc">{lokLabel}</div> : null}
                       {p.karijera?.trim() ? (
                         <div className="public-pretraga-card-karijera" title={p.karijera}>
                           {p.karijera.length > 80 ? `${p.karijera.slice(0, 78)}…` : p.karijera}
                         </div>
                       ) : null}
-                    </div>
+                    </button>
                   );
                 })}
               </div>
             ) : (
-              <p className="public-muted">Nema članova koji odgovaraju filterima.</p>
+              <p className="public-muted">Nema članova koji odgovaraju kriterijumima.</p>
             )}
           </div>
         ) : null}
       </section>
+
+      {selectedPerson ? (
+        <div className="public-pretraga-modal-backdrop" onClick={closeDetail}>
+          <div className="public-pretraga-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="public-pretraga-modal-head">
+              <strong>{personLabel(selectedPerson)}</strong>
+              <button type="button" className="public-pretraga-modal-close" onClick={closeDetail}>
+                ×
+              </button>
+            </div>
+
+            <div className="public-pretraga-modal-body">
+              <h3 className="public-pretraga-modal-section-title">Detalji</h3>
+              <dl className="public-pretraga-modal-dl">
+                <dt>Pol</dt>
+                <dd>{genderLabel(selectedPerson.gender)}</dd>
+                <dt>Datum rođenja</dt>
+                <dd>{selectedPerson.birth_date ?? "—"}</dd>
+                <dt>Mesto rođenja</dt>
+                <dd>{selectedPerson.birth_place ?? "—"}</dd>
+                {selectedPerson.death_date || selectedPerson.is_living === false ? (
+                  <>
+                    <dt>Datum smrti</dt>
+                    <dd>{selectedPerson.death_date ?? "—"}</dd>
+                    <dt>Mesto smrti</dt>
+                    <dd>{selectedPerson.death_place ?? "—"}</dd>
+                  </>
+                ) : null}
+                <dt>Prebivalište</dt>
+                <dd>{getLokacijaLabel(selectedPerson) || "—"}</dd>
+                {selectedPerson.karijera?.trim() ? (
+                  <>
+                    <dt>Karijera</dt>
+                    <dd className="public-pretraga-modal-karijera">{selectedPerson.karijera}</dd>
+                  </>
+                ) : null}
+                {selectedPerson.notes?.trim() ? (
+                  <>
+                    <dt>Napomene</dt>
+                    <dd className="public-pretraga-modal-notes">{selectedPerson.notes}</dd>
+                  </>
+                ) : null}
+              </dl>
+
+              <h3 className="public-pretraga-modal-section-title">Aktivnosti</h3>
+              {activitiesLoading ? <p className="public-muted">Učitavanje aktivnosti…</p> : null}
+              {!activitiesLoading && activities.length === 0 ? (
+                <p className="public-muted">Nema unetih aktivnosti.</p>
+              ) : null}
+              {!activitiesLoading && activities.length > 0 ? (
+                <div className="public-pretraga-modal-activities">
+                  {activities.map((a) => (
+                    <div key={a.id} className="public-pretraga-activity">
+                      <div className="public-pretraga-activity-title">
+                        {a.naslov}
+                        {a.datum ? <span className="public-pretraga-activity-date">{a.datum}</span> : null}
+                      </div>
+                      {a.opis?.trim() ? <p className="public-pretraga-activity-opis">{a.opis}</p> : null}
+                      {a.veb_link?.trim() ? (
+                        <a
+                          href={a.veb_link.startsWith("http") ? a.veb_link : `https://${a.veb_link}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="public-pretraga-activity-link"
+                        >
+                          {a.veb_link}
+                        </a>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
