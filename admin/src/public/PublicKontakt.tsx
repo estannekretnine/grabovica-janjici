@@ -61,7 +61,7 @@ export function PublicKontakt() {
     <div className="public-page public-kontakt-page">
       <section className="public-section public-kontakt-section">
         <form className="public-form public-form--kontakt" onSubmit={(e) => void onSubmit(e)}>
-          <h1 className="public-kontakt-title">Korisnički centar</h1>
+          <h1 className="public-kontakt-title">Kontakt forma</h1>
           <p className="public-kontakt-lead">
             Registrujte se i postanite deo naše zajednice — ostavite kontakt ispod.
           </p>
