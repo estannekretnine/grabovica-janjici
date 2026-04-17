@@ -4,7 +4,7 @@ export const PUBLIC_IMG_DURMITOR =
 
 /** Wikimedia Commons — Durmitor pejzaž (umetnički prikaz na početnoj). */
 export const PUBLIC_IMG_DURMITOR_ART =
-  "https://upload.wikimedia.org/wikipedia/commons/thumb/e/eb/Durmitor_-_Bobotov_Kuk.jpg/1280px-Durmitor_-_Bobotov_Kuk.jpg";
+  "https://upload.wikimedia.org/wikipedia/commons/8/80/Durmitor_national_park_from_Curevac.jpg";
 
 /** Ilustracija rodoslovnog stabla (referenca vizuala). */
 export const PUBLIC_IMG_TREE =
