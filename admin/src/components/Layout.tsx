@@ -70,6 +70,9 @@ export function Layout({ children, email, onSignOut }: Props) {
             <NavLink to="/trees" className={navClass} onClick={closeSidebar}>
               Stabla
             </NavLink>
+            <NavLink to="/stablo-1" className={navClass} onClick={closeSidebar}>
+              Stablo 1
+            </NavLink>
           </div>
         </nav>
 

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
+import { loadFamilyGraph } from "../lib/familyTreeGraphLoad";
 import type { Database } from "../types/database";
 
 type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
@@ -207,44 +208,12 @@ export function TreesPage() {
       setPartnerships([]);
       return;
     }
-    const { data: people, error: pErr } = await audit!
-      .from("gr_persons")
-      .select("*")
-      .eq("tree_id", treeId)
-      .order("last_name")
-      .order("first_name");
-    if (pErr) {
-      setError(pErr.message);
-      return;
-    }
-    const p = people ?? [];
-    setPersons(p);
-    if (!p.length) {
-      setRelations([]);
-      return;
-    }
-    const ids = p.map((x) => x.id);
-    const { data: rel, error: rErr } = await audit!
-      .from("gr_parent_child")
-      .select("*")
-      .in("parent_person_id", ids)
-      .in("child_person_id", ids);
-    if (rErr) {
-      setError(rErr.message);
-      return;
-    }
-    setRelations(rel ?? []);
-
-    const { data: parts, error: paErr } = await audit!
-      .from("gr_partnerships")
-      .select("*")
-      .in("person_a_id", ids)
-      .in("person_b_id", ids);
-    if (paErr) {
-      setError(paErr.message);
-      return;
-    }
-    setPartnerships(parts ?? []);
+    const { data, error: gErr } = await loadFamilyGraph(treeId);
+    if (gErr) setError(gErr);
+    else setError(null);
+    setPersons(data.persons);
+    setRelations(data.relations);
+    setPartnerships(data.partnerships);
   }, []);
 
   useEffect(() => {
