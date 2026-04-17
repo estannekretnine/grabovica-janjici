@@ -100,6 +100,7 @@ export function PersonsPage() {
   const [defaultPhotoIndex, setDefaultPhotoIndex] = useState(0);
   const [dragActive, setDragActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [uploadDebug, setUploadDebug] = useState<string | null>(null);
 
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
@@ -233,6 +234,7 @@ export function PersonsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    setUploadDebug(null);
     const personId = editingId ?? crypto.randomUUID();
     const uploadedItems: PhotoItem[] = [];
     for (let i = 0; i < photoItems.length; i += 1) {
@@ -247,13 +249,16 @@ export function PersonsPage() {
       }
       const fileName = safeFilename(item.file.name);
       const objectPath = `persons/${treeId}/${personId}/${Date.now()}-${i + 1}-${fileName}`;
+      setUploadDebug(`UPLOAD -> bucket/${objectPath}`);
       const { error: upErr } = await supabase.storage
         .from("bucket")
         .upload(objectPath, item.file, { upsert: true });
       if (upErr) {
+        setUploadDebug(`UPLOAD ERROR -> bucket/${objectPath} :: ${upErr.message}`);
         setError(`Upload fotografije nije uspeo: ${upErr.message}`);
         return;
       }
+      setUploadDebug(`UPLOAD OK -> bucket/${objectPath}`);
       uploadedItems.push({
         ...item,
         file: null,
@@ -271,16 +276,19 @@ export function PersonsPage() {
     if (editingId) {
       const { error: upErr } = await audit!.from("gr_persons").update(payload).eq("id", editingId);
       if (upErr) {
+        setUploadDebug((prev) => `${prev ?? ""}\nDB UPDATE ERROR: ${upErr.message}`.trim());
         setError(upErr.message);
         return;
       }
     } else {
       const { error: insErr } = await audit!.from("gr_persons").insert(payload);
       if (insErr) {
+        setUploadDebug((prev) => `${prev ?? ""}\nDB INSERT ERROR: ${insErr.message}`.trim());
         setError(insErr.message);
         return;
       }
     }
+    setUploadDebug((prev) => `${prev ?? ""}\nDB SAVE OK (person_id=${personId})`.trim());
     setEditingId(null);
     setForm({ ...emptyForm, tree_id: treeId });
     setPhotoItems([]);
@@ -686,6 +694,7 @@ export function PersonsPage() {
               ) : null}
             </div>
           </form>
+          {uploadDebug ? <pre className="upload-debug">{uploadDebug}</pre> : null}
         </div>
       ) : null}
 
