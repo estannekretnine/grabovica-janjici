@@ -396,6 +396,8 @@ export function PublicPretraga() {
               <div className="public-pretraga-grid">
                 {filtered.map((p) => {
                   const lokLabel = getLokacijaLabel(p);
+                  const statusZiv =
+                    p.is_living === true ? "Živ" : p.is_living === false ? "Preminuo" : null;
                   return (
                     <button
                       key={p.id}
@@ -404,6 +406,18 @@ export function PublicPretraga() {
                       onClick={() => openPersonModal(p)}
                     >
                       <div className="public-pretraga-card-name">{personLabel(p)}</div>
+                      <div className="public-pretraga-card-meta">
+                        {genderLabel(p.gender) !== "—" ? (
+                          <span className="public-pretraga-card-gender">{genderLabel(p.gender)}</span>
+                        ) : null}
+                        {statusZiv ? (
+                          <span
+                            className={`public-pretraga-card-status ${p.is_living ? "public-pretraga-card-status--ziv" : "public-pretraga-card-status--mrtav"}`}
+                          >
+                            {statusZiv}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="public-pretraga-card-life">{lifeLineShort(p)}</div>
                       {lokLabel ? <div className="public-pretraga-card-loc">{lokLabel}</div> : null}
                       {p.karijera?.trim() ? (
