@@ -581,6 +581,49 @@ th {
   font-size: 0.88rem;
 }
 
+.table-pagination {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem 1rem;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.table-pagination-info {
+  font-size: 0.88rem;
+  flex: 1 1 12rem;
+}
+
+.table-pagination-size {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.table-pagination-size select {
+  min-width: 4.5rem;
+}
+
+.table-pagination-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.table-pagination-nav button {
+  padding: 0.25rem 0.5rem;
+}
+
+.table-pagination-page {
+  font-size: 0.85rem;
+  padding: 0 0.25rem;
+}
+
 .tree-canvas:active {
   cursor: grabbing;
 }

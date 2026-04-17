@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { audit, supabase } from "../lib/supabase";
 import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
+import { TablePagination } from "../components/TablePagination";
 import type { Database } from "../types/database";
 import type { PartnershipType, RelationSubtype } from "../types/database";
 
@@ -42,6 +43,11 @@ export function RelationshipsPage() {
   const [pEnd, setPEnd] = useState("");
   const [pPlace, setPPlace] = useState("");
   const [pNotes, setPNotes] = useState("");
+
+  const [pcListPage, setPcListPage] = useState(1);
+  const [pcListPageSize, setPcListPageSize] = useState(25);
+  const [partListPage, setPartListPage] = useState(1);
+  const [partListPageSize, setPartListPageSize] = useState(25);
 
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
@@ -151,6 +157,33 @@ export function RelationshipsPage() {
       p.opstinaid != null ? (opstinaById.get(p.opstinaid) ?? `id ${p.opstinaid}`) : "bez opštine";
     return `${ime} — ${opstina}`;
   }
+
+  const pcTotalPages = Math.max(1, Math.ceil(pcRows.length / pcListPageSize));
+  const pcSafePage = Math.min(Math.max(1, pcListPage), pcTotalPages);
+  const paginatedPcRows = useMemo(() => {
+    const start = (pcSafePage - 1) * pcListPageSize;
+    return pcRows.slice(start, start + pcListPageSize);
+  }, [pcRows, pcSafePage, pcListPageSize]);
+
+  const partTotalPages = Math.max(1, Math.ceil(partRows.length / partListPageSize));
+  const partSafePage = Math.min(Math.max(1, partListPage), partTotalPages);
+  const paginatedPartRows = useMemo(() => {
+    const start = (partSafePage - 1) * partListPageSize;
+    return partRows.slice(start, start + partListPageSize);
+  }, [partRows, partSafePage, partListPageSize]);
+
+  useEffect(() => {
+    setPcListPage((p) => Math.min(p, pcTotalPages));
+  }, [pcTotalPages]);
+
+  useEffect(() => {
+    setPartListPage((p) => Math.min(p, partTotalPages));
+  }, [partTotalPages]);
+
+  useEffect(() => {
+    setPcListPage(1);
+    setPartListPage(1);
+  }, [treeId]);
 
   async function addParentChild(e: React.FormEvent) {
     e.preventDefault();
@@ -317,7 +350,15 @@ export function RelationshipsPage() {
             </form>
           </div>
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Lista</h2>
+            <h2 style={{ marginTop: 0 }}>Lista ({pcRows.length})</h2>
+            <TablePagination
+              idPrefix="veze-pc"
+              page={pcListPage}
+              pageSize={pcListPageSize}
+              totalItems={pcRows.length}
+              onPageChange={setPcListPage}
+              onPageSizeChange={setPcListPageSize}
+            />
             <table>
               <thead>
                 <tr>
@@ -328,7 +369,7 @@ export function RelationshipsPage() {
                 </tr>
               </thead>
               <tbody>
-                {pcRows.map((r) => {
+                {paginatedPcRows.map((r) => {
                   const par = personById.get(r.parent_person_id);
                   const ch = personById.get(r.child_person_id);
                   return (
@@ -399,7 +440,15 @@ export function RelationshipsPage() {
             </form>
           </div>
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Lista</h2>
+            <h2 style={{ marginTop: 0 }}>Lista ({partRows.length})</h2>
+            <TablePagination
+              idPrefix="veze-part"
+              page={partListPage}
+              pageSize={partListPageSize}
+              totalItems={partRows.length}
+              onPageChange={setPartListPage}
+              onPageSizeChange={setPartListPageSize}
+            />
             <table>
               <thead>
                 <tr>
@@ -411,7 +460,7 @@ export function RelationshipsPage() {
                 </tr>
               </thead>
               <tbody>
-                {partRows.map((r) => {
+                {paginatedPartRows.map((r) => {
                   const a = personById.get(r.person_a_id);
                   const b = personById.get(r.person_b_id);
                   const period = [r.start_date, r.end_date].filter(Boolean).join(" → ") || "—";

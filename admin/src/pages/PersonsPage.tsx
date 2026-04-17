@@ -3,6 +3,7 @@ import { audit, supabase } from "../lib/supabase";
 import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
 import { PersonActivitiesModal } from "./PersonActivitiesModal";
+import { TablePagination } from "../components/TablePagination";
 import type { Database } from "../types/database";
 import type { Gender } from "../types/database";
 
@@ -117,6 +118,8 @@ export function PersonsPage() {
   const [activitiesOpen, setActivitiesOpen] = useState(false);
   const [activitiesPersonId, setActivitiesPersonId] = useState<string | null>(null);
   const [activitiesPersonName, setActivitiesPersonName] = useState("");
+  const [listPage, setListPage] = useState(1);
+  const [listPageSize, setListPageSize] = useState(25);
 
   const loadTrees = useCallback(async () => {
     const { data } = await audit!.from("gr_family_trees").select("*").order("name");
@@ -213,6 +216,22 @@ export function PersonsPage() {
       return full.includes(q);
     });
   }, [persons, search]);
+
+  const listTotalPages = Math.max(1, Math.ceil(filteredPersons.length / listPageSize));
+  const listSafePage = Math.min(Math.max(1, listPage), listTotalPages);
+
+  const paginatedPersons = useMemo(() => {
+    const start = (listSafePage - 1) * listPageSize;
+    return filteredPersons.slice(start, start + listPageSize);
+  }, [filteredPersons, listSafePage, listPageSize]);
+
+  useEffect(() => {
+    setListPage((p) => Math.min(p, listTotalPages));
+  }, [listTotalPages]);
+
+  useEffect(() => {
+    setListPage(1);
+  }, [treeId, search]);
 
   function startCreate() {
     setEditingId(null);
@@ -773,6 +792,14 @@ export function PersonsPage() {
 
       <div className="card">
         <h2 style={{ marginTop: 0 }}>Lista ({filteredPersons.length})</h2>
+        <TablePagination
+          idPrefix="persons"
+          page={listPage}
+          pageSize={listPageSize}
+          totalItems={filteredPersons.length}
+          onPageChange={setListPage}
+          onPageSizeChange={setListPageSize}
+        />
         <table>
           <thead>
             <tr>
@@ -786,7 +813,7 @@ export function PersonsPage() {
             </tr>
           </thead>
           <tbody>
-            {filteredPersons.map((p) => {
+            {paginatedPersons.map((p) => {
               const parsedPhotos = parsePhotoItems(p.photo_storage_path);
               const defaultPhotoPath =
                 parsedPhotos.items[parsedPhotos.defaultIndex]?.storagePath ?? "—";
