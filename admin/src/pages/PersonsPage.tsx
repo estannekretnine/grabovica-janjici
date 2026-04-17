@@ -661,7 +661,6 @@ export function PersonsPage() {
         <table>
           <thead>
             <tr>
-              <th>ID</th>
               <th>Ime i prezime</th>
               <th>Default foto</th>
               <th>Pol</th>
@@ -676,11 +675,21 @@ export function PersonsPage() {
               const parsedPhotos = parsePhotoItems(p.photo_storage_path);
               const defaultPhotoPath =
                 parsedPhotos.items[parsedPhotos.defaultIndex]?.storagePath ?? "—";
+              const defaultPhotoUrl =
+                defaultPhotoPath !== "—" && supabase
+                  ? supabase.storage.from("bucket").getPublicUrl(defaultPhotoPath.replace(/^bucket\//, "")).data
+                      .publicUrl
+                  : null;
               return (
                 <tr key={p.id}>
-                  <td>{p.id}</td>
                   <td>{personLabel(p)}</td>
-                  <td>{defaultPhotoPath}</td>
+                  <td>
+                    {defaultPhotoUrl ? (
+                      <img className="photo-thumb" src={defaultPhotoUrl} alt="default-foto" />
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>{p.gender ?? "—"}</td>
                   <td>{p.birth_date ?? "—"}</td>
                   <td>{p.is_living === null ? "—" : p.is_living ? "da" : "ne"}</td>
