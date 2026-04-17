@@ -85,6 +85,16 @@ function safeFilename(name: string): string {
   return cleaned.replace(/-+/g, "-").replace(/^-|-$/g, "") || "photo.jpg";
 }
 
+function getSupabaseHostLabel(): string {
+  const raw = typeof __GR_SUPABASE_URL__ !== "undefined" ? __GR_SUPABASE_URL__ : "";
+  if (!raw) return "unknown-host";
+  try {
+    return new URL(raw).host;
+  } catch {
+    return raw;
+  }
+}
+
 export function PersonsPage() {
   const [trees, setTrees] = useState<TreeRow[]>([]);
   const [drzave, setDrzave] = useState<DrzavaRow[]>([]);
@@ -234,7 +244,7 @@ export function PersonsPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    setUploadDebug(null);
+    setUploadDebug(`SUPABASE HOST -> ${getSupabaseHostLabel()}\nTARGET BUCKET -> bucket`);
     const personId = editingId ?? crypto.randomUUID();
     const uploadedItems: PhotoItem[] = [];
     for (let i = 0; i < photoItems.length; i += 1) {
