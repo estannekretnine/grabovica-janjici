@@ -42,7 +42,7 @@ const emptyForm: PersonInsert = {
 };
 
 function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
-  const a = [p.last_name, p.first_name, p.middle_name]
+  const a = [p.first_name, p.middle_name, p.last_name]
     .map((s) => (s ?? "").trim())
     .filter(Boolean)
     .join(" ");
