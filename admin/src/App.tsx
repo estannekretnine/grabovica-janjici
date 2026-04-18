@@ -13,6 +13,7 @@ import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
 import { PorukeSajtaPage } from "./pages/PorukeSajtaPage";
 import { StabloImportPage } from "./pages/StabloImportPage";
+import { Stablo2Page } from "./pages/Stablo2Page";
 import { PublicShell } from "./public/PublicLayout";
 import { PublicHome } from "./public/PublicHome";
 import { PublicStablo } from "./public/PublicStablo";
@@ -99,6 +100,7 @@ export default function App() {
           <Route path="/locations" element={<LokacijaPage />} />
           <Route path="/trees" element={<TreesPage />} />
           <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
+          <Route path="/stablo-2" element={<Stablo2Page />} />
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/relationships" element={<RelationshipsPage />} />
           <Route path="/stablo-import" element={<StabloImportPage />} />
