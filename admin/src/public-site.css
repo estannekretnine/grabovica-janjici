@@ -1,16 +1,16 @@
 /* Javni sajt — tamna baza (AuditClaw-inspiracija) + svetla tema preko [data-theme="light"] */
 
 .public-root {
-  --pub-bg: #0c0c0e;
-  --pub-surface: #151518;
-  --pub-surface2: #1c1c21;
+  --pub-bg: #1a1a1f;
+  --pub-surface: #242428;
+  --pub-surface2: #2c2c32;
   --pub-text: #f4f4f5;
   --pub-muted: #d8d8e0;
   --pub-gold: #d4a853;
   --pub-gold-dim: #b8924a;
-  --pub-border: #2a2a32;
-  --pub-hero-overlay: rgba(8, 8, 10, 0.55);
-  --pub-input-bg: #1f1f26;
+  --pub-border: #3a3a42;
+  --pub-hero-overlay: rgba(26, 26, 31, 0.55);
+  --pub-input-bg: #2a2a32;
   --pub-error: #f87171;
   --pub-success: #4ade80;
   min-height: 100vh;
