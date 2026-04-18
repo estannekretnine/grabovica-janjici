@@ -12,6 +12,7 @@ import { OpstinePage } from "./pages/OpstinePage";
 import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
 import { PorukeSajtaPage } from "./pages/PorukeSajtaPage";
+import { StabloImportPage } from "./pages/StabloImportPage";
 import { PublicShell } from "./public/PublicLayout";
 import { PublicHome } from "./public/PublicHome";
 import { PublicStablo } from "./public/PublicStablo";
@@ -100,6 +101,7 @@ export default function App() {
           <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/relationships" element={<RelationshipsPage />} />
+          <Route path="/stablo-import" element={<StabloImportPage />} />
         </Route>
       ) : null}
 
