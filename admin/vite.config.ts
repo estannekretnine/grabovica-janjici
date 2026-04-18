@@ -1,5 +1,6 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { execSync } from "node:child_process";
 import { defineConfig, loadEnv } from "vite";
 import react from "@vitejs/plugin-react";
 import { normalizeSupabaseUrl } from "./src/lib/normalizeSupabaseUrl";
@@ -41,9 +42,18 @@ function pickSupabaseFromEnv(mode: string): { url: string; anon: string } {
   };
 }
 
+function getLastCommitDate(): string {
+  try {
+    const date = execSync("git log -1 --format=%cI", { encoding: "utf-8" }).trim();
+    return date || new Date().toISOString();
+  } catch {
+    return new Date().toISOString();
+  }
+}
+
 export default defineConfig(({ mode }) => {
   const { url, anon } = pickSupabaseFromEnv(mode);
-  const buildAtIso = new Date().toISOString();
+  const buildAtIso = getLastCommitDate();
 
   console.log("[vite.config] mode:", mode);
   console.log("[vite.config] cwd:", process.cwd());
