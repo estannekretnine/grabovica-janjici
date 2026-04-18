@@ -160,7 +160,7 @@ export function Stablo2Page() {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const delta = -e.deltaY * 0.0015;
-    setZoom((z) => Math.min(2.5, Math.max(0.3, z + delta)));
+    setZoom((z) => Math.min(2.5, Math.max(0.6, z + delta)));
   }
 
   const nodesById = useMemo(() => {
@@ -185,24 +185,40 @@ export function Stablo2Page() {
     <div className="page">
       <header className="page-header">
         <div>
-          <h1>Stablo 2 — ogranak Šukovići</h1>
-          <p className="muted" style={{ margin: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
+            <h1 style={{ margin: 0 }}>Stablo 2 — ogranak Šukovići</h1>
+            {!loading && totalMembers > 0 ? (
+              <span
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                  padding: "0.25rem 0.7rem",
+                  borderRadius: 999,
+                  background: "#f5f1e8",
+                  border: "1px solid #d4c9a8",
+                  color: "#4a3c24",
+                  fontWeight: 700,
+                  fontSize: "0.95rem",
+                }}
+              >
+                Ukupno članova: <strong style={{ fontSize: "1.05rem" }}>{totalMembers}</strong>
+              </span>
+            ) : null}
+          </div>
+          <p className="muted" style={{ margin: "0.25rem 0 0" }}>
             Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".
           </p>
-          {!loading && totalMembers > 0 ? (
+          {!loading && generationStats.length > 0 ? (
             <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
-              Ukupno članova: <strong>{totalMembers}</strong>
-              {generationStats.length > 0
-                ? " · " +
-                  generationStats
-                    .map((g) => `${g.depth + 1}. koleno: ${g.count}`)
-                    .join(" · ")
-                : ""}
+              {generationStats
+                .map((g) => `${g.depth + 1}. koleno: ${g.count}`)
+                .join(" · ")}
             </p>
           ) : null}
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <button type="button" onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}>
+          <button type="button" onClick={() => setZoom((z) => Math.max(0.6, z - 0.1))}>
             −
           </button>
           <span style={{ minWidth: 48, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
@@ -302,7 +318,8 @@ export function Stablo2Page() {
                   x={NODE_WIDTH / 2}
                   y={NODE_HEIGHT / 2 + 4}
                   textAnchor="middle"
-                  fontSize={13}
+                  fontSize={14}
+                  fontWeight={700}
                   fontFamily="Georgia, 'Times New Roman', serif"
                   fill="#1a1407"
                 >
