@@ -41,8 +41,11 @@ const emptyForm: PersonInsert = {
   karijera: null,
 };
 
-function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
-  const a = `${p.last_name} ${p.first_name}`.trim();
+function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
+  const a = [p.last_name, p.first_name, p.middle_name]
+    .map((s) => (s ?? "").trim())
+    .filter(Boolean)
+    .join(" ");
   return a || "(bez imena)";
 }
 
