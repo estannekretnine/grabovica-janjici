@@ -169,6 +169,18 @@ export function Stablo2Page() {
     return m;
   }, [layout.nodes]);
 
+  const generationStats = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const n of layout.nodes) {
+      counts.set(n.depth, (counts.get(n.depth) ?? 0) + 1);
+    }
+    const depths = Array.from(counts.keys()).sort((a, b) => a - b);
+    return depths.map((depth) => ({ depth, count: counts.get(depth) ?? 0 }));
+  }, [layout.nodes]);
+
+  const totalMembers = layout.nodes.length;
+  const GEN_LABEL_HEIGHT = 28;
+
   return (
     <div className="page">
       <header className="page-header">
@@ -177,6 +189,17 @@ export function Stablo2Page() {
           <p className="muted" style={{ margin: 0 }}>
             Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".
           </p>
+          {!loading && totalMembers > 0 ? (
+            <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
+              Ukupno članova: <strong>{totalMembers}</strong>
+              {generationStats.length > 0
+                ? " · " +
+                  generationStats
+                    .map((g) => `${g.depth + 1}. koleno: ${g.count}`)
+                    .join(" · ")
+                : ""}
+            </p>
+          ) : null}
         </div>
         <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
           <button type="button" onClick={() => setZoom((z) => Math.max(0.3, z - 0.1))}>
@@ -227,13 +250,30 @@ export function Stablo2Page() {
         >
           <svg
             width={Math.max(layout.width + 200, 2000)}
-            height={Math.max(layout.height + 200, 800)}
+            height={Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800)}
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
               transformOrigin: "0 0",
               display: "block",
             }}
           >
+            <g transform={`translate(0, ${GEN_LABEL_HEIGHT})`}>
+            {generationStats.map((g) => {
+              const cx = g.depth * (NODE_WIDTH + COL_GAP) + NODE_WIDTH / 2;
+              return (
+                <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${-8})`}>
+                  <text
+                    textAnchor="middle"
+                    fontSize={13}
+                    fontWeight={700}
+                    fontFamily="Georgia, 'Times New Roman', serif"
+                    fill="#4a3c24"
+                  >
+                    {g.depth + 1}. koleno ({g.count})
+                  </text>
+                </g>
+              );
+            })}
             {layout.edges.map((e, i) => {
               const a = nodesById.get(e.from);
               const b = nodesById.get(e.to);
@@ -270,6 +310,7 @@ export function Stablo2Page() {
                 </text>
               </g>
             ))}
+            </g>
           </svg>
         </div>
       ) : null}
