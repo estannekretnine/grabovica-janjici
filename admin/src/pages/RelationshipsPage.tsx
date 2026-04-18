@@ -13,9 +13,7 @@ type PartRow = Database["audit"]["Tables"]["gr_partnerships"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 
 function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
-  const mid = (p.middle_name ?? "").trim();
-  const midInitial = mid ? `${mid.charAt(0).toUpperCase()}.` : "";
-  const a = [p.first_name, midInitial, p.last_name]
+  const a = [p.first_name, p.middle_name, p.last_name]
     .map((s) => (s ?? "").trim())
     .filter(Boolean)
     .join(" ");
