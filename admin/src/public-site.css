@@ -830,10 +830,19 @@
 }
 
 .public-home-heritage-caption {
+  margin: 0;
   padding: 0.65rem 0.85rem 0.85rem;
   font-size: 0.88rem;
   line-height: 1.45;
   color: var(--pub-muted);
+}
+
+.public-home-heritage-caption--above {
+  border-bottom: 1px solid var(--pub-border);
+  border-top: none;
+}
+
+.public-home-heritage-caption--below {
   border-top: 1px solid var(--pub-border);
 }
 

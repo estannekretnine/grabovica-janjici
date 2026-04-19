@@ -23,6 +23,9 @@ export function PublicHome() {
         <div className="public-home-heritage-grid">
           {PUBLIC_HERITAGE_IMAGES.map((item) => (
             <figure key={item.src} className="public-home-heritage-figure">
+              {item.captionAbove ? (
+                <p className="public-home-heritage-caption public-home-heritage-caption--above">{item.captionAbove}</p>
+              ) : null}
               <div className="public-home-heritage-img-wrap">
                 <img
                   src={item.src}
@@ -34,7 +37,9 @@ export function PublicHome() {
                   height={900}
                 />
               </div>
-              <figcaption className="public-home-heritage-caption">{item.caption}</figcaption>
+              <figcaption className="public-home-heritage-caption public-home-heritage-caption--below">
+                {item.caption}
+              </figcaption>
             </figure>
           ))}
         </div>

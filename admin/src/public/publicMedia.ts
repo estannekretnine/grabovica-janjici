@@ -10,8 +10,17 @@ export const PUBLIC_IMG_DURMITOR_ART =
 export const PUBLIC_IMG_TREE =
   "https://upload.wikimedia.org/wikipedia/commons/2/2a/Family_tree_chart_%282%29.png";
 
+export type PublicHeritageImage = {
+  src: string;
+  alt: string;
+  /** Tekst ispod slike (druga / donja fotografija na skenu). */
+  caption: string;
+  /** Tekst iznad slike (prva fotografija na skenu), isti stil kao `caption`. */
+  captionAbove?: string;
+};
+
 /** Početna — fotografije iz `homefoto/` u korenu repoa; generiši WebP: `npm run build:homefoto --prefix admin`. */
-export const PUBLIC_HERITAGE_IMAGES = [
+export const PUBLIC_HERITAGE_IMAGES: PublicHeritageImage[] = [
   {
     src: "/heritage/pocetna-1.webp",
     alt: "Kula Jankovića, sagrađena 1861. godine od strane braće Nikole, Mitra, Tripka i Simeuna",
@@ -26,11 +35,12 @@ export const PUBLIC_HERITAGE_IMAGES = [
   {
     src: "/heritage/pocetna-3.webp",
     alt: "Kuća braće Šćepana i Save Janjića; kuća Živka S. Janjića, brvnara",
-    caption: "Kuća braće Šćepana i Save Janjića; kuća Živka S. Janjića (brvnara).",
+    captionAbove: "Kuća braće Šćepana i Save Janjića.",
+    caption: "Kuća Živka S. Janjića (brvnara).",
   },
   {
     src: "/heritage/pocetna-4.webp",
     alt: "Kolibe Janka Janjića pod Arapovim ždrijelom; kuća Miloša J. Janjića",
     caption: "Kolibe Janka Janjića pod Arapovim ždrijelom; kuća Miloša J. Janjića.",
   },
-] as const;
+];
