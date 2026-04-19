@@ -44,21 +44,29 @@ function PublicLayoutInner() {
       <Outlet />
 
       <footer className="public-footer">
-        <div className="public-footer-inner">
-          <div>
-            <strong>Kontakt</strong>
+        <div className="public-footer-inner public-footer-inner--three">
+          <div className="public-footer-contact">
+            <strong className="public-footer-heading">Kontakt</strong>
+            <p className="public-footer-line public-footer-name">Dragan (Mihailo) Janjić</p>
             <p className="public-footer-line">
               Telefon:{" "}
               <a href="tel:+381638676663" className="public-footer-link">
                 +381 63 867 6663
               </a>
             </p>
-            <p className="public-footer-muted">Porodično stablo — Grabovica, Crna Gora</p>
+            <p className="public-footer-line">
+              e-mail:{" "}
+              <a href="mailto:estannekretnine@gmail.com" className="public-footer-link">
+                estannekretnine@gmail.com
+              </a>
+            </p>
           </div>
-          <div className="public-footer-links">
+          <p className="public-footer-copyright">© 2026 Porodično stablo. Sva prava zadržana.</p>
+          <div className="public-footer-aside">
             <NavLink to="/login" className="public-footer-link public-footer-login">
               Prijava (admin)
             </NavLink>
+            <p className="public-footer-muted">Porodično stablo — Grabovica, Crna Gora</p>
           </div>
         </div>
       </footer>

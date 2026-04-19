@@ -3,10 +3,13 @@ import { PUBLIC_IMG_DURMITOR, PUBLIC_HERITAGE_IMAGES } from "./publicMedia";
 export function PublicHome() {
   return (
     <div className="public-page">
-      <section className="public-hero" style={{ backgroundImage: `url(${PUBLIC_IMG_DURMITOR})` }}>
+      <section
+        className="public-hero public-hero--home"
+        style={{ backgroundImage: `url(${PUBLIC_IMG_DURMITOR})` }}
+      >
         <div className="public-hero-overlay" />
         <div className="public-hero-content">
-          <h1 className="public-hero-title">Porodica Janjić — Grabovica</h1>
+          <h1 className="public-hero-title">Porodica Janjić — Crna Gora - Grabovica</h1>
           <p className="public-hero-sub">
             Rodoslov i zajednica: činjenice, generacije i veze koje povezuju porodicu u Crnoj Gori i dijaspori.
           </p>
@@ -14,7 +17,6 @@ export function PublicHome() {
       </section>
 
       <section className="public-section public-home-heritage">
-        <h2 className="public-section-title">Iz knjige — Bratstvo Janjić</h2>
         <p className="public-lead public-home-heritage-lead">
           Fotografije iz porodičnog zapisa: istorijske kuće, kule i mesta u Grabovici i okolini.
         </p>
