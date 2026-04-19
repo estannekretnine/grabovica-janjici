@@ -14,8 +14,12 @@ type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
 
 type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
-function personLabel(p: Pick<PersonRow, "first_name" | "last_name">) {
-  const full = `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim();
+function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
+  const first = (p.first_name ?? "").trim();
+  const middle = (p.middle_name ?? "").trim();
+  const last = (p.last_name ?? "").trim();
+  const headPart = middle ? `${first} (${middle})`.trim() : first;
+  const full = [headPart, last].filter(Boolean).join(" ").trim();
   return full || "(bez imena)";
 }
 
@@ -472,9 +476,9 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
     return m;
   }, [positionedGraph.edges]);
 
-  const pedigreeViewBox = useMemo(() => {
+  const graphBounds = useMemo(() => {
     const nodes = positionedGraph.nodes;
-    if (!nodes.length) return "0 0 980 520";
+    if (!nodes.length) return { minX: 0, maxX: 980, minY: 0, maxY: 520 };
     let minX = Infinity;
     let maxX = -Infinity;
     let minY = Infinity;
@@ -485,19 +489,27 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
       minY = Math.min(minY, n.sy - PEDIGREE_HALF_H);
       maxY = Math.max(maxY, n.sy + PEDIGREE_HALF_H + PEDIGREE_CONNECTOR_STUB + 8);
     }
-    const pad = 72;
-    const w = maxX - minX + pad * 2;
-    const h = maxY - minY + pad * 2;
-    return `${minX - pad} ${minY - pad} ${w} ${h}`;
+    return { minX, maxX, minY, maxY };
   }, [positionedGraph.nodes]);
 
-  const pedigreeViewBoxRect = useMemo(() => {
-    const parts = pedigreeViewBox.trim().split(/\s+/).map(Number);
-    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) {
-      return { vx: 0, vy: 0, vw: 980, vh: 520 };
-    }
-    return { vx: parts[0]!, vy: parts[1]!, vw: parts[2]!, vh: parts[3]! };
-  }, [pedigreeViewBox]);
+  const [autoCenterDone, setAutoCenterDone] = useState(false);
+  useEffect(() => {
+    setAutoCenterDone(false);
+  }, [selectedTreeId]);
+  useEffect(() => {
+    if (autoCenterDone) return;
+    if (!positionedGraph.nodes.length) return;
+    const wrap = canvasRef.current;
+    if (!wrap || !wrap.clientWidth || !wrap.clientHeight) return;
+    const graphCx = (graphBounds.minX + graphBounds.maxX) / 2;
+    const topNodeY = graphBounds.minY;
+    setZoom(1);
+    setOffset({
+      x: wrap.clientWidth / 2 - graphCx,
+      y: 80 - topNodeY,
+    });
+    setAutoCenterDone(true);
+  }, [positionedGraph.nodes, graphBounds, autoCenterDone]);
 
   type PositionedNode = (typeof positionedGraph.nodes)[number];
 
@@ -539,16 +551,16 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
         return;
       }
       setLocateHint(null);
-      const { vx, vy, vw, vh } = pedigreeViewBoxRect;
-      const cx = vx + vw / 2;
-      const cy = vy + vh / 2;
+      const wrap = canvasRef.current;
+      const cx = (wrap?.clientWidth ?? 980) / 2;
+      const cy = (wrap?.clientHeight ?? 520) / 2;
       setOffset({ x: cx - node.sx * zoom, y: cy - node.sy * zoom });
       setHighlightedLocatePersonId(personId);
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
       closeMemberPanel();
     },
-    [graphNodeByPersonId, pedigreeViewBoxRect, zoom]
+    [graphNodeByPersonId, zoom]
   );
 
   useEffect(() => {
@@ -576,7 +588,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
   function onCanvasWheel(e: React.WheelEvent<HTMLDivElement>) {
     e.preventDefault();
     const next = e.deltaY > 0 ? zoom * 0.92 : zoom * 1.08;
-    setZoom(Math.max(0.35, Math.min(2.6, next)));
+    setZoom(Math.max(0.6, Math.min(2.6, next)));
   }
 
   function onCanvasMouseDown(e: React.MouseEvent<HTMLDivElement>) {
@@ -800,14 +812,20 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
               <button type="button" onClick={() => setZoom((z) => Math.min(2.6, z * 1.12))}>
                 +
               </button>
-              <button type="button" onClick={() => setZoom((z) => Math.max(0.35, z * 0.88))}>
+              <button type="button" onClick={() => setZoom((z) => Math.max(0.6, z * 0.88))}>
                 -
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setZoom(1);
-                  setOffset({ x: 90, y: 70 });
+                  const wrap = canvasRef.current;
+                  const graphCx = (graphBounds.minX + graphBounds.maxX) / 2;
+                  const topNodeY = graphBounds.minY;
+                  setOffset({
+                    x: (wrap?.clientWidth ?? 980) / 2 - graphCx,
+                    y: 80 - topNodeY,
+                  });
                   closeMemberPanel();
                   setHighlightedLocatePersonId(null);
                   setMemberLocateQuery("");
@@ -869,8 +887,7 @@ export function TreesPage({ variant = "full" }: TreesPageProps) {
               <svg
                 className="pedigree-svg"
                 width="100%"
-                viewBox={pedigreeViewBox}
-                preserveAspectRatio="xMidYMid meet"
+                preserveAspectRatio="none"
               >
                 <g transform={`translate(${offset.x},${offset.y}) scale(${zoom})`}>
                   {Array.from(edgesByParent.entries()).map(([fromId, toIds]) => {
