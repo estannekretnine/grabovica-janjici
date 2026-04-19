@@ -581,6 +581,60 @@ th {
   font-size: 0.88rem;
 }
 
+@media (max-width: 720px) {
+  .row.tree-toolbar {
+    padding: 0.45rem 0.55rem !important;
+    gap: 0.35rem !important;
+  }
+
+  .row.tree-toolbar > button {
+    padding: 0.35rem 0.6rem;
+    font-size: 0.85rem;
+    min-width: 2.25rem;
+  }
+
+  .row.tree-toolbar > .muted {
+    font-size: 0.78rem;
+    order: 2;
+  }
+
+  .tree-toolbar-locate {
+    flex: 1 1 100%;
+    max-width: none;
+    min-width: 0;
+    margin-left: 0;
+    order: 10;
+  }
+
+  .tree-locate-input {
+    font-size: 0.9rem;
+    padding: 0.45rem 0.55rem;
+  }
+
+  .tree-locate-dropdown {
+    max-height: min(14rem, 40vh);
+  }
+
+  .tree-locate-item-name {
+    font-size: 0.85rem;
+  }
+
+  .tree-locate-item-meta {
+    font-size: 0.72rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .row.tree-toolbar > button {
+    padding: 0.3rem 0.5rem;
+    font-size: 0.8rem;
+  }
+
+  .tree-locate-input {
+    font-size: 0.88rem;
+  }
+}
+
 .table-pagination {
   display: flex;
   flex-wrap: wrap;

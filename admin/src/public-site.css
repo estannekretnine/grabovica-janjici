@@ -897,6 +897,36 @@
   min-height: min(70vh, 560px);
 }
 
+@media (max-width: 720px) {
+  .public-stablo-embed {
+    padding: 0.65rem 0.5rem 1.75rem;
+  }
+
+  .public-stablo-embed .stablo2-page--public h1 {
+    font-size: 1.25rem;
+  }
+
+  .public-stablo-embed .stablo2-page--public .page-header {
+    padding: 0.25rem 0.25rem 0.5rem;
+  }
+
+  .public-stablo-embed .stablo2-canvas {
+    height: calc(100vh - 220px) !important;
+    min-height: 420px;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-stablo-embed {
+    padding: 0.5rem 0.4rem 1.5rem;
+  }
+
+  .public-stablo-embed .stablo2-canvas {
+    height: calc(100vh - 200px) !important;
+    min-height: 380px;
+  }
+}
+
 /*
  * Kartica člana (member-popover) koristi svetlu pozadinu iz index.css, ali `color`
  * se nasleđuje sa .public-root — u tamnoj javnoj temi to daje skoro bel tekst na beloj pozadini.
