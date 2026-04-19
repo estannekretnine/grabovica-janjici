@@ -1,113 +1,407 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { loadFamilyGraph, type PcRow, type PersonRow } from "../lib/familyTreeGraphLoad";
+import {
+  loadFamilyGraph,
+  type PcRow,
+  type PartRow,
+  type PersonRow,
+} from "../lib/familyTreeGraphLoad";
 import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
+import { audit, supabase } from "../lib/supabase";
+import type { Database } from "../types/database";
 
-const NODE_WIDTH = 130;
-const NODE_HEIGHT = 34;
-const COL_GAP = 60;
-const ROW_GAP = 14;
+type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
 
-type Positioned = {
+type MemberPanelMode = "details" | "kontakt-menu" | "activities";
+
+/** Horizontalno stablo — kartice (isti vizuel kao Stablo 1). */
+const CARD_W = 186;
+const CARD_H = 118;
+const CARD_HALF_W = CARD_W / 2;
+const CARD_HALF_H = CARD_H / 2;
+const COL_GAP = 48;
+const ROW_GAP = 16;
+
+type PartnerLabel = { id: string; person: PersonRow; label: string };
+
+type PositionedNode = {
   id: string;
   person: PersonRow;
   x: number;
   y: number;
   depth: number;
+  partners: PartnerLabel[];
 };
 
-function personLabel(p: PersonRow): string {
+function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
   const first = (p.first_name ?? "").trim();
   const middle = (p.middle_name ?? "").trim();
-  if (first && middle) return `${first} (${middle})`;
-  return first || middle || "(bez imena)";
+  const last = (p.last_name ?? "").trim();
+  const headPart = middle ? `${first} (${middle})`.trim() : first;
+  const full = [headPart, last].filter(Boolean).join(" ").trim();
+  return full || "(bez imena)";
 }
 
-function computeLayout(persons: PersonRow[], relations: PcRow[]) {
+function normalizeSurname(v: string | null | undefined) {
+  return (v ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isJanjicSurname(v: string | null | undefined) {
+  return normalizeSurname(v) === "janjic";
+}
+
+function primaryPairForNode(node: {
+  id: string;
+  person: PersonRow;
+  partners: PartnerLabel[];
+}): { first: PartnerLabel; second: PartnerLabel | null } {
+  const firstPartner = node.partners[0] ?? null;
+  const pair: PartnerLabel[] = firstPartner
+    ? [
+        { id: node.id, person: node.person, label: personLabel(node.person) },
+        firstPartner,
+      ]
+    : [{ id: node.id, person: node.person, label: personLabel(node.person) }];
+
+  const male = pair.find((m) => m.person.gender === "male") ?? null;
+  const female = pair.find((m) => m.person.gender === "female") ?? null;
+
+  let first = pair[0];
+  let second: PartnerLabel | null = pair[1] ?? null;
+  if (male && second) {
+    if (isJanjicSurname(male.person.last_name)) {
+      first = male;
+      second = pair.find((x) => x.id !== male.id) ?? second;
+    } else if (female) {
+      first = female;
+      second = pair.find((x) => x.id !== female.id) ?? second;
+    }
+  }
+  return { first, second };
+}
+
+function karijeraTreeSnippet(raw: string | null | undefined, maxLen = 34): string {
+  const t = raw?.replace(/\s+/g, " ").trim() ?? "";
+  if (!t) return "";
+  return t.length > maxLen ? `${t.slice(0, maxLen - 1)}…` : t;
+}
+
+function getDefaultPhotoPath(raw: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed) as
+      | { defaultIndex?: number; items?: Array<{ path?: string }> }
+      | Array<string>;
+    if (Array.isArray(parsed)) return parsed[0] ? String(parsed[0]) : null;
+    const items = parsed.items ?? [];
+    if (!items.length) return null;
+    const idx = parsed.defaultIndex ?? 0;
+    const safe = idx >= 0 && idx < items.length ? idx : 0;
+    return items[safe]?.path ? String(items[safe].path) : null;
+  } catch {
+    return null;
+  }
+}
+
+function toPublicPhotoUrl(path: string | null): string | null {
+  if (!path || !supabase) return null;
+  const normalized = path.replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
+}
+
+function activityWebHref(url: string | null | undefined): string | null {
+  const t = url?.trim();
+  if (!t) return null;
+  if (/^https?:\/\//i.test(t)) return t;
+  return `https://${t}`;
+}
+
+function activityThumbUrl(path: string | null | undefined): string | null {
+  if (!supabase || !path?.trim()) return null;
+  const normalized = path.trim().replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
+}
+
+function pedigreeAccent(depth: number) {
+  const c = ["#1e40af", "#0d9488", "#7c3aed", "#db2777"];
+  return c[depth % c.length] ?? "#1e40af";
+}
+
+function personLifeLine(p: PersonRow) {
+  const b = p.birth_date?.trim();
+  const d = p.death_date?.trim();
+  const birth = b || "—";
+  if (d) return `${birth} – ${d}`;
+  if (p.is_living === false) return `${birth} –`;
+  return b ? `${birth} –` : "—";
+}
+
+function buildPartnersByPerson(partnerships: PartRow[]) {
+  const m = new Map<string, Set<string>>();
+  for (const rel of partnerships) {
+    if (!m.has(rel.person_a_id)) m.set(rel.person_a_id, new Set<string>());
+    if (!m.has(rel.person_b_id)) m.set(rel.person_b_id, new Set<string>());
+    m.get(rel.person_a_id)!.add(rel.person_b_id);
+    m.get(rel.person_b_id)!.add(rel.person_a_id);
+  }
+  return m;
+}
+
+function buildChildByParent(relations: PcRow[]) {
+  const m = new Map<string, string[]>();
+  for (const rel of relations) {
+    const cur = m.get(rel.parent_person_id) ?? [];
+    cur.push(rel.child_person_id);
+    m.set(rel.parent_person_id, cur);
+  }
+  return m;
+}
+
+function buildHiddenPartnerIds(
+  partnersByPerson: Map<string, Set<string>>,
+  personsById: Map<string, PersonRow>,
+  childIds: Set<string>,
+  childByParent: Map<string, string[]>
+): Set<string> {
+  const hidden = new Set<string>();
+  const processedPairs = new Set<string>();
+  for (const [id, partners] of partnersByPerson.entries()) {
+    if (!partners.size) continue;
+    for (const pid of partners) {
+      const pairKey = [id, pid].sort().join("|");
+      if (processedPairs.has(pairKey)) continue;
+      processedPairs.add(pairKey);
+
+      const a = personsById.get(id);
+      const b = personsById.get(pid);
+      if (!a || !b) continue;
+
+      const score = (p: PersonRow) => {
+        const hasParent = childIds.has(p.id) ? 1 : 0;
+        const male = p.gender === "male" ? 1 : 0;
+        const maleJanjic = male && isJanjicSurname(p.last_name) ? 1 : 0;
+        const childrenCount = (childByParent.get(p.id) ?? []).length;
+        return [hasParent, maleJanjic, male, childrenCount] as const;
+      };
+
+      const sa = score(a);
+      const sb = score(b);
+      const aWins =
+        sa[0] !== sb[0]
+          ? sa[0] > sb[0]
+          : sa[1] !== sb[1]
+            ? sa[1] > sb[1]
+            : sa[2] !== sb[2]
+              ? sa[2] > sb[2]
+              : sa[3] !== sb[3]
+                ? sa[3] >= sb[3]
+                : a.id <= b.id;
+
+      const hide = aWins ? b.id : a.id;
+      hidden.add(hide);
+    }
+  }
+  return hidden;
+}
+
+function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partnerships: PartRow[]) {
   const byId = new Map<string, PersonRow>();
   for (const p of persons) byId.set(p.id, p);
 
-  const childrenOf = new Map<string, string[]>();
-  const hasParent = new Set<string>();
-  for (const r of relations) {
-    if (!byId.has(r.parent_person_id) || !byId.has(r.child_person_id)) continue;
-    const arr = childrenOf.get(r.parent_person_id) ?? [];
-    arr.push(r.child_person_id);
-    childrenOf.set(r.parent_person_id, arr);
-    hasParent.add(r.child_person_id);
+  const childByParent = buildChildByParent(relations);
+  const partnersByPerson = buildPartnersByPerson(partnerships);
+  const childIds = new Set(relations.map((r) => r.child_person_id));
+  const hiddenPartnerIds = buildHiddenPartnerIds(
+    partnersByPerson,
+    byId,
+    childIds,
+    childByParent
+  );
+
+  function childrenFor(id: string): string[] {
+    const partnerIds = Array.from(partnersByPerson.get(id) ?? []);
+    const childrenSet = new Set<string>();
+    for (const pid of [id, ...partnerIds]) {
+      for (const c of childByParent.get(pid) ?? []) {
+        if (hiddenPartnerIds.has(c)) continue;
+        childrenSet.add(c);
+      }
+    }
+    return Array.from(childrenSet);
   }
 
-  const roots = persons
-    .filter((p) => !hasParent.has(p.id))
-    .map((p) => p.id)
-    .sort((a, b) => {
-      const fa = byId.get(a)?.first_name ?? "";
-      const fb = byId.get(b)?.first_name ?? "";
-      return fa.localeCompare(fb, "sr");
-    });
+  const roots = (() => {
+    if (!persons.length) return [] as PersonRow[];
+    const rootNodes = persons.filter((p) => !childIds.has(p.id) && !hiddenPartnerIds.has(p.id));
+    if (rootNodes.length) return rootNodes;
+    return persons.filter((p) => !hiddenPartnerIds.has(p.id));
+  })();
 
-  const positions = new Map<string, Positioned>();
+  const positions = new Map<string, PositionedNode>();
   let nextRow = 0;
 
-  function assign(personId: string, depth: number): number {
+  function assign(personId: string, depth: number, stack: Set<string>): number {
+    if (hiddenPartnerIds.has(personId)) return nextRow++;
     const person = byId.get(personId);
-    if (!person) return nextRow;
-    const children = (childrenOf.get(personId) ?? []).slice();
+    if (!person || stack.has(personId)) return nextRow++;
+    const existing = positions.get(personId);
+    if (existing) return existing.y;
+
+    const nextStack = new Set(stack);
+    nextStack.add(personId);
+    const children = childrenFor(personId).filter((cid) => !nextStack.has(cid));
 
     let y: number;
     if (children.length === 0) {
-      y = nextRow * (NODE_HEIGHT + ROW_GAP);
+      y = nextRow * (CARD_H + ROW_GAP);
       nextRow += 1;
     } else {
       const childYs: number[] = [];
       for (const childId of children) {
-        const cy = assign(childId, depth + 1);
-        childYs.push(cy);
+        childYs.push(assign(childId, depth + 1, nextStack));
       }
-      const first = childYs[0] ?? 0;
-      const last = childYs[childYs.length - 1] ?? first;
-      y = (first + last) / 2;
+      y = childYs.reduce((a, b) => a + b, 0) / childYs.length;
     }
+
+    const partners = Array.from(partnersByPerson.get(personId) ?? [])
+      .map((pid) => byId.get(pid))
+      .filter((x): x is PersonRow => Boolean(x))
+      .map((x) => ({ id: x.id, person: x, label: personLabel(x) }));
 
     positions.set(personId, {
       id: personId,
       person,
-      x: depth * (NODE_WIDTH + COL_GAP),
+      x: depth * (CARD_W + COL_GAP),
       y,
       depth,
+      partners,
     });
-
     return y;
   }
 
-  for (const rootId of roots) {
-    assign(rootId, 0);
+  for (const r of roots) {
+    assign(r.id, 0, new Set<string>());
   }
 
   for (const p of persons) {
-    if (!positions.has(p.id)) {
-      const y = nextRow * (NODE_HEIGHT + ROW_GAP);
+    if (!positions.has(p.id) && !hiddenPartnerIds.has(p.id)) {
+      const y = nextRow * (CARD_H + ROW_GAP);
       nextRow += 1;
-      positions.set(p.id, { id: p.id, person: p, x: 0, y, depth: 0 });
+      positions.set(p.id, {
+        id: p.id,
+        person: p,
+        x: 0,
+        y,
+        depth: 0,
+        partners: Array.from(partnersByPerson.get(p.id) ?? [])
+          .map((pid) => byId.get(pid))
+          .filter((x): x is PersonRow => Boolean(x))
+          .map((x) => ({ id: x.id, person: x, label: personLabel(x) })),
+      });
     }
   }
 
   const edges: Array<{ from: string; to: string }> = [];
-  for (const r of relations) {
-    if (positions.has(r.parent_person_id) && positions.has(r.child_person_id)) {
-      edges.push({ from: r.parent_person_id, to: r.child_person_id });
+  for (const rel of relations) {
+    if (positions.has(rel.parent_person_id) && positions.has(rel.child_person_id)) {
+      edges.push({ from: rel.parent_person_id, to: rel.child_person_id });
     }
   }
 
-  const allNodes = Array.from(positions.values());
-  const maxX = allNodes.reduce((m, n) => Math.max(m, n.x + NODE_WIDTH), 0);
-  const maxY = allNodes.reduce((m, n) => Math.max(m, n.y + NODE_HEIGHT), 0);
+  const nodes = Array.from(positions.values());
+  const maxX = nodes.reduce((m, n) => Math.max(m, n.x + CARD_W), 0);
+  const maxY = nodes.reduce((m, n) => Math.max(m, n.y + CARD_H), 0);
 
-  return { nodes: allNodes, edges, width: maxX, height: maxY };
+  const depthByPerson = new Map<string, number>();
+  for (const n of nodes) {
+    depthByPerson.set(n.person.id, n.depth);
+    for (const par of n.partners) {
+      if (hiddenPartnerIds.has(par.id)) depthByPerson.set(par.id, n.depth);
+    }
+  }
+
+  const counts = new Map<number, number>();
+  for (const p of persons) {
+    const d = depthByPerson.get(p.id) ?? 0;
+    counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  const depths = Array.from(counts.keys()).sort((a, b) => a - b);
+  const generationStats = depths.map((depth) => ({ depth, count: counts.get(depth) ?? 0 }));
+
+  return {
+    nodes,
+    edges,
+    width: maxX,
+    height: maxY,
+    totalMembers: persons.length,
+    generationStats,
+  };
+}
+
+function MemberKontaktBlock({
+  person,
+  onKontaktTitleClick,
+}: {
+  person: PersonRow;
+  onKontaktTitleClick?: () => void;
+}) {
+  const email = person.email?.trim() ?? "";
+  const mob1 = person.mob1?.trim() ?? "";
+  const mob2 = person.mob2?.trim() ?? "";
+  return (
+    <div className="member-popover-kontakt">
+      {onKontaktTitleClick ? (
+        <button type="button" className="member-popover-kontakt-title-btn" onClick={onKontaktTitleClick}>
+          Kontakt
+        </button>
+      ) : (
+        <div className="member-popover-kontakt-title">Kontakt</div>
+      )}
+      <div className="member-popover-grid">
+        <span>Email</span>
+        <span className="member-popover-value">
+          {email ? (
+            <a href={`mailto:${encodeURIComponent(email)}`} className="member-popover-link">
+              {email}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+        <span>Mobilni 1</span>
+        <span className="member-popover-value">
+          {mob1 ? (
+            <a href={`tel:${mob1.replace(/\s+/g, "")}`} className="member-popover-link">
+              {mob1}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+        <span>Mobilni 2</span>
+        <span className="member-popover-value">
+          {mob2 ? (
+            <a href={`tel:${mob2.replace(/\s+/g, "")}`} className="member-popover-link">
+              {mob2}
+            </a>
+          ) : (
+            "—"
+          )}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 export function Stablo2Page() {
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
+  const [partnerships, setPartnerships] = useState<PartRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -122,6 +416,18 @@ export function Stablo2Page() {
     oy: 0,
   });
 
+  const [selectedMember, setSelectedMember] = useState<PersonRow | null>(null);
+  const [memberPanelPos, setMemberPanelPos] = useState<{ x: number; y: number } | null>(null);
+  const [memberPanelMode, setMemberPanelMode] = useState<MemberPanelMode>("details");
+  const [activitiesList, setActivitiesList] = useState<ActivityRow[]>([]);
+  const [activitiesErr, setActivitiesErr] = useState<string | null>(null);
+
+  const personsById = useMemo(() => {
+    const m = new Map<string, PersonRow>();
+    for (const p of persons) m.set(p.id, p);
+    return m;
+  }, [persons]);
+
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error: err } = await loadFamilyGraph(PUBLIC_FAMILY_TREE_ID);
@@ -129,6 +435,7 @@ export function Stablo2Page() {
     else setError(null);
     setPersons(data.persons);
     setRelations(data.relations);
+    setPartnerships(data.partnerships);
     setLoading(false);
   }, []);
 
@@ -136,9 +443,82 @@ export function Stablo2Page() {
     void load();
   }, [load]);
 
-  const layout = useMemo(() => computeLayout(persons, relations), [persons, relations]);
+  const layout = useMemo(
+    () => computeHorizontalLayout(persons, relations, partnerships),
+    [persons, relations, partnerships]
+  );
+
+  function closeMemberPanel() {
+    setSelectedMember(null);
+    setMemberPanelPos(null);
+    setMemberPanelMode("details");
+    setActivitiesList([]);
+    setActivitiesErr(null);
+  }
+
+  function openMemberPanelAtNode(
+    node: Pick<PositionedNode, "x" | "y">,
+    personId: string,
+    mode: MemberPanelMode = "details"
+  ) {
+    const person = personsById.get(personId);
+    if (!person) return;
+    const wrap = canvasRef.current;
+    if (wrap) {
+      const panelX = offset.x + node.x * zoom + CARD_W * 0.35 * zoom;
+      const panelY = offset.y + node.y * zoom - CARD_H * 0.15 * zoom;
+      const narrow = typeof window !== "undefined" && window.innerWidth < 640;
+      const isChoice = mode === "kontakt-menu";
+      const panelW = narrow
+        ? Math.min(isChoice ? 208 : 252, Math.max(156, wrap.clientWidth - 20))
+        : isChoice
+          ? 228
+          : 300;
+      const panelH = narrow
+        ? Math.min(
+            isChoice ? 150 : 300,
+            Math.max(isChoice ? 100 : 140, Math.round(wrap.clientHeight * (isChoice ? 0.26 : 0.5)))
+          )
+        : isChoice
+          ? 118
+          : 220;
+      const margin = 8;
+      const maxX = Math.max(margin, wrap.clientWidth - panelW - margin);
+      const maxY = Math.max(margin, wrap.clientHeight - panelH);
+      setMemberPanelPos({
+        x: Math.max(margin, Math.min(maxX, panelX)),
+        y: Math.max(margin, Math.min(maxY, panelY)),
+      });
+    }
+    setMemberPanelMode(mode);
+    setSelectedMember(person);
+    if (mode !== "activities") {
+      setActivitiesList([]);
+      setActivitiesErr(null);
+    }
+  }
+
+  async function loadActivitiesForPerson(personId: string) {
+    if (!audit) return;
+    setActivitiesErr(null);
+    setActivitiesList([]);
+    const { data, error: qErr } = await audit
+      .from("gr_aktivnosti")
+      .select("*")
+      .eq("person_id", personId)
+      .order("redosled", { ascending: true })
+      .order("created_at", { ascending: true });
+    if (qErr) setActivitiesErr(qErr.message);
+    else setActivitiesList(data ?? []);
+  }
+
+  async function openActivitiesView(personId: string) {
+    setMemberPanelMode("activities");
+    await loadActivitiesForPerson(personId);
+  }
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if ((e.target as Element).closest(".tree-node")) return;
     dragRef.current = {
       active: true,
       x: e.clientX,
@@ -166,21 +546,12 @@ export function Stablo2Page() {
   }
 
   const nodesById = useMemo(() => {
-    const m = new Map<string, Positioned>();
+    const m = new Map<string, PositionedNode>();
     for (const n of layout.nodes) m.set(n.id, n);
     return m;
   }, [layout.nodes]);
 
-  const generationStats = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const n of layout.nodes) {
-      counts.set(n.depth, (counts.get(n.depth) ?? 0) + 1);
-    }
-    const depths = Array.from(counts.keys()).sort((a, b) => a - b);
-    return depths.map((depth) => ({ depth, count: counts.get(depth) ?? 0 }));
-  }, [layout.nodes]);
-
-  const totalMembers = layout.nodes.length;
+  const { totalMembers, generationStats } = layout;
   const GEN_LABEL_HEIGHT = 28;
 
   return (
@@ -213,9 +584,7 @@ export function Stablo2Page() {
           </p>
           {!loading && generationStats.length > 0 ? (
             <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
-              {generationStats
-                .map((g) => `${g.depth + 1}. koleno: ${g.count}`)
-                .join(" · ")}
+              {generationStats.map((g) => `${g.depth + 1}. koleno: ${g.count}`).join(" · ")}
             </p>
           ) : null}
         </div>
@@ -232,6 +601,7 @@ export function Stablo2Page() {
             onClick={() => {
               setZoom(1);
               setOffset({ x: 40, y: 40 });
+              closeMemberPanel();
             }}
           >
             Reset
@@ -276,61 +646,291 @@ export function Stablo2Page() {
             }}
           >
             <g transform={`translate(0, ${GEN_LABEL_HEIGHT})`}>
-            {generationStats.map((g) => {
-              const cx = g.depth * (NODE_WIDTH + COL_GAP) + NODE_WIDTH / 2;
-              return (
-                <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${-8})`}>
-                  <text
-                    textAnchor="middle"
-                    fontSize={13}
-                    fontWeight={700}
-                    fontFamily="Georgia, 'Times New Roman', serif"
-                    fill="#4a3c24"
-                  >
-                    {g.depth + 1}. koleno ({g.count})
-                  </text>
-                </g>
-              );
-            })}
-            {layout.edges.map((e, i) => {
-              const a = nodesById.get(e.from);
-              const b = nodesById.get(e.to);
-              if (!a || !b) return null;
-              const x1 = a.x + NODE_WIDTH;
-              const y1 = a.y + NODE_HEIGHT / 2;
-              const x2 = b.x;
-              const y2 = b.y + NODE_HEIGHT / 2;
-              const mx = x1 + (x2 - x1) / 2;
-              const d = `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
-              return <path key={i} d={d} stroke="#6b5a3a" strokeWidth={1.2} fill="none" />;
-            })}
+              {generationStats.map((g) => {
+                const cx = g.depth * (CARD_W + COL_GAP) + CARD_W / 2;
+                return (
+                  <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${-8})`}>
+                    <text
+                      textAnchor="middle"
+                      fontSize={13}
+                      fontWeight={700}
+                      fontFamily="Georgia, 'Times New Roman', serif"
+                      fill="#4a3c24"
+                    >
+                      {g.depth + 1}. koleno ({g.count})
+                    </text>
+                  </g>
+                );
+              })}
+              {layout.edges.map((e, i) => {
+                const a = nodesById.get(e.from);
+                const b = nodesById.get(e.to);
+                if (!a || !b) return null;
+                const x1 = a.x + CARD_W;
+                const y1 = a.y + CARD_H / 2;
+                const x2 = b.x;
+                const y2 = b.y + CARD_H / 2;
+                const mx = x1 + (x2 - x1) / 2;
+                const d = `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
+                return <path key={i} d={d} stroke="#6b5a3a" strokeWidth={1.2} fill="none" />;
+              })}
 
-            {layout.nodes.map((n) => (
-              <g key={n.id} transform={`translate(${n.x}, ${n.y})`}>
-                <rect
-                  width={NODE_WIDTH}
-                  height={NODE_HEIGHT}
-                  rx={NODE_HEIGHT / 2}
-                  ry={NODE_HEIGHT / 2}
-                  fill="#fffdf6"
-                  stroke="#4a3c24"
-                  strokeWidth={1.2}
-                />
-                <text
-                  x={NODE_WIDTH / 2}
-                  y={NODE_HEIGHT / 2 + 4}
-                  textAnchor="middle"
-                  fontSize={14}
-                  fontWeight={700}
-                  fontFamily="Georgia, 'Times New Roman', serif"
-                  fill="#1a1407"
-                >
-                  {personLabel(n.person)}
-                </text>
-              </g>
-            ))}
+              {layout.nodes.map((node) => {
+                const accent = pedigreeAccent(node.depth);
+                const { first, second } = primaryPairForNode(node);
+                const kSnip = karijeraTreeSnippet(first.person.karijera, 40);
+                const life1 = personLifeLine(first.person);
+                const life2 = second ? personLifeLine(second.person) : "";
+                return (
+                  <g
+                    key={node.id}
+                    className="tree-node pedigree-node"
+                    transform={`translate(${node.x + CARD_HALF_W},${node.y + CARD_HALF_H})`}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
+                      openMemberPanelAtNode(node, node.id, "kontakt-menu");
+                    }}
+                  >
+                    <rect
+                      x={-CARD_HALF_W}
+                      y={-CARD_HALF_H}
+                      width={CARD_W}
+                      height={CARD_H}
+                      fill="#ffffff"
+                      stroke="#e2e8f0"
+                      strokeWidth={1}
+                    />
+                    <rect
+                      x={-CARD_HALF_W}
+                      y={-CARD_HALF_H}
+                      width={CARD_W}
+                      height={5}
+                      fill={accent}
+                    />
+                    <text
+                      y={-CARD_HALF_H + 24}
+                      textAnchor="middle"
+                      fill="#0f172a"
+                      fontSize="12.5"
+                      fontWeight="700"
+                      fontFamily="Georgia, 'Times New Roman', serif"
+                      style={{ cursor: "pointer" }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                      }}
+                    >
+                      <title>{first.label}</title>
+                      {first.label.length > 22 ? `${first.label.slice(0, 21)}…` : first.label}
+                    </text>
+                    {second ? (
+                      <text
+                        y={-CARD_HALF_H + 40}
+                        textAnchor="middle"
+                        fill="#475569"
+                        fontSize="11"
+                        fontStyle="italic"
+                        fontWeight="600"
+                        fontFamily="Georgia, 'Times New Roman', serif"
+                        style={{ cursor: "pointer" }}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          openMemberPanelAtNode(node, second.id, "kontakt-menu");
+                        }}
+                      >
+                        <title>{second.label}</title>
+                        <tspan>+ </tspan>
+                        <tspan>
+                          {second.label.length > 20 ? `${second.label.slice(0, 19)}…` : second.label}
+                        </tspan>
+                      </text>
+                    ) : null}
+                    <text
+                      y={-CARD_HALF_H + (second ? 56 : 44)}
+                      textAnchor="middle"
+                      fill="#64748b"
+                      fontSize="10.5"
+                      fontWeight="500"
+                      fontFamily="Georgia, 'Times New Roman', serif"
+                      style={{ cursor: "pointer" }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                      }}
+                    >
+                      <title>{second ? `${life1} / ${life2}` : life1}</title>
+                      {second ? `${life1} · ${life2}` : life1}
+                    </text>
+                    {kSnip ? (
+                      <text
+                        y={-CARD_HALF_H + (second ? 72 : 60)}
+                        textAnchor="middle"
+                        fill="#64748b"
+                        fontSize="9"
+                        fontWeight="500"
+                        fontFamily="Georgia, 'Times New Roman', serif"
+                        style={{ cursor: "pointer" }}
+                        onClick={(ev) => {
+                          ev.stopPropagation();
+                          openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                        }}
+                      >
+                        <title>{first.person.karijera?.trim() ?? ""}</title>
+                        {kSnip}
+                      </text>
+                    ) : null}
+                    <text
+                      y={-CARD_HALF_H + (second ? (kSnip ? 86 : 78) : kSnip ? 74 : 62)}
+                      textAnchor="middle"
+                      fill="#2563eb"
+                      fontSize="10"
+                      fontWeight="600"
+                      textDecoration="underline"
+                      fontFamily="Georgia, 'Times New Roman', serif"
+                      style={{ cursor: "pointer" }}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
+                      }}
+                    >
+                      Kontakt
+                    </text>
+                  </g>
+                );
+              })}
             </g>
           </svg>
+
+          {selectedMember && memberPanelPos ? (
+            <aside
+              className={`member-popover${memberPanelMode === "kontakt-menu" ? " member-popover--kontakt-choice" : ""}${memberPanelMode === "details" ? " member-popover--details" : ""}`}
+              style={{ left: memberPanelPos.x, top: memberPanelPos.y }}
+            >
+              <div className="member-popover-head">
+                <strong>{personLabel(selectedMember)}</strong>
+                <button type="button" className="member-popover-close" onClick={closeMemberPanel}>
+                  ×
+                </button>
+              </div>
+              {memberPanelMode === "kontakt-menu" ? (
+                <div className="member-popover-kontakt-menu-inner">
+                  <p className="member-popover-kontakt-menu-label">Izaberite prikaz</p>
+                  <div className="member-popover-kontakt-menu-pair">
+                    <button
+                      type="button"
+                      className="member-btn-aktivnosti"
+                      onClick={() => void openActivitiesView(selectedMember.id)}
+                    >
+                      Aktivnosti
+                    </button>
+                    <button
+                      type="button"
+                      className="member-btn-detalji"
+                      onClick={() => setMemberPanelMode("details")}
+                    >
+                      Detalji
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+              {memberPanelMode === "activities" ? (
+                <div className="member-popover-activities">
+                  <button
+                    type="button"
+                    className="member-popover-back"
+                    onClick={() => {
+                      setMemberPanelMode("kontakt-menu");
+                      setActivitiesList([]);
+                      setActivitiesErr(null);
+                    }}
+                  >
+                    ← Nazad
+                  </button>
+                  <h4 className="member-popover-activities-heading">Aktivnosti</h4>
+                  {activitiesErr ? <p className="error">{activitiesErr}</p> : null}
+                  <div className="member-popover-activities-scroll">
+                    {activitiesList.length ? (
+                      activitiesList.map((a) => {
+                        const href = activityWebHref(a.veb_link);
+                        const thumb = activityThumbUrl(a.foto_storage_path);
+                        return (
+                          <div key={a.id} className="member-tree-activity-card">
+                            <div className="member-tree-activity-head">
+                              <strong>{a.naslov}</strong>
+                              {a.datum ? (
+                                <span className="muted" style={{ marginLeft: "0.35rem" }}>
+                                  {a.datum}
+                                </span>
+                              ) : null}
+                            </div>
+                            {thumb ? (
+                              <img className="member-tree-activity-thumb" src={thumb} alt="" />
+                            ) : null}
+                            {a.opis?.trim() ? <p className="member-tree-activity-opis">{a.opis}</p> : null}
+                            {href ? (
+                              <a
+                                href={href}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="member-popover-link"
+                              >
+                                {a.veb_link?.trim() || href}
+                              </a>
+                            ) : null}
+                          </div>
+                        );
+                      })
+                    ) : (
+                      !activitiesErr && (
+                        <p className="muted" style={{ margin: "0.5rem 0.65rem" }}>
+                          Nema unetih aktivnosti.
+                        </p>
+                      )
+                    )}
+                  </div>
+                </div>
+              ) : null}
+              {memberPanelMode === "details" ? (
+                <div className="member-popover-details-body">
+                  {(() => {
+                    const photoPath = getDefaultPhotoPath(selectedMember.photo_storage_path);
+                    const photoUrl = toPublicPhotoUrl(photoPath);
+                    return photoUrl ? (
+                      <div className="member-photo-wrap">
+                        <img className="member-photo" src={photoUrl} alt={personLabel(selectedMember)} />
+                      </div>
+                    ) : null;
+                  })()}
+                  <div className="member-popover-grid">
+                    <span>Pol</span>
+                    <span>{selectedMember.gender ?? "—"}</span>
+                    <span>Rođen/a</span>
+                    <span>{selectedMember.birth_date ?? "—"}</span>
+                    <span>Živ/živa</span>
+                    <span>
+                      {selectedMember.is_living == null
+                        ? "—"
+                        : selectedMember.is_living
+                          ? "da"
+                          : "ne"}
+                    </span>
+                    <span>Napomene</span>
+                    <span className="member-popover-multiline">
+                      {selectedMember.notes?.trim() ? selectedMember.notes : "—"}
+                    </span>
+                    <span>Karijera</span>
+                    <span className="member-popover-multiline member-popover-multiline--karijera">
+                      {selectedMember.karijera?.trim() ? selectedMember.karijera : "—"}
+                    </span>
+                  </div>
+                  <MemberKontaktBlock
+                    person={selectedMember}
+                    onKontaktTitleClick={() => setMemberPanelMode("kontakt-menu")}
+                  />
+                </div>
+              ) : null}
+            </aside>
+          ) : null}
         </div>
       ) : null}
 
