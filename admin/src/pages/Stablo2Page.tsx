@@ -24,6 +24,15 @@ const COL_GAP = 48;
 const ROW_GAP = 16;
 const GEN_LABEL_HEIGHT = 28;
 
+/** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
+const ZOOM_BASELINE = 0.6;
+const ZOOM_MIN = 0.36;
+const ZOOM_MAX = 2.5;
+
+function zoomDisplayPercent(physicalZoom: number) {
+  return Math.round((physicalZoom / ZOOM_BASELINE) * 100);
+}
+
 type PartnerLabel = { id: string; person: PersonRow; label: string };
 
 type PositionedNode = {
@@ -427,7 +436,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(ZOOM_BASELINE);
   const [offset, setOffset] = useState({ x: 40, y: 40 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ active: boolean; x: number; y: number; ox: number; oy: number }>({
@@ -584,7 +593,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const delta = -e.deltaY * 0.0015;
-    setZoom((z) => Math.min(2.5, Math.max(0.6, z + delta)));
+    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
   }
 
   const nodesById = useMemo(() => {
@@ -759,16 +768,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               alignItems: "center",
             }}
           >
-            <button type="button" onClick={() => setZoom((z) => Math.min(2.5, z * 1.12))}>
+            <button type="button" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z * 1.12))}>
               +
             </button>
-            <button type="button" onClick={() => setZoom((z) => Math.max(0.6, z * 0.88))}>
+            <button type="button" onClick={() => setZoom((z) => Math.max(ZOOM_MIN, z * 0.88))}>
               −
             </button>
             <button
               type="button"
               onClick={() => {
-                setZoom(1);
+                setZoom(ZOOM_BASELINE);
                 setOffset({ x: 40, y: 40 });
                 closeMemberPanel();
                 setHighlightedLocatePersonId(null);
@@ -779,7 +788,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             >
               Reset prikaza
             </button>
-            <span className="muted">Zoom: {Math.round(zoom * 100)}%</span>
+            <span className="muted">Zoom: {zoomDisplayPercent(zoom)}%</span>
             <div className="tree-toolbar-locate" ref={locateWrapRef}>
               <input
                 type="search"
