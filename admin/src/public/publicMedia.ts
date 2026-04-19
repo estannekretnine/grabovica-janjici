@@ -10,7 +10,7 @@ export const PUBLIC_IMG_DURMITOR_ART =
 export const PUBLIC_IMG_TREE =
   "https://upload.wikimedia.org/wikipedia/commons/2/2a/Family_tree_chart_%282%29.png";
 
-/** Početna — tvoje fotografije: stavi fajlove u `admin/public/heritage/` (ista imena). */
+/** Početna — fotografije iz `homefoto/` u korenu repoa; generiši WebP: `npm run build:homefoto --prefix admin`. */
 export const PUBLIC_HERITAGE_IMAGES = [
   {
     src: "/heritage/pocetna-1.webp",

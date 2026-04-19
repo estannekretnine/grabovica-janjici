@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "build:heritage": "node scripts/build-heritage.mjs"
+    "build:heritage": "node scripts/build-heritage.mjs",
+    "build:homefoto": "node scripts/build-homefoto-heritage.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
