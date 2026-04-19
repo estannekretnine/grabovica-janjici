@@ -652,6 +652,22 @@
   min-height: min(70vh, 560px);
 }
 
+/*
+ * Kartica člana (member-popover) koristi svetlu pozadinu iz index.css, ali `color`
+ * se nasleđuje sa .public-root — u tamnoj javnoj temi to daje skoro bel tekst na beloj pozadini.
+ */
+.public-stablo-embed .stablo2-page--public .member-popover {
+  color: #0f172a;
+}
+
+.public-stablo-embed .stablo2-page--public .member-popover .muted {
+  color: #64748b;
+}
+
+.public-stablo-embed .stablo2-page--public .member-popover .error {
+  color: #b91c1c;
+}
+
 /* Početna — četiri fotografije iz knjige */
 .public-home-heritage {
   max-width: 1100px;
