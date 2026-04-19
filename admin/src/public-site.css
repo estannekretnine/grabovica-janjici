@@ -987,14 +987,29 @@
 }
 
 .public-pretraga-card-main {
-  background: none;
-  border: none;
-  padding: 0;
-  text-align: left;
-  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+}
+
+.public-pretraga-card-name-btn,
+.public-pretraga-card-partner-btn {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
+.public-pretraga-card-name-btn:focus-visible,
+.public-pretraga-card-partner-btn:focus-visible {
+  outline: 2px solid var(--pub-gold);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .public-pretraga-card-tree-link {

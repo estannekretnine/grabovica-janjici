@@ -27,6 +27,19 @@ function isJanjicSurname(lastName: string | null | undefined): boolean {
   return normalizeSurname(lastName) === "janjic";
 }
 
+/** Ako su oba partnera u listi rezultata, ostaje jedna kartica (stabilno: zadržava se manji `person_id`). */
+function dedupePartnersInSearchResults(list: PersonRow[], rels: PartnershipRow[]): PersonRow[] {
+  if (list.length < 2) return list;
+  const inList = new Set(list.map((x) => x.id));
+  const drop = new Set<string>();
+  for (const r of rels) {
+    if (!inList.has(r.person_a_id) || !inList.has(r.person_b_id)) continue;
+    const lose = r.person_a_id < r.person_b_id ? r.person_b_id : r.person_a_id;
+    drop.add(lose);
+  }
+  return list.filter((p) => !drop.has(p.id));
+}
+
 /** Janjić + muško → bold; Janjić + žensko → italic; van Janjića obrnuto. */
 function pretragaNameEmphasisClass(p: Pick<PersonRow, "gender" | "last_name">): string {
   const jan = isJanjicSurname(p.last_name);
@@ -249,8 +262,8 @@ export function PublicPretraga() {
       });
     }
 
-    return list;
-  }, [persons, searchTriggered, appliedFilters]);
+    return dedupePartnersInSearchResults(list, partnerships);
+  }, [persons, partnerships, searchTriggered, appliedFilters]);
 
   function resetFilters() {
     setFilterDrzava("");
@@ -416,7 +429,7 @@ export function PublicPretraga() {
         {!loading && !error && searchTriggered ? (
           <div className="public-pretraga-results">
             <p className="public-muted public-pretraga-count">
-              Pronađeno: <strong>{filtered.length}</strong> {filtered.length === 1 ? "član" : "članova"}
+              Pronađeno: <strong>{filtered.length}</strong> {filtered.length === 1 ? "rezultat" : "rezultata"}
             </p>
 
             {filtered.length > 0 ? (
@@ -425,21 +438,29 @@ export function PublicPretraga() {
                   const partner = getPartner(p.id);
                   return (
                     <div key={p.id} className="public-pretraga-card">
-                      <button
-                        type="button"
-                        className="public-pretraga-card-main"
-                        onClick={() => void openPersonModal(p)}
-                      >
-                        <div className={`public-pretraga-card-name ${pretragaNameEmphasisClass(p)}`}>
-                          {personLabel(p)}
-                        </div>
+                      <div className="public-pretraga-card-main">
+                        <button
+                          type="button"
+                          className="public-pretraga-card-name-btn"
+                          onClick={() => void openPersonModal(p)}
+                        >
+                          <span className={`public-pretraga-card-name ${pretragaNameEmphasisClass(p)}`}>
+                            {personLabel(p)}
+                          </span>
+                        </button>
                         {partner ? (
-                          <div className="public-pretraga-card-partner">
-                            <span className="public-pretraga-card-partner-label">Partner/ka: </span>
-                            <span className={pretragaNameEmphasisClass(partner)}>{personLabel(partner)}</span>
-                          </div>
+                          <button
+                            type="button"
+                            className="public-pretraga-card-partner-btn"
+                            onClick={() => void openPersonModal(partner)}
+                          >
+                            <span className="public-pretraga-card-partner">
+                              <span className="public-pretraga-card-partner-label">Partner/ka: </span>
+                              <span className={pretragaNameEmphasisClass(partner)}>{personLabel(partner)}</span>
+                            </span>
+                          </button>
                         ) : null}
-                      </button>
+                      </div>
                       <Link
                         to={`/stablo?person=${p.id}`}
                         className="public-pretraga-card-tree-link"
