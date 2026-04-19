@@ -986,18 +986,31 @@ th {
 
 /* Stablo: kompaktniji kartica člana na telefonu */
 @media (max-width: 640px) {
-  .member-popover.member-popover--kontakt-choice {
-    width: min(208px, calc(100vw - 1rem));
+  /* Na telefonu: kartica clana postaje fiksni bottom-sheet iznad ekrana,
+     bez obzira na to gde je osoba kliknuta na platnu. */
+  .member-popover {
+    position: fixed !important;
+    left: 0.5rem !important;
+    right: 0.5rem !important;
+    top: auto !important;
+    bottom: 0.75rem !important;
+    width: auto !important;
+    max-width: calc(100vw - 1rem) !important;
+    border-radius: 10px;
+    box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.28);
+    z-index: 90;
   }
 
-  .member-popover {
-    width: min(252px, calc(100vw - 1.25rem));
-    border-radius: 8px;
-    box-shadow: 0 8px 18px rgba(15, 23, 42, 0.16);
+  .member-popover.member-popover--kontakt-choice {
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%);
+    width: min(260px, calc(100vw - 1rem)) !important;
+    max-width: calc(100vw - 1rem) !important;
   }
 
   .member-popover.member-popover--details {
-    max-height: min(86vh, calc(100dvh - 1.5rem));
+    max-height: min(82vh, calc(100dvh - 1.5rem));
     overflow: hidden;
   }
 

@@ -513,8 +513,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     if (!person) return;
     const wrap = canvasRef.current;
     if (wrap) {
+      const toolbar = wrap.querySelector(".tree-toolbar") as HTMLElement | null;
+      const hint = wrap.querySelector(".tree-locate-hint") as HTMLElement | null;
+      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
       const panelX = offset.x + node.x * zoom + CARD_W * 0.35 * zoom;
-      const panelY = offset.y + node.y * zoom - CARD_H * 0.15 * zoom;
+      const panelY = toolbarH + offset.y + node.y * zoom - CARD_H * 0.15 * zoom;
       const narrow = typeof window !== "undefined" && window.innerWidth < 640;
       const isChoice = mode === "kontakt-menu";
       const panelW = narrow
@@ -531,11 +534,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           ? 118
           : 220;
       const margin = 8;
+      const minY = toolbarH + margin;
       const maxX = Math.max(margin, wrap.clientWidth - panelW - margin);
-      const maxY = Math.max(margin, wrap.clientHeight - panelH);
+      const maxY = Math.max(minY, wrap.clientHeight - panelH - margin);
       setMemberPanelPos({
         x: Math.max(margin, Math.min(maxX, panelX)),
-        y: Math.max(margin, Math.min(maxY, panelY)),
+        y: Math.max(minY, Math.min(maxY, panelY)),
       });
     }
     setMemberPanelMode(mode);
@@ -647,11 +651,20 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       }
       setLocateHint(null);
       const wrap = canvasRef.current;
+      const toolbar = wrap?.querySelector(".tree-toolbar") as HTMLElement | null;
+      const hint = wrap?.querySelector(".tree-locate-hint") as HTMLElement | null;
+      const scroller = wrap?.querySelector<HTMLDivElement>('[data-tree-scroller="true"]') ?? null;
+      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
       const cx = node.x + CARD_HALF_W;
       const cy = GEN_LABEL_HEIGHT + node.y + CARD_HALF_H;
       const vw = wrap?.clientWidth ?? 980;
       const vh = wrap?.clientHeight ?? 520;
-      setOffset({ x: vw / 2 - cx * zoom, y: vh / 2 - cy * zoom });
+      const innerH = Math.max(120, vh - toolbarH);
+      if (scroller) {
+        scroller.scrollLeft = 0;
+        scroller.scrollTop = 0;
+      }
+      setOffset({ x: vw / 2 - cx * zoom, y: innerH / 2 - cy * zoom });
       setHighlightedLocatePersonId(personId);
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
@@ -827,7 +840,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             </div>
           </div>
           {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
-          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <div data-tree-scroller="true" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
           <svg
             width={Math.max(layout.width + 200, 2000)}
             height={Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800)}
