@@ -47,7 +47,7 @@ function PublicLayoutInner() {
         <div className="public-footer-inner public-footer-inner--three">
           <div className="public-footer-contact">
             <strong className="public-footer-heading">Kontakt</strong>
-            <p className="public-footer-line public-footer-name">Dragan (Mihailo) Janjić</p>
+            <p className="public-footer-line public-footer-name">Autor: Dragan (Mihailo) Janjić, Beograd</p>
             <p className="public-footer-line">
               Telefon:{" "}
               <a href="tel:+381638676663" className="public-footer-link">
