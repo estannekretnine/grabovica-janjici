@@ -806,7 +806,8 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
-  filter: contrast(1.08) saturate(1.04);
+  /* Blag dodatak uz retuš u build skripti (ne preterano da ne „gori”) */
+  filter: brightness(1.02) contrast(1.04) saturate(1.03);
   transform: scale(1);
   transform-origin: center center;
   transition: transform 0.45s ease, box-shadow 0.45s ease;

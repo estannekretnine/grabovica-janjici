@@ -28,8 +28,8 @@ const chosen = files.slice(0, 4);
 console.log("Ulaz:", chosen.join(", "));
 
 /**
- * Stare skenirane stranice: ceo kadar (bez crop-a), blago oštrijenje i kontrast,
- * zatim skaliranje da stane u okvir (fit inside) za bolji prikaz na početnoj.
+ * Retuš starih skenova: sRGB, histogram, blagi gamma, bogatija boja, „čist” oštrina,
+ * zatim izlaz za web — luksuzniji, uredniji ton bez agresivnog HDR izgleda.
  */
 async function processHeritage(inPath, outPath) {
   const img = sharp(inPath).rotate();
@@ -37,25 +37,25 @@ async function processHeritage(inPath, outPath) {
   const { width: w0, height: h0 } = await img.metadata();
   if (!w0 || !h0) throw new Error(`Nema dimenzija: ${inPath}`);
 
-  // Prvo umereno smanjenje (zadržan odnos stranica), pa oštrenje na manjoj slici = manje uvećan šum
-  const workLong = 1600;
+  const workLong = 1800;
 
   await img
     .resize(workLong, workLong, { fit: "inside", withoutEnlargement: true })
+    .toColorspace("srgb")
     .normalize()
-    .linear(1.08, -12)
+    .gamma(1.045)
+    .linear(1.06, -10)
+    .modulate({ brightness: 1.035, saturation: 1.14 })
     .sharpen({
-      sigma: 1.15,
+      sigma: 0.92,
       m1: 1,
-      m2: 2.2,
+      m2: 2.35,
       x1: 2,
       y2: 10,
-      y3: 18,
+      y3: 17,
     })
-    .modulate({ brightness: 1.02, saturation: 1.05 })
-    // Finalni okvir: cela slika vidljiva (nije cover/crop)
     .resize(1000, 680, { fit: "inside", withoutEnlargement: true })
-    .webp({ quality: 86, effort: 5 })
+    .webp({ quality: 90, effort: 6, smartSubsample: true })
     .toFile(outPath);
 }
 
