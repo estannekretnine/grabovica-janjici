@@ -10,6 +10,7 @@ import { audit, supabase } from "../lib/supabase";
 import type { Database } from "../types/database";
 
 type ActivityRow = Database["audit"]["Tables"]["gr_aktivnosti"]["Row"];
+type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 
 type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
@@ -20,6 +21,7 @@ const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
 const COL_GAP = 48;
 const ROW_GAP = 16;
+const GEN_LABEL_HEIGHT = 28;
 
 type PartnerLabel = { id: string; person: PersonRow; label: string };
 
@@ -139,6 +141,19 @@ function personLifeLine(p: PersonRow) {
   if (d) return `${birth} – ${d}`;
   if (p.is_living === false) return `${birth} –`;
   return b ? `${birth} –` : "—";
+}
+
+/** Opština za listu lociranja: prvo rođenje, zatim prebivalište. */
+function personLocateOpstinaLabel(p: PersonRow, opstinaById: Map<number, string>) {
+  if (p.opstinaidrodio != null) {
+    const t = opstinaById.get(p.opstinaidrodio)?.trim();
+    if (t) return t;
+  }
+  if (p.opstinaid != null) {
+    const t = opstinaById.get(p.opstinaid)?.trim();
+    if (t) return t;
+  }
+  return "—";
 }
 
 function buildPartnersByPerson(partnerships: PartRow[]) {
@@ -422,11 +437,28 @@ export function Stablo2Page() {
   const [activitiesList, setActivitiesList] = useState<ActivityRow[]>([]);
   const [activitiesErr, setActivitiesErr] = useState<string | null>(null);
 
+  const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
+  const locateWrapRef = useRef<HTMLDivElement | null>(null);
+  const [memberLocateQuery, setMemberLocateQuery] = useState("");
+  const [memberLocateOpen, setMemberLocateOpen] = useState(false);
+  const [highlightedLocatePersonId, setHighlightedLocatePersonId] = useState<string | null>(null);
+  const [locateHint, setLocateHint] = useState<string | null>(null);
+
   const personsById = useMemo(() => {
     const m = new Map<string, PersonRow>();
     for (const p of persons) m.set(p.id, p);
     return m;
   }, [persons]);
+
+  const loadOpstine = useCallback(async () => {
+    if (!supabase) return;
+    const { data } = await supabase.from("opstina").select("*").order("opis", { ascending: true });
+    setOpstine(data ?? []);
+  }, []);
+
+  useEffect(() => {
+    void loadOpstine();
+  }, [loadOpstine]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -448,13 +480,13 @@ export function Stablo2Page() {
     [persons, relations, partnerships]
   );
 
-  function closeMemberPanel() {
+  const closeMemberPanel = useCallback(() => {
     setSelectedMember(null);
     setMemberPanelPos(null);
     setMemberPanelMode("details");
     setActivitiesList([]);
     setActivitiesErr(null);
-  }
+  }, []);
 
   function openMemberPanelAtNode(
     node: Pick<PositionedNode, "x" | "y">,
@@ -519,6 +551,9 @@ export function Stablo2Page() {
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if ((e.target as Element).closest(".tree-node")) return;
+    if ((e.target as Element).closest(".tree-toolbar")) return;
+    if ((e.target as Element).closest(".member-popover")) return;
+    setHighlightedLocatePersonId(null);
     dragRef.current = {
       active: true,
       x: e.clientX,
@@ -551,8 +586,76 @@ export function Stablo2Page() {
     return m;
   }, [layout.nodes]);
 
+  const opstinaById = useMemo(() => {
+    const m = new Map<number, string>();
+    for (const o of opstine) m.set(o.id, o.opis ?? `id ${o.id}`);
+    return m;
+  }, [opstine]);
+
+  const graphNodeByPersonId = useMemo(() => {
+    const m = new Map<string, PositionedNode>();
+    for (const n of layout.nodes) {
+      m.set(n.id, n);
+      for (const p of n.partners) {
+        if (!m.has(p.id)) m.set(p.id, n);
+      }
+    }
+    return m;
+  }, [layout.nodes]);
+
+  const memberLocateFiltered = useMemo(() => {
+    const visible = persons.filter((p) => graphNodeByPersonId.has(p.id));
+    const sorted = [...visible].sort((a, b) =>
+      personLabel(a).localeCompare(personLabel(b), "sr", { sensitivity: "base" })
+    );
+    const q = memberLocateQuery.trim().toLowerCase();
+    if (!q) return sorted.slice(0, 120);
+    return sorted
+      .filter((p) => {
+        const op = personLocateOpstinaLabel(p, opstinaById).toLowerCase();
+        const hay = `${p.first_name ?? ""} ${p.middle_name ?? ""} ${p.last_name ?? ""} ${op} ${p.birth_date ?? ""}`
+          .toLowerCase()
+          .replace(/\s+/g, " ");
+        return hay.includes(q);
+      })
+      .slice(0, 120);
+  }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
+
+  const locatePersonOnGraph = useCallback(
+    (personId: string) => {
+      const node = graphNodeByPersonId.get(personId);
+      if (!node) {
+        setLocateHint("Ova osoba nije na trenutnom prikazu stabla (npr. spojeni čvor sa partnerom).");
+        window.setTimeout(() => setLocateHint(null), 4500);
+        return;
+      }
+      setLocateHint(null);
+      const wrap = canvasRef.current;
+      const cx = node.x + CARD_HALF_W;
+      const cy = GEN_LABEL_HEIGHT + node.y + CARD_HALF_H;
+      const vw = wrap?.clientWidth ?? 980;
+      const vh = wrap?.clientHeight ?? 520;
+      setOffset({ x: vw / 2 - cx * zoom, y: vh / 2 - cy * zoom });
+      setHighlightedLocatePersonId(personId);
+      setMemberLocateOpen(false);
+      setMemberLocateQuery("");
+      closeMemberPanel();
+    },
+    [graphNodeByPersonId, zoom, closeMemberPanel]
+  );
+
+  useEffect(() => {
+    if (!memberLocateOpen) return;
+    function onDocDown(e: MouseEvent) {
+      if (locateWrapRef.current && !locateWrapRef.current.contains(e.target as Node)) {
+        setMemberLocateOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDocDown);
+    return () => document.removeEventListener("mousedown", onDocDown);
+  }, [memberLocateOpen]);
+
   const { totalMembers, generationStats } = layout;
-  const GEN_LABEL_HEIGHT = 28;
 
   return (
     <div className="page">
@@ -588,25 +691,6 @@ export function Stablo2Page() {
             </p>
           ) : null}
         </div>
-        <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
-          <button type="button" onClick={() => setZoom((z) => Math.max(0.6, z - 0.1))}>
-            −
-          </button>
-          <span style={{ minWidth: 48, textAlign: "center" }}>{Math.round(zoom * 100)}%</span>
-          <button type="button" onClick={() => setZoom((z) => Math.min(2.5, z + 0.1))}>
-            +
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setZoom(1);
-              setOffset({ x: 40, y: 40 });
-              closeMemberPanel();
-            }}
-          >
-            Reset
-          </button>
-        </div>
       </header>
 
       {error ? <p className="muted" style={{ color: "#b91c1c" }}>{error}</p> : null}
@@ -634,8 +718,82 @@ export function Stablo2Page() {
             cursor: dragRef.current.active ? "grabbing" : "grab",
             touchAction: "none",
             position: "relative",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
+          <div
+            className="row tree-toolbar"
+            style={{
+              flexShrink: 0,
+              flexWrap: "wrap",
+              gap: "0.5rem",
+              padding: "0.5rem 0.65rem",
+              borderBottom: "1px solid #d4c9a8",
+              background: "rgba(255, 253, 246, 0.97)",
+              alignItems: "center",
+            }}
+          >
+            <button type="button" onClick={() => setZoom((z) => Math.min(2.5, z * 1.12))}>
+              +
+            </button>
+            <button type="button" onClick={() => setZoom((z) => Math.max(0.6, z * 0.88))}>
+              −
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setZoom(1);
+                setOffset({ x: 40, y: 40 });
+                closeMemberPanel();
+                setHighlightedLocatePersonId(null);
+                setMemberLocateQuery("");
+                setMemberLocateOpen(false);
+                setLocateHint(null);
+              }}
+            >
+              Reset prikaza
+            </button>
+            <span className="muted">Zoom: {Math.round(zoom * 100)}%</span>
+            <div className="tree-toolbar-locate" ref={locateWrapRef}>
+              <input
+                type="search"
+                className="tree-locate-input"
+                placeholder="Pretraži člana (ime, prezime, opština, datum)…"
+                value={memberLocateQuery}
+                onChange={(e) => {
+                  setMemberLocateQuery(e.target.value);
+                  setMemberLocateOpen(true);
+                }}
+                onFocus={() => setMemberLocateOpen(true)}
+                aria-label="Pretraga člana na stablu"
+                autoComplete="off"
+              />
+              {memberLocateOpen && memberLocateFiltered.length ? (
+                <ul className="tree-locate-dropdown" role="listbox">
+                  {memberLocateFiltered.map((p) => (
+                    <li key={p.id} role="option">
+                      <button
+                        type="button"
+                        className="tree-locate-item"
+                        onMouseDown={(ev) => ev.preventDefault()}
+                        onClick={() => locatePersonOnGraph(p.id)}
+                      >
+                        <span className="tree-locate-item-name">{personLabel(p)}</span>
+                        <span className="tree-locate-item-meta">
+                          {personLocateOpstinaLabel(p, opstinaById)}
+                          <span className="tree-locate-item-sep"> · </span>
+                          {p.birth_date?.trim() || "—"}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          </div>
+          {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
+          <div style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
           <svg
             width={Math.max(layout.width + 200, 2000)}
             height={Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800)}
@@ -681,6 +839,10 @@ export function Stablo2Page() {
                 const kSnip = karijeraTreeSnippet(first.person.karijera, 40);
                 const life1 = personLifeLine(first.person);
                 const life2 = second ? personLifeLine(second.person) : "";
+                const isLocateHighlight =
+                  highlightedLocatePersonId &&
+                  (node.id === highlightedLocatePersonId ||
+                    node.partners.some((x) => x.id === highlightedLocatePersonId));
                 return (
                   <g
                     key={node.id}
@@ -691,6 +853,20 @@ export function Stablo2Page() {
                       openMemberPanelAtNode(node, node.id, "kontakt-menu");
                     }}
                   >
+                    {isLocateHighlight ? (
+                      <rect
+                        x={-CARD_HALF_W - 4}
+                        y={-CARD_HALF_H - 4}
+                        width={CARD_W + 8}
+                        height={CARD_H + 8}
+                        fill="none"
+                        stroke="#f59e0b"
+                        strokeWidth={3}
+                        rx={2}
+                        pointerEvents="none"
+                        className="pedigree-locate-ring"
+                      />
+                    ) : null}
                     <rect
                       x={-CARD_HALF_W}
                       y={-CARD_HALF_H}
@@ -800,6 +976,7 @@ export function Stablo2Page() {
               })}
             </g>
           </svg>
+          </div>
 
           {selectedMember && memberPanelPos ? (
             <aside
