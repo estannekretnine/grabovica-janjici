@@ -984,8 +984,24 @@ th {
   display: block;
 }
 
+/* Backdrop iza kartice clana (vidljiv samo na telefonu) */
+.member-popover-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(15, 23, 42, 0.45);
+  z-index: 80;
+}
+
 /* Stablo: kompaktniji kartica člana na telefonu */
 @media (max-width: 640px) {
+  .member-popover-backdrop {
+    display: block;
+  }
+
   /* Na telefonu: kartica clana postaje fiksni bottom-sheet iznad ekrana,
      bez obzira na to gde je osoba kliknuta na platnu. */
   .member-popover {

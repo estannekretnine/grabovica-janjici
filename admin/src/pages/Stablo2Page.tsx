@@ -455,6 +455,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
   const locateWrapRef = useRef<HTMLDivElement | null>(null);
+  const locateInputRef = useRef<HTMLInputElement | null>(null);
   const [memberLocateQuery, setMemberLocateQuery] = useState("");
   const [memberLocateOpen, setMemberLocateOpen] = useState(false);
   const [highlightedLocatePersonId, setHighlightedLocatePersonId] = useState<string | null>(null);
@@ -668,6 +669,13 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       setHighlightedLocatePersonId(personId);
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
+      locateInputRef.current?.blur();
+      if (
+        typeof document !== "undefined" &&
+        document.activeElement instanceof HTMLElement
+      ) {
+        document.activeElement.blur();
+      }
       closeMemberPanel();
     },
     [graphNodeByPersonId, zoom, closeMemberPanel]
@@ -804,6 +812,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             <span className="muted">Zoom: {zoomDisplayPercent(zoom)}%</span>
             <div className="tree-toolbar-locate" ref={locateWrapRef}>
               <input
+                ref={locateInputRef}
                 type="search"
                 className="tree-locate-input"
                 placeholder="Pretraži člana (ime, prezime, opština, datum)…"
@@ -813,6 +822,15 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                   setMemberLocateOpen(true);
                 }}
                 onFocus={() => setMemberLocateOpen(true)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && memberLocateFiltered[0]) {
+                    e.preventDefault();
+                    locatePersonOnGraph(memberLocateFiltered[0].id);
+                  } else if (e.key === "Escape") {
+                    setMemberLocateOpen(false);
+                    locateInputRef.current?.blur();
+                  }
+                }}
                 aria-label="Pretraga člana na stablu"
                 autoComplete="off"
               />
@@ -823,8 +841,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       <button
                         type="button"
                         className="tree-locate-item"
-                        onMouseDown={(ev) => ev.preventDefault()}
-                        onClick={() => locatePersonOnGraph(p.id)}
+                        onClick={(ev) => {
+                          ev.preventDefault();
+                          ev.stopPropagation();
+                          locatePersonOnGraph(p.id);
+                        }}
                       >
                         <span className="tree-locate-item-name">{personLabel(p)}</span>
                         <span className="tree-locate-item-meta">
@@ -895,9 +916,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     key={node.id}
                     className="tree-node pedigree-node"
                     transform={`translate(${node.x + CARD_HALF_W},${node.y + CARD_HALF_H})`}
-                    onClick={(ev) => {
+                    onPointerDown={(ev) => {
+                      ev.stopPropagation();
+                    }}
+                    onPointerUp={(ev) => {
+                      if (dragRef.current.active) return;
                       ev.stopPropagation();
                       openMemberPanelAtNode(node, node.id, "kontakt-menu");
+                    }}
+                    onClick={(ev) => {
+                      ev.stopPropagation();
                     }}
                   >
                     {isLocateHighlight ? (
@@ -1026,6 +1054,13 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           </div>
 
           {selectedMember && memberPanelPos ? (
+            <>
+              <button
+                type="button"
+                className="member-popover-backdrop"
+                aria-label="Zatvori karticu"
+                onClick={closeMemberPanel}
+              />
             <aside
               className={`member-popover${memberPanelMode === "kontakt-menu" ? " member-popover--kontakt-choice" : ""}${memberPanelMode === "details" ? " member-popover--details" : ""}`}
               style={{ left: memberPanelPos.x, top: memberPanelPos.y }}
@@ -1154,6 +1189,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 </div>
               ) : null}
             </aside>
+            </>
           ) : null}
         </div>
       ) : null}
