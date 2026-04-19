@@ -570,10 +570,18 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     await loadActivitiesForPerson(personId);
   }
 
+  const tapRef = useRef<{ x: number; y: number; t: number; target: Element | null } | null>(null);
+
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if ((e.target as Element).closest(".tree-node")) return;
     if ((e.target as Element).closest(".tree-toolbar")) return;
     if ((e.target as Element).closest(".member-popover")) return;
+    tapRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      t: Date.now(),
+      target: e.target as Element,
+    };
+    if ((e.target as Element).closest(".tree-node")) return;
     setHighlightedLocatePersonId(null);
     dragRef.current = {
       active: true,
@@ -590,8 +598,30 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     const dy = e.clientY - dragRef.current.y;
     setOffset({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy });
   }
-  function onPointerUp() {
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    const wasDrag = dragRef.current.active;
     dragRef.current.active = false;
+    const tap = tapRef.current;
+    tapRef.current = null;
+    if (wasDrag || !tap) return;
+    const dx = e.clientX - tap.x;
+    const dy = e.clientY - tap.y;
+    if (dx * dx + dy * dy > 144) return;
+    if (Date.now() - tap.t > 700) return;
+    const downTarget = tap.target;
+    const upTarget = e.target as Element | null;
+    const el =
+      (downTarget?.closest?.("[data-person-id]") as (HTMLElement | SVGElement) | null) ??
+      (upTarget?.closest?.("[data-person-id]") as (HTMLElement | SVGElement) | null) ??
+      null;
+    const id = el?.getAttribute("data-person-id");
+    if (!id) return;
+    const nodeEl = el?.closest?.("[data-node-person-id]") as (HTMLElement | SVGElement) | null;
+    const nodeId = nodeEl?.getAttribute("data-node-person-id") ?? id;
+    const n = nodesById.get(nodeId);
+    if (n) {
+      openMemberPanelAtNode(n, id, "kontakt-menu");
+    }
   }
 
   function onWheel(e: React.WheelEvent<HTMLDivElement>) {
@@ -861,7 +891,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             </div>
           </div>
           {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
-          <div data-tree-scroller="true" style={{ flex: 1, minHeight: 0, overflow: "auto" }}>
+          <div
+            data-tree-scroller="true"
+            style={{
+              flex: 1,
+              minHeight: 0,
+              overflow: "hidden",
+              position: "relative",
+              touchAction: "none",
+            }}
+          >
           <svg
             width={Math.max(layout.width + 200, 2000)}
             height={Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800)}
@@ -915,18 +954,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                   <g
                     key={node.id}
                     className="tree-node pedigree-node"
+                    data-node-person-id={node.id}
+                    data-person-id={node.id}
                     transform={`translate(${node.x + CARD_HALF_W},${node.y + CARD_HALF_H})`}
-                    onPointerDown={(ev) => {
-                      ev.stopPropagation();
-                    }}
-                    onPointerUp={(ev) => {
-                      if (dragRef.current.active) return;
-                      ev.stopPropagation();
-                      openMemberPanelAtNode(node, node.id, "kontakt-menu");
-                    }}
-                    onClick={(ev) => {
-                      ev.stopPropagation();
-                    }}
                   >
                     {isLocateHighlight ? (
                       <rect
@@ -966,10 +996,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       fontWeight="700"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                      }}
+                      data-person-id={first.id}
                     >
                       <title>{first.label}</title>
                       {first.label.length > 22 ? `${first.label.slice(0, 21)}…` : first.label}
@@ -984,10 +1011,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         fontWeight="600"
                         fontFamily="Georgia, 'Times New Roman', serif"
                         style={{ cursor: "pointer" }}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          openMemberPanelAtNode(node, second.id, "kontakt-menu");
-                        }}
+                        data-person-id={second.id}
                       >
                         <title>{second.label}</title>
                         <tspan>+ </tspan>
@@ -1004,10 +1028,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       fontWeight="500"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                      }}
+                      data-person-id={first.id}
                     >
                       <title>{second ? `${life1} / ${life2}` : life1}</title>
                       {second ? `${life1} · ${life2}` : life1}
@@ -1021,10 +1042,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         fontWeight="500"
                         fontFamily="Georgia, 'Times New Roman', serif"
                         style={{ cursor: "pointer" }}
-                        onClick={(ev) => {
-                          ev.stopPropagation();
-                          openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                        }}
+                        data-person-id={first.id}
                       >
                         <title>{first.person.karijera?.trim() ?? ""}</title>
                         {kSnip}
@@ -1039,10 +1057,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       textDecoration="underline"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
-                      onClick={(ev) => {
-                        ev.stopPropagation();
-                        openMemberPanelAtNode(node, first.id, "kontakt-menu");
-                      }}
+                      data-person-id={first.id}
                     >
                       Kontakt
                     </text>
