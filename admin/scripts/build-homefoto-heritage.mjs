@@ -27,15 +27,43 @@ if (files.length < 4) {
 const chosen = files.slice(0, 4);
 console.log("Ulaz:", chosen.join(", "));
 
+/**
+ * Stare skenirane stranice: ceo kadar (bez crop-a), blago oštrijenje i kontrast,
+ * zatim skaliranje da stane u okvir (fit inside) za bolji prikaz na početnoj.
+ */
+async function processHeritage(inPath, outPath) {
+  const img = sharp(inPath).rotate();
+
+  const { width: w0, height: h0 } = await img.metadata();
+  if (!w0 || !h0) throw new Error(`Nema dimenzija: ${inPath}`);
+
+  // Prvo umereno smanjenje (zadržan odnos stranica), pa oštrenje na manjoj slici = manje uvećan šum
+  const workLong = 1600;
+
+  await img
+    .resize(workLong, workLong, { fit: "inside", withoutEnlargement: true })
+    .normalize()
+    .linear(1.08, -12)
+    .sharpen({
+      sigma: 1.15,
+      m1: 1,
+      m2: 2.2,
+      x1: 2,
+      y2: 10,
+      y3: 18,
+    })
+    .modulate({ brightness: 1.02, saturation: 1.05 })
+    // Finalni okvir: cela slika vidljiva (nije cover/crop)
+    .resize(1000, 680, { fit: "inside", withoutEnlargement: true })
+    .webp({ quality: 86, effort: 5 })
+    .toFile(outPath);
+}
+
 let i = 0;
 for (const name of chosen) {
   i += 1;
   const inPath = join(inputDir, name);
-  await sharp(inPath)
-    .rotate()
-    .resize(900, 580, { fit: "cover", position: "centre" })
-    .webp({ quality: 80, effort: 4 })
-    .toFile(join(outDir, `pocetna-${i}.webp`));
+  await processHeritage(inPath, join(outDir, `pocetna-${i}.webp`));
   console.log("→", `pocetna-${i}.webp`);
 }
 
