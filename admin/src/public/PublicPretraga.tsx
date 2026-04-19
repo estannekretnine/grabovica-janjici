@@ -15,6 +15,30 @@ function personLabel(p: Pick<PersonRow, "first_name" | "last_name">): string {
   return `${p.first_name ?? ""} ${p.last_name ?? ""}`.trim() || "—";
 }
 
+function normalizeSurname(v: string | null | undefined): string {
+  return (v ?? "")
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isJanjicSurname(lastName: string | null | undefined): boolean {
+  return normalizeSurname(lastName) === "janjic";
+}
+
+/** Janjić + muško → bold; Janjić + žensko → italic; van Janjića obrnuto. */
+function pretragaNameEmphasisClass(p: Pick<PersonRow, "gender" | "last_name">): string {
+  const jan = isJanjicSurname(p.last_name);
+  if (p.gender === "male") {
+    return jan ? "public-pretraga-name--bold" : "public-pretraga-name--italic";
+  }
+  if (p.gender === "female") {
+    return jan ? "public-pretraga-name--italic" : "public-pretraga-name--bold";
+  }
+  return "public-pretraga-name--neutral";
+}
+
 function lifeLineShort(p: Pick<PersonRow, "birth_date" | "death_date" | "is_living">): string {
   const b = p.birth_date?.trim() || "—";
   const d = p.death_date?.trim();
@@ -406,10 +430,13 @@ export function PublicPretraga() {
                         className="public-pretraga-card-main"
                         onClick={() => void openPersonModal(p)}
                       >
-                        <div className="public-pretraga-card-name">{personLabel(p)}</div>
+                        <div className={`public-pretraga-card-name ${pretragaNameEmphasisClass(p)}`}>
+                          {personLabel(p)}
+                        </div>
                         {partner ? (
                           <div className="public-pretraga-card-partner">
-                            <em>Partner/ka: {personLabel(partner)}</em>
+                            <span className="public-pretraga-card-partner-label">Partner/ka: </span>
+                            <span className={pretragaNameEmphasisClass(partner)}>{personLabel(partner)}</span>
                           </div>
                         ) : null}
                       </button>
@@ -434,7 +461,9 @@ export function PublicPretraga() {
         <div className="public-pretraga-modal-backdrop" onClick={closeModal}>
           <div className="public-pretraga-modal" onClick={(e) => e.stopPropagation()}>
             <div className="public-pretraga-modal-head">
-              <strong>{personLabel(selectedPerson)}</strong>
+              <strong className={pretragaNameEmphasisClass(selectedPerson)}>
+                {personLabel(selectedPerson)}
+              </strong>
               <button type="button" className="public-pretraga-modal-close" onClick={closeModal}>
                 ×
               </button>

@@ -1009,15 +1009,34 @@
 }
 
 .public-pretraga-card-name {
-  font-weight: 700;
   font-size: 1.05rem;
   color: var(--pub-text);
+}
+
+.public-pretraga-name--bold {
+  font-weight: 700;
+  font-style: normal;
+}
+
+.public-pretraga-name--italic {
+  font-weight: 400;
+  font-style: italic;
+}
+
+.public-pretraga-name--neutral {
+  font-weight: 600;
+  font-style: normal;
 }
 
 .public-pretraga-card-partner {
   font-size: 0.88rem;
   color: var(--pub-muted);
   margin-top: 0.15rem;
+}
+
+.public-pretraga-card-partner-label {
+  font-style: normal;
+  font-weight: 500;
 }
 
 .public-pretraga-card-meta {
