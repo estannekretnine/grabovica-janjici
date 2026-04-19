@@ -65,6 +65,31 @@ function pretragaNameEmphasisClass(p: Pick<PersonRow, "gender" | "last_name">): 
   return "public-pretraga-name--neutral";
 }
 
+function getDefaultPhotoPath(raw: string | null): string | null {
+  if (!raw?.trim()) return null;
+  const trimmed = raw.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) return trimmed;
+  try {
+    const parsed = JSON.parse(trimmed) as
+      | { defaultIndex?: number; items?: Array<{ path?: string }> }
+      | Array<string>;
+    if (Array.isArray(parsed)) return parsed[0] ? String(parsed[0]) : null;
+    const items = parsed.items ?? [];
+    if (!items.length) return null;
+    const idx = parsed.defaultIndex ?? 0;
+    const safe = idx >= 0 && idx < items.length ? idx : 0;
+    return items[safe]?.path ? String(items[safe].path) : null;
+  } catch {
+    return null;
+  }
+}
+
+function toPublicPhotoUrl(path: string | null): string | null {
+  if (!path || !supabase) return null;
+  const normalized = path.replace(/^bucket\//, "");
+  return supabase.storage.from("bucket").getPublicUrl(normalized).data.publicUrl;
+}
+
 function lifeLineShort(p: Pick<PersonRow, "birth_date" | "death_date" | "is_living">): string {
   const b = p.birth_date?.trim() || "—";
   const d = p.death_date?.trim();
@@ -449,37 +474,65 @@ export function PublicPretraga() {
               <div className="public-pretraga-grid">
                 {filtered.map((p) => {
                   const partner = getPartner(p.id);
+                  const photoUrl = toPublicPhotoUrl(getDefaultPhotoPath(p.photo_storage_path));
                   return (
                     <div key={p.id} className="public-pretraga-card">
-                      <div className="public-pretraga-card-main">
-                        <button
-                          type="button"
-                          className="public-pretraga-card-name-btn"
-                          onClick={() => void openPersonModal(p)}
-                        >
-                          <span className={`public-pretraga-card-name ${pretragaNameEmphasisClass(p)}`}>
-                            {personLabel(p)}
-                          </span>
-                        </button>
-                        {partner ? (
+                      <div className="public-pretraga-card-body">
+                        <div className="public-pretraga-card-photo-wrap">
+                          {photoUrl ? (
+                            <button
+                              type="button"
+                              className="public-pretraga-card-photo-btn"
+                              onClick={() => void openPersonModal(p)}
+                              aria-label={`Otvori detalje: ${personLabel(p)}`}
+                            >
+                              <img
+                                className="public-pretraga-card-photo"
+                                src={photoUrl}
+                                alt={personLabel(p)}
+                                loading="lazy"
+                              />
+                            </button>
+                          ) : (
+                            <div
+                              className="public-pretraga-card-photo public-pretraga-card-photo--placeholder"
+                              aria-hidden="true"
+                            >
+                              {(p.first_name?.[0] ?? "").toUpperCase()}
+                              {(p.last_name?.[0] ?? "").toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="public-pretraga-card-main">
                           <button
                             type="button"
-                            className="public-pretraga-card-partner-btn"
-                            onClick={() => void openPersonModal(partner)}
+                            className="public-pretraga-card-name-btn"
+                            onClick={() => void openPersonModal(p)}
                           >
-                            <span className="public-pretraga-card-partner">
-                              <span className="public-pretraga-card-partner-label">Partner/ka: </span>
-                              <span className={pretragaNameEmphasisClass(partner)}>{personLabel(partner)}</span>
+                            <span className={`public-pretraga-card-name ${pretragaNameEmphasisClass(p)}`}>
+                              {personLabel(p)}
                             </span>
                           </button>
-                        ) : null}
+                          {partner ? (
+                            <button
+                              type="button"
+                              className="public-pretraga-card-partner-btn"
+                              onClick={() => void openPersonModal(partner)}
+                            >
+                              <span className="public-pretraga-card-partner">
+                                <span className="public-pretraga-card-partner-label">Partner/ka: </span>
+                                <span className={pretragaNameEmphasisClass(partner)}>{personLabel(partner)}</span>
+                              </span>
+                            </button>
+                          ) : null}
+                          <Link
+                            to={`/stablo?person=${p.id}`}
+                            className="public-pretraga-card-tree-link"
+                          >
+                            Prikaži na stablu
+                          </Link>
+                        </div>
                       </div>
-                      <Link
-                        to={`/stablo?person=${p.id}`}
-                        className="public-pretraga-card-tree-link"
-                      >
-                        Prikaži na stablu
-                      </Link>
                     </div>
                   );
                 })}

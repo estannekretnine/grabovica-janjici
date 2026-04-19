@@ -910,7 +910,7 @@ th {
 }
 
 .member-photo-wrap {
-  padding: 0.6rem 0.65rem 0;
+  padding: 0.55rem 0.65rem 0;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -919,10 +919,10 @@ th {
 }
 
 .member-photo {
-  width: 100%;
+  width: auto;
   max-width: 100%;
   height: auto;
-  max-height: min(45vh, 300px);
+  max-height: min(26vh, 160px);
   object-fit: contain;
   object-position: center;
   border-radius: 8px;
@@ -1012,10 +1012,10 @@ th {
   }
 
   .member-photo {
-    width: 100%;
+    width: auto;
     max-width: 100%;
     height: auto;
-    max-height: min(36vh, 200px);
+    max-height: min(22vh, 140px);
     margin: 0 auto;
     display: block;
     border-radius: 6px;
@@ -1039,7 +1039,7 @@ th {
   }
 
   .member-photo {
-    max-height: min(32vh, 180px);
+    max-height: min(20vh, 120px);
   }
 }
 

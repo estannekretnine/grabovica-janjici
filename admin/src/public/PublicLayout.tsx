@@ -1,4 +1,5 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PublicThemeProvider, usePublicTheme } from "./PublicThemeContext";
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -7,6 +8,21 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 function PublicLayoutInner() {
   const { theme, toggleTheme } = usePublicTheme();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const location = useLocation();
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
 
   return (
     <div className="public-root" data-theme={theme}>
@@ -16,7 +32,25 @@ function PublicLayoutInner() {
             <span className="public-brand-mark">GJ</span>
             <span className="public-brand-text">Grabovica Janjići</span>
           </NavLink>
-          <nav className="public-nav" aria-label="Glavna navigacija">
+
+          <button
+            type="button"
+            className={`public-nav-toggle${menuOpen ? " public-nav-toggle--open" : ""}`}
+            aria-label={menuOpen ? "Zatvori meni" : "Otvori meni"}
+            aria-expanded={menuOpen}
+            aria-controls="public-main-nav"
+            onClick={() => setMenuOpen((v) => !v)}
+          >
+            <span className="public-nav-toggle-bar" />
+            <span className="public-nav-toggle-bar" />
+            <span className="public-nav-toggle-bar" />
+          </button>
+
+          <nav
+            id="public-main-nav"
+            className={`public-nav${menuOpen ? " public-nav--open" : ""}`}
+            aria-label="Glavna navigacija"
+          >
             <NavLink to="/" end className={navClass}>
               Početna
             </NavLink>
@@ -32,7 +66,16 @@ function PublicLayoutInner() {
             <NavLink to="/kontakt" className={navClass}>
               Kontakt forma
             </NavLink>
+            <button
+              type="button"
+              className="public-theme-toggle public-theme-toggle--mobile"
+              onClick={toggleTheme}
+              aria-label="Promena teme"
+            >
+              {theme === "dark" ? "Svetla tema" : "Tamna tema"}
+            </button>
           </nav>
+
           <div className="public-header-actions">
             <button type="button" className="public-theme-toggle" onClick={toggleTheme} aria-label="Promena teme">
               {theme === "dark" ? "Svetla tema" : "Tamna tema"}
@@ -40,6 +83,15 @@ function PublicLayoutInner() {
           </div>
         </div>
       </header>
+
+      {menuOpen ? (
+        <button
+          type="button"
+          className="public-nav-backdrop"
+          aria-label="Zatvori meni"
+          onClick={() => setMenuOpen(false)}
+        />
+      ) : null}
 
       <Outlet />
 
