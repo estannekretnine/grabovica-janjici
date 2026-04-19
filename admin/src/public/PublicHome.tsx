@@ -31,7 +31,7 @@ export function PublicHome() {
                   loading="lazy"
                   decoding="async"
                   width={1000}
-                  height={680}
+                  height={900}
                 />
               </div>
               <figcaption className="public-home-heritage-caption">{item.caption}</figcaption>
