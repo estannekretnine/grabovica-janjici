@@ -27,15 +27,28 @@ function isJanjicSurname(lastName: string | null | undefined): boolean {
   return normalizeSurname(lastName) === "janjic";
 }
 
-/** Ako su oba partnera u listi rezultata, ostaje jedna kartica (stabilno: zadržava se manji `person_id`). */
+/** U paru muškarac + žena: kartica glavnog imena = muškarac; inače stabilno po `person_id`. */
+function primaryPersonForPartneredPair(a: PersonRow, b: PersonRow): PersonRow {
+  const aM = a.gender === "male";
+  const bM = b.gender === "male";
+  if (aM && !bM) return a;
+  if (bM && !aM) return b;
+  return a.id < b.id ? a : b;
+}
+
+/** Ako su oba partnera u listi rezultata, ostaje jedna kartica (vidi `primaryPersonForPartneredPair`). */
 function dedupePartnersInSearchResults(list: PersonRow[], rels: PartnershipRow[]): PersonRow[] {
   if (list.length < 2) return list;
+  const byId = new Map(list.map((p) => [p.id, p]));
   const inList = new Set(list.map((x) => x.id));
   const drop = new Set<string>();
   for (const r of rels) {
     if (!inList.has(r.person_a_id) || !inList.has(r.person_b_id)) continue;
-    const lose = r.person_a_id < r.person_b_id ? r.person_b_id : r.person_a_id;
-    drop.add(lose);
+    const pa = byId.get(r.person_a_id);
+    const pb = byId.get(r.person_b_id);
+    if (!pa || !pb) continue;
+    const primary = primaryPersonForPartneredPair(pa, pb);
+    drop.add(primary.id === pa.id ? pb.id : pa.id);
   }
   return list.filter((p) => !drop.has(p.id));
 }
