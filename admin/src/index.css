@@ -911,14 +911,23 @@ th {
 
 .member-photo-wrap {
   padding: 0.6rem 0.65rem 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f8fafc;
+  border-radius: 8px 8px 0 0;
 }
 
 .member-photo {
   width: 100%;
-  max-height: 150px;
-  object-fit: cover;
+  max-width: 100%;
+  height: auto;
+  max-height: min(45vh, 300px);
+  object-fit: contain;
+  object-position: center;
   border-radius: 8px;
   border: 1px solid #dbe4f0;
+  display: block;
 }
 
 /* Stablo: kompaktniji kartica člana na telefonu */
@@ -993,17 +1002,25 @@ th {
   }
 
   .member-photo-wrap {
-    padding: 0.3rem 0.45rem 0;
+    padding: 0.35rem 0.45rem 0;
     text-align: center;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: #f8fafc;
+    border-radius: 8px;
   }
 
   .member-photo {
-    width: auto;
-    max-width: 56px;
-    max-height: 56px;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    max-height: min(36vh, 200px);
     margin: 0 auto;
     display: block;
     border-radius: 6px;
+    object-fit: contain;
+    object-position: center;
   }
 }
 
@@ -1022,8 +1039,7 @@ th {
   }
 
   .member-photo {
-    max-width: 48px;
-    max-height: 48px;
+    max-height: min(32vh, 180px);
   }
 }
 
