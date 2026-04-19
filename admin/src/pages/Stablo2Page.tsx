@@ -16,8 +16,10 @@ type Positioned = {
 };
 
 function personLabel(p: PersonRow): string {
-  const name = (p.first_name ?? "").trim();
-  return name || "(bez imena)";
+  const first = (p.first_name ?? "").trim();
+  const middle = (p.middle_name ?? "").trim();
+  if (first && middle) return `${first} (${middle})`;
+  return first || middle || "(bez imena)";
 }
 
 function computeLayout(persons: PersonRow[], relations: PcRow[]) {
