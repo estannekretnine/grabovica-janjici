@@ -633,14 +633,22 @@
   color: #9a3412;
 }
 
-/* Javno stablo — ugrađen TreesPage */
+/* Javno stablo — ugrađen Stablo2Page */
 .public-stablo-embed {
   max-width: 1200px;
   margin: 0 auto;
   padding: 1rem 1.25rem 2.5rem;
 }
 
-.public-stablo-embed .trees-page--public .tree-canvas {
+.public-stablo-embed .stablo2-page--public h1 {
+  color: var(--pub-text);
+}
+
+.public-stablo-embed .stablo2-page--public .muted {
+  color: var(--pub-muted);
+}
+
+.public-stablo-embed .stablo2-canvas {
   min-height: min(70vh, 560px);
 }
 

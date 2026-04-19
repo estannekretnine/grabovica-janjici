@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   loadFamilyGraph,
   type PcRow,
@@ -413,7 +414,13 @@ function MemberKontaktBlock({
   );
 }
 
-export function Stablo2Page() {
+type Stablo2PageProps = { variant?: "admin" | "public" };
+
+export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
+  const isPublic = variant === "public";
+  const [searchParams] = useSearchParams();
+  const highlightPersonParam = isPublic ? searchParams.get("person") : null;
+  const [autoLocateDone, setAutoLocateDone] = useState(false);
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
   const [partnerships, setPartnerships] = useState<PartRow[]>([]);
@@ -655,14 +662,29 @@ export function Stablo2Page() {
     return () => document.removeEventListener("mousedown", onDocDown);
   }, [memberLocateOpen]);
 
+  useEffect(() => {
+    setAutoLocateDone(false);
+  }, [highlightPersonParam]);
+
+  useEffect(() => {
+    if (!highlightPersonParam || persons.length === 0 || autoLocateDone) return;
+    const person = persons.find((p) => p.id === highlightPersonParam);
+    if (!person) return;
+    const t = window.setTimeout(() => {
+      locatePersonOnGraph(person.id);
+      setAutoLocateDone(true);
+    }, 150);
+    return () => window.clearTimeout(t);
+  }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
+
   const { totalMembers, generationStats } = layout;
 
   return (
-    <div className="page">
+    <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
       <header className="page-header">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>Stablo 2 — ogranak Šukovići</h1>
+            <h1 style={{ margin: 0 }}>{isPublic ? "Stablo" : "Stablo 2 — ogranak Šukovići"}</h1>
             {!loading && totalMembers > 0 ? (
               <span
                 style={{
@@ -671,9 +693,9 @@ export function Stablo2Page() {
                   gap: "0.4rem",
                   padding: "0.25rem 0.7rem",
                   borderRadius: 999,
-                  background: "#f5f1e8",
-                  border: "1px solid #d4c9a8",
-                  color: "#4a3c24",
+                  background: isPublic ? "var(--pub-surface, #fffdf6)" : "#f5f1e8",
+                  border: isPublic ? "1px solid var(--pub-border, #d4c9a8)" : "1px solid #d4c9a8",
+                  color: isPublic ? "var(--pub-text, #4a3c24)" : "#4a3c24",
                   fontWeight: 700,
                   fontSize: "0.95rem",
                 }}
@@ -683,7 +705,9 @@ export function Stablo2Page() {
             ) : null}
           </div>
           <p className="muted" style={{ margin: "0.25rem 0 0" }}>
-            Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".
+            {isPublic
+              ? "Horizontalni prikaz stabla — zumiranje (Ctrl+točkić ili +/−), prevlačenje mišem i kartica člana (detalji, kontakt, aktivnosti). Prikazano je glavno porodično stablo."
+              : 'Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".'}
           </p>
           {!loading && generationStats.length > 0 ? (
             <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
@@ -702,6 +726,7 @@ export function Stablo2Page() {
 
       {!loading && persons.length > 0 ? (
         <div
+          className="stablo2-canvas"
           ref={canvasRef}
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}

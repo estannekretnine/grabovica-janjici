@@ -1,9 +1,9 @@
-import { TreesPage } from "../pages/TreesPage";
+import { Stablo2Page } from "../pages/Stablo2Page";
 
 export function PublicStablo() {
   return (
     <div className="public-page public-stablo-embed">
-      <TreesPage variant="public" />
+      <Stablo2Page variant="public" />
     </div>
   );
 }
