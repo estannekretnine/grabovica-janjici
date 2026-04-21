@@ -1,4 +1,5 @@
 import { PUBLIC_HERITAGE_IMAGES } from "./publicMedia";
+import { WeatherWidget } from "./WeatherWidget";
 
 export function PublicHome() {
   return (
@@ -31,6 +32,7 @@ export function PublicHome() {
           ))}
         </div>
       </section>
+      <WeatherWidget />
     </div>
   );
 }

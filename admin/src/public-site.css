@@ -1741,3 +1741,251 @@
   border-radius: 8px;
   margin-top: 1rem;
 }
+
+/* ============================================================
+   WEATHER WIDGET
+   ============================================================ */
+
+.public-weather-section {
+  max-width: 1200px;
+  margin: 0 auto 2rem;
+  padding: 1.25rem 1.5rem 2rem;
+}
+
+.public-weather-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--pub-text, #1f2937);
+  margin: 0 0 1rem;
+  letter-spacing: 0.02em;
+}
+
+.public-weather-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.9rem;
+}
+
+.public-weather-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1.2fr 1.3fr 3.4fr;
+  align-items: stretch;
+  gap: 0;
+  border-radius: 10px;
+  overflow: hidden;
+  color: #fff;
+  min-height: 110px;
+  background-color: #1f3a5f;
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
+}
+
+.public-weather-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(0, 0, 0, 0.35) 0%, rgba(0, 0, 0, 0.2) 45%, rgba(0, 0, 0, 0.35) 100%);
+  pointer-events: none;
+}
+
+.public-weather-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.public-weather-card--zabljak {
+  background-image: linear-gradient(135deg, #1a2a4a 0%, #2c4a7a 100%);
+}
+
+.public-weather-card--beograd {
+  background-image: linear-gradient(135deg, #1e3a66 0%, #2f5f9f 100%);
+}
+
+.public-weather-card--sarajevo {
+  background-image: linear-gradient(135deg, #2d5a3d 0%, #4a8560 100%);
+}
+
+.public-weather-card--london {
+  background-image: linear-gradient(135deg, #3a4a5c 0%, #5a6e82 100%);
+}
+
+.public-weather-card--vasington {
+  background-image: linear-gradient(135deg, #1f4b52 0%, #357b84 100%);
+}
+
+.public-weather-city {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 1rem 0.75rem;
+  font-weight: 600;
+}
+
+.public-weather-city-name {
+  font-size: 1.05rem;
+  line-height: 1.2;
+  margin-bottom: 0.15rem;
+}
+
+.public-weather-city-country {
+  font-size: 0.82rem;
+  font-weight: 500;
+  opacity: 0.88;
+}
+
+.public-weather-now {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.75rem 0.5rem;
+}
+
+.public-weather-now-icon {
+  font-size: 2.4rem;
+  line-height: 1;
+}
+
+.public-weather-now-temp {
+  display: flex;
+  flex-direction: column;
+}
+
+.public-weather-now-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  line-height: 1.05;
+}
+
+.public-weather-now-label {
+  font-size: 0.78rem;
+  opacity: 0.88;
+  margin-top: 0.15rem;
+}
+
+.public-weather-forecast {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  border-left: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.public-weather-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.2rem 0.1rem;
+  font-size: 0.82rem;
+}
+
+.public-weather-day-name {
+  font-size: 0.75rem;
+  opacity: 0.85;
+  margin-bottom: 0.1rem;
+}
+
+.public-weather-day-icon {
+  font-size: 1.15rem;
+  line-height: 1;
+}
+
+.public-weather-day-temp {
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.public-weather-day-temp--max {
+  color: #fde68a;
+  margin-top: 0.1rem;
+}
+
+.public-weather-day-temp--min {
+  color: #bae6fd;
+}
+
+.public-weather-card-skeleton {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+
+.public-weather-source {
+  margin: 0.75rem 0 0;
+  text-align: right;
+  font-size: 0.78rem;
+  color: var(--pub-muted, #6b7280);
+}
+
+@media (max-width: 820px) {
+  .public-weather-card {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "city now"
+      "forecast forecast";
+    min-height: 0;
+  }
+  .public-weather-city {
+    grid-area: city;
+    align-items: flex-start;
+    text-align: left;
+    padding: 0.75rem 1rem 0.25rem;
+  }
+  .public-weather-now {
+    grid-area: now;
+    justify-content: flex-end;
+    padding: 0.75rem 1rem 0.25rem;
+  }
+  .public-weather-forecast {
+    grid-area: forecast;
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 0.5rem 0.5rem;
+  }
+  .public-weather-day {
+    font-size: 0.72rem;
+  }
+  .public-weather-day-name {
+    font-size: 0.7rem;
+  }
+  .public-weather-day-temp {
+    font-size: 0.72rem;
+  }
+  .public-weather-now-value {
+    font-size: 1.5rem;
+  }
+  .public-weather-now-icon {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .public-weather-section {
+    padding: 1rem 0.75rem 1.5rem;
+  }
+  .public-weather-forecast {
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0.1rem;
+  }
+  .public-weather-day {
+    padding: 0.15rem 0;
+  }
+  .public-weather-day-name {
+    font-size: 0.64rem;
+  }
+  .public-weather-day-temp {
+    font-size: 0.68rem;
+  }
+  .public-weather-day-icon {
+    font-size: 0.95rem;
+  }
+}
