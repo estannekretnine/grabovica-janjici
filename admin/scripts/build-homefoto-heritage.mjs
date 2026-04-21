@@ -1,6 +1,6 @@
 /**
- * Čita JPG iz `homefoto/` (koren repozitorijuma) i pravi `admin/public/heritage/pocetna-1..4.webp`.
- * Redosled: leksikografski po imenu fajla (npr. 20260419_095955 … 20260419_100018).
+ * Čita JPG iz `homefoto/` (koren repozitorijuma) i pravi `admin/public/heritage/pocetna-1..8.webp` (do 8 slika).
+ * Redosled: leksikografski po imenu fajla.
  * Ponovo pokreni posle zamene slika u homefoto/: npm run build:homefoto --prefix admin
  */
 import sharp from "sharp";
@@ -19,12 +19,15 @@ const files = readdirSync(inputDir)
   .filter((f) => /\.(jpe?g|png|webp)$/i.test(f))
   .sort();
 
-if (files.length < 4) {
-  console.error(`Očekivano bar 4 slike u ${inputDir}, nađeno: ${files.length}`);
+if (files.length === 0) {
+  console.error(`Nema slika u ${inputDir} (jpg/png/webp).`);
   process.exit(1);
 }
 
-const chosen = files.slice(0, 4);
+const chosen = files.slice(0, 8);
+if (files.length < 8) {
+  console.warn(`U ${inputDir} ima ${files.length} slika; generišem pocetna-1..${chosen.length}.webp`);
+}
 console.log("Ulaz:", chosen.join(", "));
 
 /**

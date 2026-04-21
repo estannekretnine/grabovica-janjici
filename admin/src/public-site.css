@@ -1006,7 +1006,7 @@
   color: #b91c1c;
 }
 
-/* Početna — četiri fotografije iz knjige */
+/* Početna — galerija 8 fotografija (homefoto → build:homefoto) */
 .public-home-heritage {
   max-width: 1200px;
 }
@@ -1016,41 +1016,53 @@
   padding-bottom: 2rem;
 }
 
-.public-home-heritage-lead {
-  margin-top: 0;
-  margin-bottom: 0.65rem;
-}
-
 .public-home-heritage-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1.25rem 1.35rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.85rem 1rem;
   align-items: stretch;
+}
+
+@media (max-width: 960px) {
+  .public-home-heritage-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
   .public-home-heritage-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.65rem 0.75rem;
   }
 }
 
-.public-home-heritage-figure {
+.public-home-heritage-item {
   margin: 0;
-  display: flex;
-  flex-direction: column;
+  padding: 0;
+  border: none;
+  font: inherit;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  text-align: left;
   background: var(--pub-surface);
   border: 1px solid var(--pub-border);
-  border-radius: 14px;
+  border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.1);
+  transition: box-shadow 0.25s ease, border-color 0.25s ease;
+}
+
+.public-home-heritage-item:hover,
+.public-home-heritage-item:focus-visible {
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.14);
+  border-color: rgba(201, 162, 39, 0.45);
+  outline: none;
 }
 
 .public-home-heritage-img-wrap {
   overflow: hidden;
-  flex: 1 1 auto;
-  aspect-ratio: 10 / 9;
-  min-height: clamp(340px, 40vmin, 520px);
-  max-height: min(52vh, 560px);
+  aspect-ratio: 4 / 3;
   background: var(--pub-surface2);
   display: flex;
   align-items: center;
@@ -1061,20 +1073,17 @@
   display: block;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  /* Blag dodatak uz retuš u build skripti (ne preterano da ne „gori”) */
+  object-fit: cover;
   filter: brightness(1.02) contrast(1.04) saturate(1.03);
   transform: scale(1);
   transform-origin: center center;
-  transition: transform 0.45s ease, box-shadow 0.45s ease;
+  transition: transform 0.4s ease;
   will-change: transform;
 }
 
-.public-home-heritage-figure:hover .public-home-heritage-img,
-.public-home-heritage-figure:focus-within .public-home-heritage-img {
-  /* Umeren zoom da ostane vidljivija cela slika (1.5 je presezalo okvir) */
-  transform: scale(1.14);
-  box-shadow: inset 0 0 0 1px rgba(201, 162, 39, 0.35);
+.public-home-heritage-item:hover .public-home-heritage-img,
+.public-home-heritage-item:focus-visible .public-home-heritage-img {
+  transform: scale(1.08);
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -1082,27 +1091,105 @@
     transition: none;
   }
 
-  .public-home-heritage-figure:hover .public-home-heritage-img,
-  .public-home-heritage-figure:focus-within .public-home-heritage-img {
+  .public-home-heritage-item:hover .public-home-heritage-img,
+  .public-home-heritage-item:focus-visible .public-home-heritage-img {
     transform: none;
   }
 }
 
-.public-home-heritage-caption {
+/* Lightbox — pregled fotografije */
+.public-lightbox-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.88);
+  padding: 3.5rem 1rem 1rem;
+}
+
+.public-lightbox-inner {
+  max-width: 92vw;
+  max-height: 88vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.public-lightbox-img {
+  display: block;
+  max-width: 92vw;
+  max-height: 88vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: 6px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.5);
+}
+
+.public-lightbox-btn {
+  position: absolute;
+  z-index: 1001;
   margin: 0;
-  padding: 0.65rem 0.85rem 0.85rem;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: var(--pub-muted);
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.75rem;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
 }
 
-.public-home-heritage-caption--above {
-  border-bottom: 1px solid var(--pub-border);
-  border-top: none;
+.public-lightbox-btn:hover,
+.public-lightbox-btn:focus-visible {
+  background: rgba(255, 255, 255, 0.28);
+  outline: none;
 }
 
-.public-home-heritage-caption--below {
-  border-top: 1px solid var(--pub-border);
+.public-lightbox-btn--close {
+  top: 0.75rem;
+  right: 0.75rem;
+  font-size: 1.85rem;
+}
+
+.public-lightbox-btn--prev {
+  left: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2.25rem;
+  padding-bottom: 0.15rem;
+}
+
+.public-lightbox-btn--next {
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 2.25rem;
+  padding-bottom: 0.15rem;
+}
+
+@media (max-width: 480px) {
+  .public-lightbox-backdrop {
+    padding: 3.25rem 0.35rem 0.75rem;
+  }
+
+  .public-lightbox-btn--prev {
+    left: 0.25rem;
+  }
+
+  .public-lightbox-btn--next {
+    right: 0.25rem;
+  }
 }
 
 /* Pretraga članova */
