@@ -509,6 +509,26 @@ th {
   pointer-events: none;
 }
 
+@keyframes pedigree-locate-pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.pedigree-locate-ring {
+  animation: pedigree-locate-pulse 1.4s ease-in-out infinite;
+}
+
+.pedigree-locate-fill {
+  animation: pedigree-locate-pulse 1.4s ease-in-out infinite;
+}
+
 .row.tree-toolbar {
   align-items: center;
 }

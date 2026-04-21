@@ -672,6 +672,36 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       .slice(0, 120);
   }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
+  const centerOnPersonNode = useCallback(
+    (personId: string) => {
+      const node = graphNodeByPersonId.get(personId);
+      if (!node) return;
+      const wrap = canvasRef.current;
+      if (!wrap) return;
+      const toolbar = wrap.querySelector(".tree-toolbar") as HTMLElement | null;
+      const hint = wrap.querySelector(".tree-locate-hint") as HTMLElement | null;
+      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]') ?? null;
+      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
+      const cx = node.x + CARD_HALF_W;
+      const cy = GEN_LABEL_HEIGHT + node.y + CARD_HALF_H;
+      const rect = wrap.getBoundingClientRect();
+      const vv = typeof window !== "undefined" ? window.visualViewport : null;
+      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
+      const visibleH = Math.max(
+        120,
+        Math.min(wrap.clientHeight, visibleBottom - rect.top)
+      );
+      const vw = wrap.clientWidth || 980;
+      const innerH = Math.max(120, visibleH - toolbarH);
+      if (scroller) {
+        scroller.scrollLeft = 0;
+        scroller.scrollTop = 0;
+      }
+      setOffset({ x: vw / 2 - cx * zoom, y: innerH / 2 - cy * zoom });
+    },
+    [graphNodeByPersonId, zoom]
+  );
+
   const locatePersonOnGraph = useCallback(
     (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
@@ -680,25 +710,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         window.setTimeout(() => setLocateHint(null), 4500);
         return;
       }
-      setLocateHint(null);
-      const wrap = canvasRef.current;
-      const toolbar = wrap?.querySelector(".tree-toolbar") as HTMLElement | null;
-      const hint = wrap?.querySelector(".tree-locate-hint") as HTMLElement | null;
-      const scroller = wrap?.querySelector<HTMLDivElement>('[data-tree-scroller="true"]') ?? null;
-      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
-      const cx = node.x + CARD_HALF_W;
-      const cy = GEN_LABEL_HEIGHT + node.y + CARD_HALF_H;
-      const vw = wrap?.clientWidth ?? 980;
-      const vh = wrap?.clientHeight ?? 520;
-      const innerH = Math.max(120, vh - toolbarH);
-      if (scroller) {
-        scroller.scrollLeft = 0;
-        scroller.scrollTop = 0;
-      }
-      setOffset({ x: vw / 2 - cx * zoom, y: innerH / 2 - cy * zoom });
       setHighlightedLocatePersonId(personId);
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
+      closeMemberPanel();
       locateInputRef.current?.blur();
       if (
         typeof document !== "undefined" &&
@@ -706,9 +721,21 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       ) {
         document.activeElement.blur();
       }
-      closeMemberPanel();
+      const person = persons.find((p) => p.id === personId);
+      const label = person ? personLabel(person) : "član";
+      setLocateHint(`Lociran: ${label}`);
+      window.setTimeout(() => setLocateHint(null), 2500);
+      const runCenter = () => {
+        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+          window.requestAnimationFrame(() => centerOnPersonNode(personId));
+        } else {
+          centerOnPersonNode(personId);
+        }
+      };
+      runCenter();
+      window.setTimeout(runCenter, 320);
     },
-    [graphNodeByPersonId, zoom, closeMemberPanel]
+    [graphNodeByPersonId, closeMemberPanel, centerOnPersonNode, persons]
   );
 
   useEffect(() => {
@@ -736,6 +763,26 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     }, 150);
     return () => window.clearTimeout(t);
   }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
+
+  useEffect(() => {
+    if (!highlightedLocatePersonId) return;
+    const vv = typeof window !== "undefined" ? window.visualViewport : null;
+    if (!vv) return;
+    let timer: number | null = null;
+    const handler = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        centerOnPersonNode(highlightedLocatePersonId);
+      }, 120);
+    };
+    vv.addEventListener("resize", handler);
+    vv.addEventListener("scroll", handler);
+    return () => {
+      vv.removeEventListener("resize", handler);
+      vv.removeEventListener("scroll", handler);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [highlightedLocatePersonId, centerOnPersonNode]);
 
   const { totalMembers, generationStats } = layout;
 
@@ -959,18 +1006,32 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     transform={`translate(${node.x + CARD_HALF_W},${node.y + CARD_HALF_H})`}
                   >
                     {isLocateHighlight ? (
-                      <rect
-                        x={-CARD_HALF_W - 4}
-                        y={-CARD_HALF_H - 4}
-                        width={CARD_W + 8}
-                        height={CARD_H + 8}
-                        fill="none"
-                        stroke="#f59e0b"
-                        strokeWidth={3}
-                        rx={2}
-                        pointerEvents="none"
-                        className="pedigree-locate-ring"
-                      />
+                      <>
+                        <rect
+                          x={-CARD_HALF_W - 6}
+                          y={-CARD_HALF_H - 6}
+                          width={CARD_W + 12}
+                          height={CARD_H + 12}
+                          fill="#fde68a"
+                          fillOpacity={0.35}
+                          stroke="none"
+                          rx={3}
+                          pointerEvents="none"
+                          className="pedigree-locate-fill"
+                        />
+                        <rect
+                          x={-CARD_HALF_W - 4}
+                          y={-CARD_HALF_H - 4}
+                          width={CARD_W + 8}
+                          height={CARD_H + 8}
+                          fill="none"
+                          stroke="#f59e0b"
+                          strokeWidth={4}
+                          rx={2}
+                          pointerEvents="none"
+                          className="pedigree-locate-ring"
+                        />
+                      </>
                     ) : null}
                     <rect
                       x={-CARD_HALF_W}
