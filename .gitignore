@@ -2,7 +2,7 @@
 node_modules/
 
 # Izvorne slike za početnu (JPG u korenu); WebP za sajt: npm run build:homefoto --prefix admin
-homefoto/
+/homefoto/
 
 # Build
 admin/dist/

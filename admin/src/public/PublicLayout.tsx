@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { PublicThemeProvider, usePublicTheme } from "./PublicThemeContext";
+import { PublicThemeProvider } from "./PublicThemeContext";
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `public-nav-link${isActive ? " public-nav-link--active" : ""}`;
 }
 
 function PublicLayoutInner() {
-  const { theme, toggleTheme } = usePublicTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
 
@@ -25,62 +24,58 @@ function PublicLayoutInner() {
   }, [menuOpen]);
 
   return (
-    <div className="public-root" data-theme={theme}>
-      <header className="public-header">
-        <div className="public-header-inner">
-          <NavLink to="/" className="public-brand">
-            <span className="public-brand-mark">GJ</span>
-            <span className="public-brand-text">Grabovica Janjići</span>
-          </NavLink>
+    <div className="public-root" data-theme="light">
+      <header className="public-header public-header--hero">
+        <div className="public-header-bg" aria-hidden="true" />
+        <div className="public-header-overlay" aria-hidden="true" />
 
-          <button
-            type="button"
-            className={`public-nav-toggle${menuOpen ? " public-nav-toggle--open" : ""}`}
-            aria-label={menuOpen ? "Zatvori meni" : "Otvori meni"}
-            aria-expanded={menuOpen}
-            aria-controls="public-main-nav"
-            onClick={() => setMenuOpen((v) => !v)}
-          >
-            <span className="public-nav-toggle-bar" />
-            <span className="public-nav-toggle-bar" />
-            <span className="public-nav-toggle-bar" />
-          </button>
+        <div className="public-header-top">
+          <div className="public-header-inner">
+            <NavLink to="/" className="public-brand">
+              <span className="public-brand-mark">GJ</span>
+              <span className="public-brand-text">Grabovica Janjići</span>
+            </NavLink>
 
-          <nav
-            id="public-main-nav"
-            className={`public-nav${menuOpen ? " public-nav--open" : ""}`}
-            aria-label="Glavna navigacija"
-          >
-            <NavLink to="/" end className={navClass}>
-              Početna
-            </NavLink>
-            <NavLink to="/stablo" className={navClass}>
-              Stablo
-            </NavLink>
-            <NavLink to="/pretraga" className={navClass}>
-              Pretraga
-            </NavLink>
-            <NavLink to="/aktivnosti" className={navClass}>
-              Aktivnosti
-            </NavLink>
-            <NavLink to="/kontakt" className={navClass}>
-              Kontakt forma
-            </NavLink>
             <button
               type="button"
-              className="public-theme-toggle public-theme-toggle--mobile"
-              onClick={toggleTheme}
-              aria-label="Promena teme"
+              className={`public-nav-toggle${menuOpen ? " public-nav-toggle--open" : ""}`}
+              aria-label={menuOpen ? "Zatvori meni" : "Otvori meni"}
+              aria-expanded={menuOpen}
+              aria-controls="public-main-nav"
+              onClick={() => setMenuOpen((v) => !v)}
             >
-              {theme === "dark" ? "Svetla tema" : "Tamna tema"}
+              <span className="public-nav-toggle-bar" />
+              <span className="public-nav-toggle-bar" />
+              <span className="public-nav-toggle-bar" />
             </button>
-          </nav>
 
-          <div className="public-header-actions">
-            <button type="button" className="public-theme-toggle" onClick={toggleTheme} aria-label="Promena teme">
-              {theme === "dark" ? "Svetla tema" : "Tamna tema"}
-            </button>
+            <nav
+              id="public-main-nav"
+              className={`public-nav${menuOpen ? " public-nav--open" : ""}`}
+              aria-label="Glavna navigacija"
+            >
+              <NavLink to="/" end className={navClass}>
+                Početna
+              </NavLink>
+              <NavLink to="/stablo" className={navClass}>
+                Stablo
+              </NavLink>
+              <NavLink to="/pretraga" className={navClass}>
+                Pretraga
+              </NavLink>
+              <NavLink to="/aktivnosti" className={navClass}>
+                Aktivnosti
+              </NavLink>
+              <NavLink to="/kontakt" className={navClass}>
+                Kontakt forma
+              </NavLink>
+            </nav>
           </div>
+        </div>
+
+        <div className="public-hero-title-block">
+          <h1 className="public-hero-title">Crna Gora - Grabovica</h1>
+          <p className="public-hero-subtitle">Bratstvo Janjići</p>
         </div>
       </header>
 
@@ -126,7 +121,7 @@ function PublicLayoutInner() {
   );
 }
 
-/** Javni sajt: tamna/svetla tema + zajednički header/footer. */
+/** Javni sajt: jedna (svetla) tema, zajednički hero header i footer. */
 export function PublicShell() {
   return (
     <PublicThemeProvider>
