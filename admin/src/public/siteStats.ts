@@ -7,6 +7,8 @@ type SitePageViewInsert = Database["audit"]["Tables"]["gr_site_page_views"]["Ins
 
 const VISITOR_STORAGE_KEY = "gr_site_visitor_id";
 const SESSION_STORAGE_KEY = "gr_site_session_id";
+const SESSION_LAST_SEEN_KEY = "gr_site_session_last_seen_at";
+const SESSION_PAGES_COUNT_KEY = "gr_site_session_pages_count";
 const LAST_PAGE_KEY = "gr_site_last_page";
 const LAST_PAGE_AT_KEY = "gr_site_last_page_at";
 const IP_STORAGE_KEY = "gr_site_ip";
@@ -128,6 +130,8 @@ export function useSiteTracking(pathname: string) {
 
     const visitorId = getOrCreateVisitorId();
     const sessionIdRaw = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const sessionLastSeenRaw = sessionStorage.getItem(SESSION_LAST_SEEN_KEY);
+    const sessionLastSeenAt = sessionLastSeenRaw ? Number(sessionLastSeenRaw) : null;
     const lastPath = sessionStorage.getItem(LAST_PAGE_KEY);
     const lastAtRaw = sessionStorage.getItem(LAST_PAGE_AT_KEY);
     const lastAt = lastAtRaw ? Number(lastAtRaw) : null;
@@ -136,20 +140,12 @@ export function useSiteTracking(pathname: string) {
     const save = async () => {
       let nextSessionId = sessionIdRaw;
       if (nextSessionId) {
-        const check = await audit
-          .from("gr_site_sessions")
-          .select("ended_at,last_seen")
-          .eq("id", nextSessionId)
-          .maybeSingle();
-        if (check.error) {
-          logTrackError("select current session", check.error);
-        }
-        const lastSeenAt = check.data?.last_seen ? new Date(check.data.last_seen).getTime() : null;
-        const isStale = lastSeenAt == null || Date.now() - lastSeenAt > SESSION_STALE_MS;
-        const isEnded = check.data?.ended_at != null;
-        if (!check.data || isEnded || isStale) {
+        const isStale = sessionLastSeenAt == null || Date.now() - sessionLastSeenAt > SESSION_STALE_MS;
+        if (isStale) {
           nextSessionId = null;
           sessionStorage.removeItem(SESSION_STORAGE_KEY);
+          sessionStorage.removeItem(SESSION_LAST_SEEN_KEY);
+          sessionStorage.removeItem(SESSION_PAGES_COUNT_KEY);
         }
       }
       if (!nextSessionId) {
@@ -183,6 +179,8 @@ export function useSiteTracking(pathname: string) {
         }
         nextSessionId = generatedSessionId;
         sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
+        sessionStorage.setItem(SESSION_LAST_SEEN_KEY, `${Date.now()}`);
+        sessionStorage.setItem(SESSION_PAGES_COUNT_KEY, "1");
       }
 
       if (nextSessionId && lastPath) {
@@ -197,15 +195,8 @@ export function useSiteTracking(pathname: string) {
       }
 
       if (nextSessionId) {
-        const prev = await audit
-          .from("gr_site_sessions")
-          .select("pages_count")
-          .eq("id", nextSessionId)
-          .single();
-        if (prev.error) {
-          logTrackError("select session pages_count", prev.error);
-        }
-        const currentCount = prev.data?.pages_count ?? 1;
+        const currentCountRaw = sessionStorage.getItem(SESSION_PAGES_COUNT_KEY);
+        const currentCount = Number(currentCountRaw ?? "1") || 1;
         const shouldIncrement = lastPath && lastPath !== pathname;
         const nextCount = shouldIncrement ? currentCount + 1 : currentCount;
         const updatePayload = {
@@ -234,6 +225,8 @@ export function useSiteTracking(pathname: string) {
             .eq("id", nextSessionId);
         }
         if (updateRes.error) logTrackError("update session heartbeat/path", updateRes.error);
+        sessionStorage.setItem(SESSION_LAST_SEEN_KEY, `${Date.now()}`);
+        sessionStorage.setItem(SESSION_PAGES_COUNT_KEY, `${nextCount}`);
       }
       sessionStorage.setItem(LAST_PAGE_KEY, pathname);
       sessionStorage.setItem(LAST_PAGE_AT_KEY, `${Date.now()}`);
@@ -275,6 +268,7 @@ export function useSiteTracking(pathname: string) {
         .from("gr_site_sessions")
         .update({ last_seen: new Date().toISOString(), current_path: pathname, ended_at: null })
         .eq("id", sessionId);
+      sessionStorage.setItem(SESSION_LAST_SEEN_KEY, `${Date.now()}`);
       void pullStats();
     }, HEARTBEAT_MS);
 
