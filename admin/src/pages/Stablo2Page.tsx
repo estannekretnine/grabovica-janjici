@@ -41,6 +41,11 @@ const CARD_NAME_MAX = 12;
 const CARD_NAME2_MAX = 11;
 const KARIJERA_SNIP_MAX = 22;
 
+/** Visina SVG dokumenta (samo sadržaj + mali padding — bez starog min 800px koji je pravio prazan vrh). */
+function treeSvgDocumentHeight(layoutHeight: number): number {
+  return Math.max(layoutHeight + GEN_LABEL_HEIGHT + 72, 160);
+}
+
 /** Ograničenje translate(offset) da graf ostane u vidnom polju (isti račun kao kod kadrovanja). */
 function clampTreePanOffset(
   ox: number,
@@ -53,16 +58,23 @@ function clampTreePanOffset(
 ): { x: number; y: number } {
   const margin = 14;
   const scaledW = layoutWidth * z;
-  const svgH = Math.max(layoutHeight + 200 + GEN_LABEL_HEIGHT, 800);
+  const svgH = treeSvgDocumentHeight(layoutHeight);
   let x = ox;
   if (scaledW <= innerW - margin * 2) {
     x = (innerW - scaledW) / 2;
   } else {
     x = Math.max(innerW - margin - scaledW, Math.min(margin, x));
   }
-  const minOy = innerH - margin - svgH * z;
+  const scaledSvgH = svgH * z;
+  const minOy = innerH - margin - scaledSvgH;
   const maxOy = margin;
-  const y = Math.max(minOy, Math.min(maxOy, oy));
+  let y: number;
+  if (minOy > maxOy) {
+    // Ceo graf staje u visinu — drži gore uz margin (izbegni minOy koji je bio > maxOy i pravio „rupe“).
+    y = maxOy;
+  } else {
+    y = Math.max(minOy, Math.min(maxOy, oy));
+  }
   return { x, y };
 }
 
@@ -766,9 +778,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       } else {
         ox = innerW - 14 - scaledW;
       }
-      const cy = GEN_LABEL_HEIGHT + layout.height / 2;
-      const oyIdeal = innerH / 2 - cy * z;
-      setOffset(clampTreePanOffset(ox, oyIdeal, z, innerW, innerH, layout.width, layout.height));
+      // Vertikalno: drži stablo uz vrh (bez centriranja koje sa starim svgH pravilo prazan prostor).
+      const oyTop = 14;
+      setOffset(clampTreePanOffset(ox, oyTop, z, innerW, innerH, layout.width, layout.height));
     },
     [isPublic, layout.width, layout.height, zoom],
   );
@@ -793,10 +805,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         Math.min(wrap.clientHeight, visibleBottom - rect.top)
       );
       const vw = wrap.clientWidth || 980;
-      const innerH = Math.max(120, visibleH - toolbarH);
       const innerW = scroller?.clientWidth ?? vw;
+      const innerH = scroller?.clientHeight ?? Math.max(120, visibleH - toolbarH);
       const ox = vw / 2 - cx * zoom;
-      const oy = innerH / 2 - cy * zoom;
+      // Pomak ka vrhu: član u gornjoj trećini, ne u sredini ekrana.
+      const oy = innerH * 0.22 - cy * zoom;
       setOffset(clampTreePanOffset(ox, oy, zoom, innerW, innerH, layout.width, layout.height));
     },
     [graphNodeByPersonId, zoom, layout.width, layout.height]
@@ -1091,7 +1104,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           >
           <svg
             width={Math.max(layout.width + 200, 2000)}
-            height={Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800)}
+            height={treeSvgDocumentHeight(layout.height)}
             style={{
               transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
               transformOrigin: "0 0",
