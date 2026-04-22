@@ -1249,22 +1249,13 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               WebkitOverflowScrolling: "touch",
             }}
           >
-          <div
-            className="tree-scale-content"
-            style={{
-              width: treeSvgDocumentWidth(layout.width) * zoom,
-              height: treeSvgDocumentHeight(layout.height) * zoom,
-              position: "relative",
-            }}
-          >
           <svg
-            width={treeSvgDocumentWidth(layout.width)}
-            height={treeSvgDocumentHeight(layout.height)}
-            style={{
-              transform: `scale(${zoom})`,
-              transformOrigin: "0 0",
-              display: "block",
-            }}
+            className="tree-scale-content"
+            width={treeSvgDocumentWidth(layout.width) * zoom}
+            height={treeSvgDocumentHeight(layout.height) * zoom}
+            viewBox={`0 0 ${treeSvgDocumentWidth(layout.width)} ${treeSvgDocumentHeight(layout.height)}`}
+            preserveAspectRatio="xMinYMin meet"
+            style={{ display: "block" }}
           >
             <g transform={`translate(${SCROLL_PAD_X}, ${SCROLL_PAD_Y + GEN_LABEL_HEIGHT})`}>
               {generationStats.map((g) => {
@@ -1416,7 +1407,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               })}
             </g>
           </svg>
-          </div>
           </div>
 
           {selectedMember && memberPanelPos ? (
