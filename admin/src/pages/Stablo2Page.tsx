@@ -359,6 +359,77 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
     }
   }
 
+  /** Post-procesor: kada je prikaz filtriran na jedan ogranak (npr. Šukovići),
+   *  ostali neposredni Janjini sinovi (Miloš, Obren) nemaju vidljive potomke
+   *  i algoritam ih stavlja na dno (posle cele grane aktivnog sina). To vizuelno
+   *  "razvuče" stablo, a Janju gurne u sredinu. Ovde ih skupljamo uz vrh pored
+   *  aktivne grane i Janju pomeramo uz vrh — nema kolizije jer lepe sinove
+   *  stavljamo u ISTOM kolonu kao aktivni sin, ali u prvim redovima (koji su u
+   *  njegovoj koloni inače prazni dok njegov potomci žive u sledećoj koloni). */
+  function descendantsIds(id: string): Set<string> {
+    const out = new Set<string>();
+    const stack: string[] = [id];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (out.has(cur)) continue;
+      out.add(cur);
+      for (const c of childByParent.get(cur) ?? []) {
+        if (!out.has(c)) stack.push(c);
+      }
+    }
+    return out;
+  }
+  for (const rootPerson of roots) {
+    const rootPos = positions.get(rootPerson.id);
+    if (!rootPos) continue;
+
+    // Neposredna deca ovog korena (uključujući preko partnera), ograničena na vidljive.
+    const kidIds = new Set<string>();
+    for (const pid of [rootPerson.id, ...(partnersByPerson.get(rootPerson.id) ?? [])]) {
+      for (const c of childByParent.get(pid) ?? []) {
+        if (!hiddenPartnerIds.has(c) && positions.has(c)) kidIds.add(c);
+      }
+    }
+    if (kidIds.size < 2) continue;
+
+    // Klasifikacija: list (bez potomaka u trenutnom prikazu) vs. grana.
+    const leafKids: PositionedNode[] = [];
+    const branchKids: PositionedNode[] = [];
+    for (const kid of kidIds) {
+      const kp = positions.get(kid);
+      if (!kp) continue;
+      const hasGrand =
+        (childByParent.get(kid) ?? []).some((gc) => positions.has(gc) && !hiddenPartnerIds.has(gc)) ||
+        Array.from(partnersByPerson.get(kid) ?? []).some((pid) =>
+          (childByParent.get(pid) ?? []).some(
+            (gc) => positions.has(gc) && !hiddenPartnerIds.has(gc),
+          ),
+        );
+      if (hasGrand) branchKids.push(kp);
+      else leafKids.push(kp);
+    }
+    if (leafKids.length === 0 || branchKids.length === 0) continue;
+
+    // Najviši Y među potomcima aktivne grane — referentna "vrh" tačka.
+    let topY = Infinity;
+    for (const bk of branchKids) {
+      for (const did of descendantsIds(bk.id)) {
+        const pos = positions.get(did);
+        if (pos && pos.y < topY) topY = pos.y;
+      }
+    }
+    if (!isFinite(topY)) topY = 0;
+
+    // Stavi listove uz vrh kolone, stacked jedan ispod drugog, stabilnim redosledom.
+    const sortedLeaves = [...leafKids].sort((a, b) => a.y - b.y);
+    for (let i = 0; i < sortedLeaves.length; i++) {
+      sortedLeaves[i].y = topY + i * NODE_PITCH_H;
+    }
+
+    // Janju (koren) takođe guramo uz vrh — ne mora biti u sredini.
+    rootPos.y = topY;
+  }
+
   const edges: Array<{ from: string; to: string }> = [];
   for (const rel of relations) {
     if (positions.has(rel.parent_person_id) && positions.has(rel.child_person_id)) {
@@ -1237,29 +1308,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               alignItems: "center",
             }}
           >
-            <div
-              className="tree-ogranak-switch"
-              role="tablist"
-              aria-label="Izbor ogranka"
-            >
-              {OGRANCI.map((o) => {
-                const isActive = o.id === selectedOgranak;
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-label={o.fullLabel}
-                    className={`tree-ogranak-pill${isActive ? " is-active" : ""}`}
-                    onClick={() => handleSelectOgranak(o.id)}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-            </div>
-            <span className="tree-toolbar-sep" aria-hidden="true" />
             <button type="button" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z * 1.12))}>
               +
             </button>
@@ -1290,6 +1338,28 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               Reset prikaza
             </button>
             <span className="muted">Zoom: {zoomDisplayPercent(zoom)}%</span>
+            <div
+              className="tree-ogranak-switch"
+              role="tablist"
+              aria-label="Izbor ogranka"
+            >
+              {OGRANCI.map((o) => {
+                const isActive = o.id === selectedOgranak;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-label={o.fullLabel}
+                    className={`tree-ogranak-pill${isActive ? " is-active" : ""}`}
+                    onClick={() => handleSelectOgranak(o.id)}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
             <div className="tree-toolbar-locate" ref={locateWrapRef}>
               <input
                 ref={locateInputRef}

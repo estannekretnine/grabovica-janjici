@@ -533,34 +533,43 @@ th {
   align-items: center;
 }
 
-/* Prekidač ogranaka (Šukovići / Trivunovići / Vidići) — pilule u tree-toolbar. */
+/* Prekidač ogranaka (Šukovići / Trivunovići / Vidići) — centriran između Zoom-a i pretrage. */
 .tree-ogranak-switch {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  padding: 0.2rem;
-  border-radius: 999px;
-  background: #f5f1e8;
-  border: 1px solid #d4c9a8;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  gap: 0.4rem;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .tree-ogranak-pill {
   appearance: none;
-  border: 0;
-  background: transparent;
+  background: #fffdf6;
   color: #4a3c24;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding: 0.3rem 0.75rem;
+  font-weight: 700;
+  font-size: 0.88rem;
+  padding: 0.4rem 0.95rem;
+  border: 1px solid #8f7f53;
   border-radius: 999px;
   cursor: pointer;
-  line-height: 1.1;
-  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+  line-height: 1.15;
+  box-shadow: 0 1px 0 rgba(143, 127, 83, 0.15);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.05s ease;
 }
 
 .tree-ogranak-pill:hover {
-  background: rgba(184, 167, 117, 0.25);
+  background: #f5e9c7;
+  border-color: #6e5f33;
+  box-shadow: 0 2px 4px rgba(74, 60, 36, 0.18);
+}
+
+.tree-ogranak-pill:active {
+  transform: translateY(1px);
 }
 
 .tree-ogranak-pill:focus-visible {
@@ -571,28 +580,22 @@ th {
 .tree-ogranak-pill.is-active {
   background: #4a3c24;
   color: #fff7df;
-  box-shadow: 0 1px 2px rgba(74, 60, 36, 0.25);
+  border-color: #3a2e1a;
+  box-shadow:
+    0 2px 6px rgba(74, 60, 36, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .tree-ogranak-pill.is-active:hover {
   background: #3a2e1a;
-}
-
-/* Tanak separator između prekidača ogranaka i ostalih kontrola. */
-.tree-toolbar-sep {
-  display: inline-block;
-  width: 1px;
-  height: 1.5rem;
-  background: #d4c9a8;
-  margin: 0 0.15rem;
+  border-color: #2a2010;
 }
 
 .tree-toolbar-locate {
   position: relative;
-  flex: 1 1 16rem;
+  flex: 0 1 20rem;
   max-width: 24rem;
   min-width: 12rem;
-  margin-left: auto;
 }
 
 .tree-locate-input {
@@ -709,19 +712,17 @@ th {
   .tree-ogranak-switch {
     order: -1;
     flex-basis: 100%;
-    justify-content: space-between;
-    padding: 0.2rem;
+    justify-content: center;
+    gap: 0.35rem;
+    margin-left: 0;
+    margin-right: 0;
   }
 
   .tree-ogranak-pill {
     flex: 1;
     text-align: center;
     font-size: 0.82rem;
-    padding: 0.32rem 0.5rem;
-  }
-
-  .tree-toolbar-sep {
-    display: none;
+    padding: 0.4rem 0.5rem;
   }
 
   .row.tree-toolbar > .muted {
