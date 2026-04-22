@@ -865,40 +865,52 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   }, [zoom]);
 
   /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno).
-   *  Zahvaljujući SCROLL_PAD prostoru, ovo uspeva i kad graf inače staje u viewport. */
+   *  Koristimo stvarne DOM koordinate kartice (getBoundingClientRect), pa ne zavisimo od
+   *  zoom/SCROLL_PAD/viewBox internog računa — uvek odgovara onome što browser zapravo prikazuje. */
   const centerOnPersonNode = useCallback(
-    (personId: string, behavior: ScrollBehavior = "auto") => {
+    (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
       if (!node) return false;
       const scroller = treeScrollerRef.current;
       if (!scroller) return false;
       if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return false;
 
-      const cx = (SCROLL_PAD_X + node.x + CARD_HALF_W) * zoom;
-      const cy =
-        (SCROLL_PAD_Y + GEN_LABEL_HEIGHT + node.y + CARD_HALF_H) * zoom;
+      const safeId =
+        typeof CSS !== "undefined" && typeof CSS.escape === "function"
+          ? CSS.escape(node.id)
+          : node.id.replace(/"/g, '\\"');
+      const el = scroller.querySelector<SVGGElement>(
+        `[data-node-person-id="${safeId}"]`,
+      );
+      if (!el) return false;
 
-      const targetLeft = cx - scroller.clientWidth / 2;
-      const targetTop = cy - scroller.clientHeight * 0.35;
+      const nodeRect = el.getBoundingClientRect();
+      const scrollerRect = scroller.getBoundingClientRect();
+
+      // Centar kartice u koordinatama viewport-a scrollera.
+      const nodeCenterX = nodeRect.left + nodeRect.width / 2 - scrollerRect.left;
+      const nodeCenterY = nodeRect.top + nodeRect.height / 2 - scrollerRect.top;
+
+      const targetCenterX = scroller.clientWidth / 2;
+      const targetCenterY = scroller.clientHeight * 0.35;
 
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
 
-      const finalLeft = Math.max(0, Math.min(maxLeft, targetLeft));
-      const finalTop = Math.max(0, Math.min(maxTop, targetTop));
+      const finalLeft = Math.max(
+        0,
+        Math.min(maxLeft, scroller.scrollLeft + (nodeCenterX - targetCenterX)),
+      );
+      const finalTop = Math.max(
+        0,
+        Math.min(maxTop, scroller.scrollTop + (nodeCenterY - targetCenterY)),
+      );
 
-      // Pouzdano kombinujemo scrollTo API i direktno postavljanje svojstava
-      // — neki render ciklusi umeju da poreme scrollTo sa „smooth" ponašanjem.
-      try {
-        scroller.scrollTo({ left: finalLeft, top: finalTop, behavior });
-      } catch {
-        /* starije verzije bez options formata */
-      }
       scroller.scrollLeft = finalLeft;
       scroller.scrollTop = finalTop;
       return true;
     },
-    [graphNodeByPersonId, zoom],
+    [graphNodeByPersonId],
   );
 
   const locatePersonOnGraph = useCallback(
@@ -942,7 +954,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     const timers: number[] = [];
     const attempt = () => {
       if (cancelled) return;
-      centerOnPersonNode(id, "auto");
+      centerOnPersonNode(id);
     };
     // Jedan pokušaj odmah na komit-u, pa još nekoliko da pokriju kasna merenja.
     attempt();
