@@ -11,6 +11,7 @@ function PublicLayoutInner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
   const { totalVisits, currentlyOnline } = useSiteTracking(location.pathname);
+  const isPublicHome = location.pathname === "/" || location.pathname === "";
 
   useEffect(() => {
     setMenuOpen(false);
@@ -26,7 +27,11 @@ function PublicLayoutInner() {
   }, [menuOpen]);
 
   return (
-    <div className="public-root" data-theme="light">
+    <div
+      className="public-root"
+      data-theme="light"
+      data-public-page={isPublicHome ? "home" : "inner"}
+    >
       <header className="public-header public-header--hero">
         <div className="public-header-bg" aria-hidden="true" />
         <div className="public-header-overlay" aria-hidden="true" />

@@ -45,6 +45,11 @@
   isolation: isolate;
 }
 
+/* Unutrašnje javne stranice: ne držati hero na pun ekran — sadržaj ostaje iznad folda (posebno na mobilnom). */
+.public-root[data-public-page="inner"] .public-header {
+  min-height: auto;
+}
+
 .public-header-bg {
   position: absolute;
   inset: 0;
@@ -268,6 +273,7 @@
     max-height: 0;
     overflow: hidden;
     visibility: hidden;
+    pointer-events: none;
     transition: max-height 0.25s ease, visibility 0s linear 0.25s;
     z-index: 45;
   }
@@ -275,6 +281,7 @@
   .public-nav--open {
     max-height: 80vh;
     visibility: visible;
+    pointer-events: auto;
     transition: max-height 0.3s ease, visibility 0s linear 0s;
   }
 
