@@ -15,25 +15,31 @@ type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 
 type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
-/** Horizontalno stablo — kartice (isti vizuel kao Stablo 1). */
-const TREE_SCALE = 0.95;
-const CARD_W = Math.round(228 * TREE_SCALE);
-const CARD_H = Math.round(144 * TREE_SCALE);
+/** Horizontalno stablo — kartice (~50% manje od originala 228×144). */
+const TREE_CARD_SCALE = 0.5;
+const BASE_CARD_W = 228;
+const BASE_CARD_H = 144;
+const CARD_W = Math.round(BASE_CARD_W * TREE_CARD_SCALE);
+const CARD_H = Math.round(BASE_CARD_H * TREE_CARD_SCALE);
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
-const COL_GAP = Math.round(48 * TREE_SCALE);
-const ROW_GAP = Math.round(16 * TREE_SCALE);
-const GEN_LABEL_HEIGHT = Math.round(28 * TREE_SCALE);
+const COL_GAP = Math.round(48 * TREE_CARD_SCALE);
+const ROW_GAP = Math.round(16 * TREE_CARD_SCALE);
+const GEN_LABEL_HEIGHT = Math.round(28 * TREE_CARD_SCALE);
 
-const ty = (px: number) => Math.round(px * TREE_SCALE);
-const TREE_EDGE_SW = 0.85;
-const TREE_CARD_SW = 0.65;
-const TREE_RING_SW = 3;
-const FS_CARD_TITLE = 13.75;
-const FS_CARD_PARTNER = 11.875;
-const FS_CARD_LIFE = 10.925;
-const FS_CARD_KAR = 9.975;
-const FS_GEN_LABEL = 13.75;
+const ty = (px: number) => Math.round(px * TREE_CARD_SCALE);
+const TREE_EDGE_SW = 0.55;
+const TREE_CARD_SW = 0.5;
+const TREE_RING_SW = 2;
+/** Fontovi manji od pola jer bi inače bili nečitljivi; prilagođeno visini kartice. */
+const FS_CARD_TITLE = 11;
+const FS_CARD_PARTNER = 9.5;
+const FS_CARD_LIFE = 9;
+const FS_CARD_KAR = 8;
+const FS_GEN_LABEL = 10;
+const CARD_NAME_MAX = 12;
+const CARD_NAME2_MAX = 11;
+const KARIJERA_SNIP_MAX = 22;
 
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
 const ZOOM_BASELINE = 0.85;
@@ -1044,7 +1050,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               {generationStats.map((g) => {
                 const cx = g.depth * (CARD_W + COL_GAP) + CARD_W / 2;
                 return (
-                  <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${Math.round(-8 * TREE_SCALE)})`}>
+                  <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${Math.round(-8 * TREE_CARD_SCALE)})`}>
                     <text
                       textAnchor="middle"
                       fontSize={FS_GEN_LABEL}
@@ -1073,7 +1079,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               {layout.nodes.map((node) => {
                 const accent = pedigreeAccent(node.depth);
                 const { first, second } = primaryPairForNode(node);
-                const kSnip = karijeraTreeSnippet(first.person.karijera, 44);
+                const kSnip = karijeraTreeSnippet(first.person.karijera, KARIJERA_SNIP_MAX);
                 const life1 = personLifeLine(first.person);
                 const life2 = second ? personLifeLine(second.person) : "";
                 const isLocateHighlight =
@@ -1143,7 +1149,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       data-person-id={first.id}
                     >
                       <title>{first.label}</title>
-                      {first.label.length > 24 ? `${first.label.slice(0, 23)}…` : first.label}
+                      {first.label.length > CARD_NAME_MAX
+                        ? `${first.label.slice(0, CARD_NAME_MAX - 1)}…`
+                        : first.label}
                     </text>
                     {second ? (
                       <text
@@ -1160,7 +1168,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         <title>{second.label}</title>
                         <tspan>+ </tspan>
                         <tspan>
-                          {second.label.length > 23 ? `${second.label.slice(0, 22)}…` : second.label}
+                          {second.label.length > CARD_NAME2_MAX
+                            ? `${second.label.slice(0, CARD_NAME2_MAX - 1)}…`
+                            : second.label}
                         </tspan>
                       </text>
                     ) : null}
