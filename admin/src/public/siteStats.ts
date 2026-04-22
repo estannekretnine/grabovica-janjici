@@ -14,6 +14,7 @@ const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code";
 const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
 const REGION_NAME_STORAGE_KEY = "gr_site_region_name";
 const HEARTBEAT_MS = 30000;
+const STATS_REFRESH_MS = 5000;
 
 function logTrackError(step: string, error: unknown) {
   // Debug only: pomaže da brzo vidimo zašto se insert/update ne upisuje.
@@ -225,7 +226,14 @@ export function useSiteTracking(pathname: string) {
     void pullStats();
     const statsTimer = window.setInterval(() => {
       void pullStats();
-    }, 15000);
+    }, STATS_REFRESH_MS);
+
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void pullStats();
+    };
+    const onFocus = () => void pullStats();
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onFocus);
 
     const heartbeatTimer = window.setInterval(() => {
       const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
@@ -239,6 +247,8 @@ export function useSiteTracking(pathname: string) {
     return () => {
       window.clearInterval(statsTimer);
       window.clearInterval(heartbeatTimer);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onFocus);
     };
   }, [pathname]);
 

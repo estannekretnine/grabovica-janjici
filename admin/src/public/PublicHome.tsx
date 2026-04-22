@@ -107,6 +107,7 @@ export function PublicHome() {
 
   return (
     <div className="public-page">
+      <div className="public-home-transition" aria-hidden="true" />
       <section className="public-section public-home-heritage">
         <div className="public-home-heritage-grid">
           {PUBLIC_HERITAGE_IMAGES.map((item, i) => (
