@@ -1070,6 +1070,31 @@
   padding: 1rem 1.25rem 2.5rem;
 }
 
+/* Stranica /stablo: iskoristi visinu ispod headera i iznad footera (ceo ekran). */
+.public-stablo-embed.public-stablo-embed--full {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-width: none;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0.35rem 0.5rem 0.65rem;
+}
+
+.public-stablo-embed--full .stablo2-page--public {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.public-stablo-embed--full .stablo2-page--public .stablo2-canvas {
+  flex: 1 !important;
+  min-height: 0 !important;
+  height: auto !important;
+}
+
 .public-stablo-embed .stablo2-page--public h1 {
   color: var(--pub-text);
 }
@@ -1095,7 +1120,7 @@
     padding: 0.25rem 0.25rem 0.5rem;
   }
 
-  .public-stablo-embed .stablo2-canvas {
+  .public-stablo-embed:not(.public-stablo-embed--full) .stablo2-canvas {
     height: calc(100vh - 220px) !important;
     min-height: 420px;
   }
@@ -1106,7 +1131,7 @@
     padding: 0.5rem 0.4rem 1.5rem;
   }
 
-  .public-stablo-embed .stablo2-canvas {
+  .public-stablo-embed:not(.public-stablo-embed--full) .stablo2-canvas {
     height: calc(100vh - 200px) !important;
     min-height: 380px;
   }

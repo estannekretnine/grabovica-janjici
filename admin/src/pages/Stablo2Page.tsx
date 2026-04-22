@@ -672,6 +672,37 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       .slice(0, 120);
   }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
+  /** Javni prikaz: poravnaj tako da je poslednje (najdublje) koleno uvek u vidnom polju — desna ivica grafa uz desnu ivicu prostora. */
+  const framePublicViewToLastGeneration = useCallback(
+    (zoomOverride?: number) => {
+      if (!isPublic) return;
+      const z = zoomOverride ?? zoom;
+      const wrap = canvasRef.current;
+      if (!wrap) return;
+      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
+      if (!scroller) return;
+      const innerW = scroller.clientWidth;
+      const innerH = scroller.clientHeight;
+      if (innerW < 48 || innerH < 48) return;
+      const margin = 14;
+      const scaledW = layout.width * z;
+      const svgH = Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800);
+      let ox: number;
+      if (scaledW <= innerW - margin * 2) {
+        ox = (innerW - scaledW) / 2;
+      } else {
+        ox = innerW - margin - scaledW;
+      }
+      const cy = GEN_LABEL_HEIGHT + layout.height / 2;
+      const oyIdeal = innerH / 2 - cy * z;
+      const minOy = innerH - margin - svgH * z;
+      const maxOy = margin;
+      const oy = Math.max(minOy, Math.min(maxOy, oyIdeal));
+      setOffset({ x: ox, y: oy });
+    },
+    [isPublic, layout.width, layout.height, zoom],
+  );
+
   const centerOnPersonNode = useCallback(
     (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
@@ -784,6 +815,39 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     };
   }, [highlightedLocatePersonId, centerOnPersonNode]);
 
+  useEffect(() => {
+    if (!isPublic || loading || persons.length === 0) return;
+    if (highlightPersonParam) return;
+    const id = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => framePublicViewToLastGeneration());
+    });
+    return () => window.cancelAnimationFrame(id);
+  }, [
+    isPublic,
+    loading,
+    persons.length,
+    layout.width,
+    layout.height,
+    highlightPersonParam,
+    framePublicViewToLastGeneration,
+  ]);
+
+  useEffect(() => {
+    if (!isPublic) return;
+    const onResize = () => {
+      window.requestAnimationFrame(() => framePublicViewToLastGeneration());
+    };
+    window.addEventListener("resize", onResize);
+    const vv = window.visualViewport;
+    vv?.addEventListener("resize", onResize);
+    vv?.addEventListener("scroll", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      vv?.removeEventListener("resize", onResize);
+      vv?.removeEventListener("scroll", onResize);
+    };
+  }, [isPublic, framePublicViewToLastGeneration]);
+
   const { totalMembers, generationStats } = layout;
 
   return (
@@ -842,7 +906,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           onWheel={onWheel}
           style={{
             width: "100%",
-            height: "78vh",
+            ...(isPublic
+              ? { flex: 1, minHeight: 0, height: "auto" }
+              : { height: "78vh" }),
             background: "#f5f1e8",
             border: "1px solid #d4c9a8",
             borderRadius: 8,
@@ -876,12 +942,18 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               type="button"
               onClick={() => {
                 setZoom(ZOOM_BASELINE);
-                setOffset({ x: 40, y: 40 });
                 closeMemberPanel();
                 setHighlightedLocatePersonId(null);
                 setMemberLocateQuery("");
                 setMemberLocateOpen(false);
                 setLocateHint(null);
+                if (isPublic) {
+                  window.requestAnimationFrame(() => {
+                    window.requestAnimationFrame(() => framePublicViewToLastGeneration(ZOOM_BASELINE));
+                  });
+                } else {
+                  setOffset({ x: 40, y: 40 });
+                }
               }}
             >
               Reset prikaza
