@@ -15,6 +15,7 @@ const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
 const REGION_NAME_STORAGE_KEY = "gr_site_region_name";
 const HEARTBEAT_MS = 30000;
 const STATS_REFRESH_MS = 5000;
+const SESSION_STALE_MS = 5 * 60 * 1000;
 
 function logTrackError(step: string, error: unknown) {
   // Debug only: pomaže da brzo vidimo zašto se insert/update ne upisuje.
@@ -126,14 +127,31 @@ export function useSiteTracking(pathname: string) {
     if (!audit || !supabase) return;
 
     const visitorId = getOrCreateVisitorId();
-    const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    const sessionIdRaw = sessionStorage.getItem(SESSION_STORAGE_KEY);
     const lastPath = sessionStorage.getItem(LAST_PAGE_KEY);
     const lastAtRaw = sessionStorage.getItem(LAST_PAGE_AT_KEY);
     const lastAt = lastAtRaw ? Number(lastAtRaw) : null;
     const lastDuration = getDurationSeconds(lastAt);
 
     const save = async () => {
-      let nextSessionId = sessionId;
+      let nextSessionId = sessionIdRaw;
+      if (nextSessionId) {
+        const check = await audit
+          .from("gr_site_sessions")
+          .select("ended_at,last_seen")
+          .eq("id", nextSessionId)
+          .maybeSingle();
+        if (check.error) {
+          logTrackError("select current session", check.error);
+        }
+        const lastSeenAt = check.data?.last_seen ? new Date(check.data.last_seen).getTime() : null;
+        const isStale = lastSeenAt == null || Date.now() - lastSeenAt > SESSION_STALE_MS;
+        const isEnded = check.data?.ended_at != null;
+        if (!check.data || isEnded || isStale) {
+          nextSessionId = null;
+          sessionStorage.removeItem(SESSION_STORAGE_KEY);
+        }
+      }
       if (!nextSessionId) {
         const payload: SiteSessionInsert = {
           visitor_id: visitorId,
@@ -254,6 +272,7 @@ export function useSiteTracking(pathname: string) {
         .from("gr_site_sessions")
         .update({ last_seen: new Date().toISOString(), current_path: pathname, ended_at: null })
         .eq("id", sessionId);
+      void pullStats();
     }, HEARTBEAT_MS);
 
     return () => {
