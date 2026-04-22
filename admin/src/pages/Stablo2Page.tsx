@@ -1110,7 +1110,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     };
   }, [isPublic, framePublicViewToLastGeneration]);
 
-  const { totalMembers } = layout;
+  const { totalMembers, generationStats } = layout;
 
   return (
     <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
