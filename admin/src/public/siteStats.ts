@@ -10,6 +10,8 @@ const SESSION_STORAGE_KEY = "gr_site_session_id";
 const LAST_PAGE_KEY = "gr_site_last_page";
 const LAST_PAGE_AT_KEY = "gr_site_last_page_at";
 const IP_STORAGE_KEY = "gr_site_ip";
+const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code";
+const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
 const HEARTBEAT_MS = 30000;
 
 function getOrCreateVisitorId() {
@@ -20,18 +22,42 @@ function getOrCreateVisitorId() {
   return next;
 }
 
-async function getClientIp() {
-  const cached = localStorage.getItem(IP_STORAGE_KEY);
-  if (cached) return cached;
+type GeoInfo = {
+  ip: string | null;
+  countryCode: string | null;
+  countryName: string | null;
+};
+
+async function getGeoInfo(): Promise<GeoInfo> {
+  const cachedIp = localStorage.getItem(IP_STORAGE_KEY);
+  const cachedCountryCode = localStorage.getItem(COUNTRY_CODE_STORAGE_KEY);
+  const cachedCountryName = localStorage.getItem(COUNTRY_NAME_STORAGE_KEY);
+  if (cachedIp || cachedCountryCode || cachedCountryName) {
+    return {
+      ip: cachedIp || null,
+      countryCode: cachedCountryCode || null,
+      countryName: cachedCountryName || null,
+    };
+  }
   try {
-    const response = await fetch("https://api.ipify.org?format=json");
-    if (!response.ok) return null;
-    const data = (await response.json()) as { ip?: string };
+    const response = await fetch("https://ipapi.co/json/");
+    if (!response.ok) {
+      return { ip: null, countryCode: null, countryName: null };
+    }
+    const data = (await response.json()) as {
+      ip?: string;
+      country_code?: string;
+      country_name?: string;
+    };
     const ip = data.ip?.trim() || null;
+    const countryCode = data.country_code?.trim() || null;
+    const countryName = data.country_name?.trim() || null;
     if (ip) localStorage.setItem(IP_STORAGE_KEY, ip);
-    return ip;
+    if (countryCode) localStorage.setItem(COUNTRY_CODE_STORAGE_KEY, countryCode);
+    if (countryName) localStorage.setItem(COUNTRY_NAME_STORAGE_KEY, countryName);
+    return { ip, countryCode, countryName };
   } catch {
-    return null;
+    return { ip: null, countryCode: null, countryName: null };
   }
 }
 
@@ -44,10 +70,14 @@ function getDurationSeconds(fromMs: number | null) {
 export function useSiteTracking(pathname: string) {
   const [totals, setTotals] = useState({ totalVisits: 0, currentlyOnline: 0 });
   const ipRef = useRef<string | null>(null);
+  const countryCodeRef = useRef<string | null>(null);
+  const countryNameRef = useRef<string | null>(null);
 
   useEffect(() => {
-    void getClientIp().then((ip) => {
-      ipRef.current = ip;
+    void getGeoInfo().then((geo) => {
+      ipRef.current = geo.ip;
+      countryCodeRef.current = geo.countryCode;
+      countryNameRef.current = geo.countryName;
     });
   }, []);
 
@@ -67,6 +97,8 @@ export function useSiteTracking(pathname: string) {
         const payload: SiteSessionInsert = {
           visitor_id: visitorId,
           ip_address: ipRef.current,
+          country_code: countryCodeRef.current,
+          country_name: countryNameRef.current,
           user_agent: navigator.userAgent,
           entry_path: pathname,
           current_path: pathname,
