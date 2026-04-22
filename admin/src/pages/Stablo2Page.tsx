@@ -422,12 +422,24 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
 
     // Stavi listove uz vrh kolone, stacked jedan ispod drugog, stabilnim redosledom.
     const sortedLeaves = [...leafKids].sort((a, b) => a.y - b.y);
-    for (let i = 0; i < sortedLeaves.length; i++) {
-      sortedLeaves[i].y = topY + i * NODE_PITCH_H;
+    const sortedBranches = [...branchKids].sort((a, b) => a.y - b.y);
+    let cursor = topY;
+    for (const lk of sortedLeaves) {
+      lk.y = cursor;
+      cursor += NODE_PITCH_H;
+    }
+    // I aktivni sin/sinovi (grane) ide odmah ispod listova — tako su Janja + sva
+    // tri sina u kompaktnom bloku pri vrhu. Deca aktivne grane zadržavaju svoje
+    // originalne Y pozicije (što znači da ivice od aktivnog sina ka njegovoj deci
+    // mogu ići i iznad i ispod — ali nema kolizije kartica).
+    for (const bk of sortedBranches) {
+      bk.y = cursor;
+      cursor += NODE_PITCH_H;
     }
 
-    // Janju (koren) takođe guramo uz vrh — ne mora biti u sredini.
-    rootPos.y = topY;
+    // Koren (Janja) u sredini kompaktnog bloka svoja 3 sina — blizu vrha, ne razvučeno.
+    const sonsYs = [...sortedLeaves, ...sortedBranches].map((n) => n.y);
+    rootPos.y = sonsYs.reduce((s, y) => s + y, 0) / sonsYs.length;
   }
 
   const edges: Array<{ from: string; to: string }> = [];
