@@ -20,7 +20,9 @@ const TREE_CARD_SCALE = 0.5;
 const BASE_CARD_W = 228;
 const BASE_CARD_H = 144;
 const CARD_W = Math.round(BASE_CARD_W * TREE_CARD_SCALE);
-const CARD_H = Math.round(BASE_CARD_H * TREE_CARD_SCALE);
+/** Beli pravougaonik još ~30% niži; „Kontakt“ je ispod njega u posebnom traku. */
+const CARD_HEIGHT_SHRINK = 0.7;
+const CARD_H = Math.round(BASE_CARD_H * TREE_CARD_SCALE * CARD_HEIGHT_SHRINK);
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
 const COL_GAP = Math.round(48 * TREE_CARD_SCALE);
@@ -28,12 +30,15 @@ const ROW_GAP = Math.round(16 * TREE_CARD_SCALE);
 const GEN_LABEL_HEIGHT = Math.round(28 * TREE_CARD_SCALE);
 
 const ty = (px: number) => Math.round(px * TREE_CARD_SCALE);
+/** Vertikalni razmak između vrsta čvorova (bela kartica + trak za Kontakt + razmak). */
+const CARD_KONTAKT_STRIP_H = Math.max(11, ty(18));
+const NODE_PITCH_H = CARD_H + CARD_KONTAKT_STRIP_H + ROW_GAP;
 const TREE_EDGE_SW = 0.55;
 const TREE_CARD_SW = 0.5;
 const TREE_RING_SW = 2;
 /** Fontovi manji od pola jer bi inače bili nečitljivi; prilagođeno visini kartice. */
 const FS_CARD_TITLE = 11;
-const FS_CARD_PARTNER = 9.5;
+const FS_CARD_PARTNER = 10;
 const FS_CARD_LIFE = 9;
 const FS_CARD_KAR = 8;
 const FS_GEN_LABEL = 10;
@@ -55,23 +60,38 @@ function clampTreePanOffset(
   innerH: number,
   layoutWidth: number,
   layoutHeight: number,
+  opts?: { slackLocate?: boolean },
 ): { x: number; y: number } {
   const margin = 14;
   const scaledW = layoutWidth * z;
   const svgH = treeSvgDocumentHeight(layoutHeight);
-  let x = ox;
-  if (scaledW <= innerW - margin * 2) {
-    x = (innerW - scaledW) / 2;
-  } else {
-    x = Math.max(innerW - margin - scaledW, Math.min(margin, x));
-  }
   const scaledSvgH = svgH * z;
   const minOy = innerH - margin - scaledSvgH;
   const maxOy = margin;
+
+  let x: number;
+  if (scaledW <= innerW - margin * 2) {
+    if (opts?.slackLocate) {
+      const xMin = margin;
+      const xMax = innerW - margin - scaledW;
+      x = Math.max(xMin, Math.min(xMax, ox));
+    } else {
+      x = (innerW - scaledW) / 2;
+    }
+  } else {
+    x = Math.max(innerW - margin - scaledW, Math.min(margin, ox));
+  }
+
   let y: number;
   if (minOy > maxOy) {
-    // Ceo graf staje u visinu — drži gore uz margin (izbegni minOy koji je bio > maxOy i pravio „rupe“).
-    y = maxOy;
+    if (opts?.slackLocate) {
+      const yMin = margin;
+      const yMax = innerH - margin - scaledSvgH;
+      y = Math.max(yMin, Math.min(yMax, oy));
+    } else {
+      // Ceo graf staje u visinu — drži gore uz margin (izbegni minOy koji je bio > maxOy i pravio „rupe“).
+      y = maxOy;
+    }
   } else {
     y = Math.max(minOy, Math.min(maxOy, oy));
   }
@@ -337,7 +357,7 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
 
     let y: number;
     if (children.length === 0) {
-      y = nextRow * (CARD_H + ROW_GAP);
+      y = nextRow * NODE_PITCH_H;
       nextRow += 1;
     } else {
       const childYs: number[] = [];
@@ -369,7 +389,7 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
 
   for (const p of persons) {
     if (!positions.has(p.id) && !hiddenPartnerIds.has(p.id)) {
-      const y = nextRow * (CARD_H + ROW_GAP);
+      const y = nextRow * NODE_PITCH_H;
       nextRow += 1;
       positions.set(p.id, {
         id: p.id,
@@ -394,7 +414,7 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
 
   const nodes = Array.from(positions.values());
   const maxX = nodes.reduce((m, n) => Math.max(m, n.x + CARD_W), 0);
-  const maxY = nodes.reduce((m, n) => Math.max(m, n.y + CARD_H), 0);
+  const maxY = nodes.reduce((m, n) => Math.max(m, n.y + CARD_H + CARD_KONTAKT_STRIP_H), 0);
 
   const depthByPerson = new Map<string, number>();
   for (const n of nodes) {
@@ -804,13 +824,18 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         120,
         Math.min(wrap.clientHeight, visibleBottom - rect.top)
       );
-      const vw = wrap.clientWidth || 980;
-      const innerW = scroller?.clientWidth ?? vw;
+      const innerW = (scroller?.clientWidth ?? wrap.clientWidth) || 980;
       const innerH = scroller?.clientHeight ?? Math.max(120, visibleH - toolbarH);
-      const ox = vw / 2 - cx * zoom;
+      if (innerW < 48 || innerH < 48) return;
+      // Isti širinski prostor kao kod klampa (wrap može biti širi od scroller-a zbog scrollbara).
+      const ox = innerW / 2 - cx * zoom;
       // Pomak ka vrhu: član u gornjoj trećini, ne u sredini ekrana.
       const oy = innerH * 0.22 - cy * zoom;
-      setOffset(clampTreePanOffset(ox, oy, zoom, innerW, innerH, layout.width, layout.height));
+      setOffset(
+        clampTreePanOffset(ox, oy, zoom, innerW, innerH, layout.width, layout.height, {
+          slackLocate: true,
+        }),
+      );
     },
     [graphNodeByPersonId, zoom, layout.width, layout.height]
   );
@@ -840,7 +865,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       window.setTimeout(() => setLocateHint(null), 2500);
       const runCenter = () => {
         if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-          window.requestAnimationFrame(() => centerOnPersonNode(personId));
+          window.requestAnimationFrame(() => {
+            window.requestAnimationFrame(() => centerOnPersonNode(personId));
+          });
         } else {
           centerOnPersonNode(personId);
         }
@@ -898,6 +925,19 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   }, [highlightedLocatePersonId, centerOnPersonNode]);
 
   useEffect(() => {
+    if (!locateHint || !highlightedLocatePersonId) return;
+    let cancelled = false;
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        if (!cancelled) centerOnPersonNode(highlightedLocatePersonId);
+      });
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [locateHint, highlightedLocatePersonId, centerOnPersonNode]);
+
+  useEffect(() => {
     if (!isPublic || loading || persons.length === 0) return;
     if (highlightPersonParam) return;
     const id = window.requestAnimationFrame(() => {
@@ -932,6 +972,14 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   const { totalMembers, generationStats } = layout;
 
+  const generationSummaryLine = useMemo(
+    () =>
+      generationStats.length > 0
+        ? generationStats.map((g) => `${g.depth + 1}. koleno: ${g.count}`).join(" · ")
+        : null,
+    [generationStats],
+  );
+
   return (
     <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
       <header className="page-header">
@@ -962,9 +1010,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               ? "Horizontalni prikaz stabla — zumiranje (Ctrl+točkić ili +/−), pomak prikaza točkićem ili prevlačenjem, kartica člana (detalji, kontakt, aktivnosti). Prikazano je glavno porodično stablo."
               : 'Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".'}
           </p>
-          {!loading && generationStats.length > 0 ? (
+          {!loading && generationSummaryLine ? (
             <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
-              {generationStats.map((g) => `${g.depth + 1}. koleno: ${g.count}`).join(" · ")}
+              {generationSummaryLine}
             </p>
           ) : null}
         </div>
@@ -1091,6 +1139,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               ) : null}
             </div>
           </div>
+          {!loading && generationSummaryLine ? (
+            <div className="tree-generation-summary" role="status" aria-label="Broj članova po kolenu">
+              {generationSummaryLine}
+            </div>
+          ) : null}
           {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
           <div
             data-tree-scroller="true"
@@ -1204,7 +1257,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       fill={accent}
                     />
                     <text
-                      y={-CARD_HALF_H + ty(24)}
+                      y={-CARD_HALF_H + ty(20)}
                       textAnchor="middle"
                       fill="#0f172a"
                       fontSize={FS_CARD_TITLE}
@@ -1220,9 +1273,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     </text>
                     {second ? (
                       <text
-                        y={-CARD_HALF_H + ty(40)}
+                        y={-CARD_HALF_H + ty(33)}
                         textAnchor="middle"
-                        fill="#475569"
+                        fill="#334155"
                         fontSize={FS_CARD_PARTNER}
                         fontStyle="italic"
                         fontWeight="600"
@@ -1239,22 +1292,53 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         </tspan>
                       </text>
                     ) : null}
-                    <text
-                      y={-CARD_HALF_H + (second ? ty(56) : ty(44))}
-                      textAnchor="middle"
-                      fill="#64748b"
-                      fontSize={FS_CARD_LIFE}
-                      fontWeight="500"
-                      fontFamily="Georgia, 'Times New Roman', serif"
-                      style={{ cursor: "pointer" }}
-                      data-person-id={first.id}
-                    >
-                      <title>{second ? `${life1} / ${life2}` : life1}</title>
-                      {second ? `${life1} · ${life2}` : life1}
-                    </text>
-                    {kSnip ? (
+                    {second ? (
+                      <>
+                        <text
+                          y={-CARD_HALF_H + ty(42)}
+                          textAnchor="middle"
+                          fill="#64748b"
+                          fontSize={FS_CARD_LIFE}
+                          fontWeight="500"
+                          fontFamily="Georgia, 'Times New Roman', serif"
+                          style={{ cursor: "pointer" }}
+                          data-person-id={first.id}
+                        >
+                          <title>{life1}</title>
+                          {life1}
+                        </text>
+                        <text
+                          y={-CARD_HALF_H + ty(51)}
+                          textAnchor="middle"
+                          fill="#64748b"
+                          fontSize={FS_CARD_LIFE}
+                          fontWeight="500"
+                          fontFamily="Georgia, 'Times New Roman', serif"
+                          style={{ cursor: "pointer" }}
+                          data-person-id={second.id}
+                        >
+                          <title>{life2}</title>
+                          {life2}
+                        </text>
+                      </>
+                    ) : (
                       <text
-                        y={-CARD_HALF_H + (second ? ty(72) : ty(60))}
+                        y={-CARD_HALF_H + ty(40)}
+                        textAnchor="middle"
+                        fill="#64748b"
+                        fontSize={FS_CARD_LIFE}
+                        fontWeight="500"
+                        fontFamily="Georgia, 'Times New Roman', serif"
+                        style={{ cursor: "pointer" }}
+                        data-person-id={first.id}
+                      >
+                        <title>{life1}</title>
+                        {life1}
+                      </text>
+                    )}
+                    {kSnip && !second ? (
+                      <text
+                        y={-CARD_HALF_H + ty(52)}
                         textAnchor="middle"
                         fill="#64748b"
                         fontSize={FS_CARD_KAR}
@@ -1268,19 +1352,17 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       </text>
                     ) : null}
                     <text
-                      y={
-                        -CARD_HALF_H +
-                        (second ? (kSnip ? ty(86) : ty(78)) : kSnip ? ty(74) : ty(62))
-                      }
+                      y={CARD_HALF_H + ty(9)}
                       textAnchor="middle"
                       fill="#2563eb"
-                      fontSize={FS_CARD_LIFE}
+                      fontSize={FS_CARD_LIFE - 0.5}
                       fontWeight="600"
                       textDecoration="underline"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
                       data-person-id={first.id}
                     >
+                      <title>Kontakt</title>
                       Kontakt
                     </text>
                   </g>

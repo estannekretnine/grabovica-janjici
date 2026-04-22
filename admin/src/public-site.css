@@ -1089,6 +1089,11 @@
   min-height: 0;
 }
 
+/* Ne stišti zaglavlje stranice (naslov + rezime kolena) kad canvas uzima preostalu visinu. */
+.public-stablo-embed--full .stablo2-page--public .page-header {
+  flex-shrink: 0;
+}
+
 .public-stablo-embed--full .stablo2-page--public .stablo2-canvas {
   flex: 1 !important;
   min-height: 0 !important;

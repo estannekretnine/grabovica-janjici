@@ -601,6 +601,18 @@ th {
   font-size: 0.88rem;
 }
 
+/* Rezime „1. koleno: n · 2. koleno: …“ iznad stabla (uvek u vidnom polju sa toolbarom). */
+.tree-generation-summary {
+  flex-shrink: 0;
+  padding: 0.38rem 0.65rem 0.42rem;
+  border-bottom: 1px solid #d4c9a8;
+  background: rgba(255, 253, 246, 0.95);
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #4a3c24;
+  word-break: break-word;
+}
+
 @media (max-width: 720px) {
   .row.tree-toolbar {
     padding: 0.45rem 0.55rem !important;
