@@ -17,6 +17,7 @@ export function PorukeSajtaPage() {
   const [hideArchived, setHideArchived] = useState(true);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [selectedOpis, setSelectedOpis] = useState<string | null>(null);
 
   const readRows = useCallback(async () => {
     if (!audit) {
@@ -152,8 +153,19 @@ export function PorukeSajtaPage() {
                   <td className="klijenti-cell-clip" title={r.kontakt ?? ""}>
                     {r.kontakt ?? "—"}
                   </td>
-                  <td className="klijenti-opis" title={r.opis ?? ""}>
-                    {r.opis ?? "—"}
+                  <td className="klijenti-opis">
+                    <div className="klijenti-opis-preview" title={r.opis ?? ""}>
+                      {r.opis ?? "—"}
+                    </div>
+                    {r.opis?.trim() ? (
+                      <button
+                        type="button"
+                        className="klijenti-opis-btn"
+                        onClick={() => setSelectedOpis(r.opis ?? null)}
+                      >
+                        Detalji
+                      </button>
+                    ) : null}
                   </td>
                   <td>
                     <span className={`klijenti-badge ${r.stsinvestitoraudit ? "klijenti-badge--yes" : "klijenti-badge--no"}`}>
@@ -182,6 +194,20 @@ export function PorukeSajtaPage() {
           </table>
         </div>
       </div>
+
+      {selectedOpis ? (
+        <div className="opis-modal-backdrop" role="dialog" aria-modal="true" aria-label="Detalji poruke">
+          <div className="opis-modal-card">
+            <div className="opis-modal-head">
+              <strong>Detalji poruke</strong>
+              <button type="button" onClick={() => setSelectedOpis(null)}>
+                ×
+              </button>
+            </div>
+            <pre className="opis-modal-content">{selectedOpis}</pre>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
