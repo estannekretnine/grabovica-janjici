@@ -207,6 +207,7 @@ export function StatistikaSajtaPage() {
                 <th>Poslednja aktivnost</th>
                 <th>IP adresa</th>
                 <th>Zemlja</th>
+                <th>Region</th>
                 <th>Trenutna strana</th>
                 <th>Pogledane strane</th>
                 <th>Zadržavanje</th>
@@ -219,6 +220,7 @@ export function StatistikaSajtaPage() {
                   <td>{formatDate(row.session.last_seen)}</td>
                   <td>{row.session.ip_address ?? "—"}</td>
                   <td>{row.session.country_name ?? "—"}</td>
+                  <td>{row.session.region_name ?? "—"}</td>
                   <td>{row.session.current_path}</td>
                   <td className="site-stats-paths">{row.pages.length > 0 ? row.pages.join(" -> ") : "—"}</td>
                   <td>{formatDuration(row.totalDurationSec)}</td>

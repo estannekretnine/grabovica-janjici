@@ -343,6 +343,7 @@ type GenealogyTables = {
       ip_address: string | null;
       country_code: string | null;
       country_name: string | null;
+      region_name: string | null;
       user_agent: string | null;
       entry_path: string;
       current_path: string;
@@ -357,6 +358,7 @@ type GenealogyTables = {
       ip_address?: string | null;
       country_code?: string | null;
       country_name?: string | null;
+      region_name?: string | null;
       user_agent?: string | null;
       entry_path: string;
       current_path: string;
@@ -371,6 +373,7 @@ type GenealogyTables = {
       ip_address?: string | null;
       country_code?: string | null;
       country_name?: string | null;
+      region_name?: string | null;
       user_agent?: string | null;
       entry_path?: string;
       current_path?: string;

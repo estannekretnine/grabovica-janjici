@@ -12,7 +12,19 @@ const LAST_PAGE_AT_KEY = "gr_site_last_page_at";
 const IP_STORAGE_KEY = "gr_site_ip";
 const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code";
 const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
+const REGION_NAME_STORAGE_KEY = "gr_site_region_name";
 const HEARTBEAT_MS = 30000;
+
+function logTrackError(step: string, error: unknown) {
+  // Debug only: pomaže da brzo vidimo zašto se insert/update ne upisuje.
+  console.error(`[site-tracking] ${step} failed`, error);
+}
+
+function isMissingRegionColumnError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const msg = String((error as { message?: unknown }).message ?? "").toLowerCase();
+  return msg.includes("region_name") && (msg.includes("column") || msg.includes("schema cache"));
+}
 
 function getOrCreateVisitorId() {
   const existing = localStorage.getItem(VISITOR_STORAGE_KEY);
@@ -26,38 +38,58 @@ type GeoInfo = {
   ip: string | null;
   countryCode: string | null;
   countryName: string | null;
+  regionName: string | null;
 };
 
 async function getGeoInfo(): Promise<GeoInfo> {
   const cachedIp = localStorage.getItem(IP_STORAGE_KEY);
   const cachedCountryCode = localStorage.getItem(COUNTRY_CODE_STORAGE_KEY);
   const cachedCountryName = localStorage.getItem(COUNTRY_NAME_STORAGE_KEY);
-  if (cachedIp || cachedCountryCode || cachedCountryName) {
+  const cachedRegionName = localStorage.getItem(REGION_NAME_STORAGE_KEY);
+  if (cachedIp || cachedCountryCode || cachedCountryName || cachedRegionName) {
     return {
       ip: cachedIp || null,
       countryCode: cachedCountryCode || null,
       countryName: cachedCountryName || null,
+      regionName: cachedRegionName || null,
     };
   }
   try {
     const response = await fetch("https://ipapi.co/json/");
     if (!response.ok) {
-      return { ip: null, countryCode: null, countryName: null };
+      return { ip: null, countryCode: null, countryName: null, regionName: null };
     }
     const data = (await response.json()) as {
       ip?: string;
       country_code?: string;
       country_name?: string;
+      region?: string;
     };
-    const ip = data.ip?.trim() || null;
+    let ip = data.ip?.trim() || null;
     const countryCode = data.country_code?.trim() || null;
     const countryName = data.country_name?.trim() || null;
+    const regionName = data.region?.trim() || null;
+
+    // Fallback ako geo servis ne vrati IP (rate limit / blokada).
+    if (!ip) {
+      try {
+        const ipRes = await fetch("https://api.ipify.org?format=json");
+        if (ipRes.ok) {
+          const ipData = (await ipRes.json()) as { ip?: string };
+          ip = ipData.ip?.trim() || null;
+        }
+      } catch {
+        ip = null;
+      }
+    }
+
     if (ip) localStorage.setItem(IP_STORAGE_KEY, ip);
     if (countryCode) localStorage.setItem(COUNTRY_CODE_STORAGE_KEY, countryCode);
     if (countryName) localStorage.setItem(COUNTRY_NAME_STORAGE_KEY, countryName);
-    return { ip, countryCode, countryName };
+    if (regionName) localStorage.setItem(REGION_NAME_STORAGE_KEY, regionName);
+    return { ip, countryCode, countryName, regionName };
   } catch {
-    return { ip: null, countryCode: null, countryName: null };
+    return { ip: null, countryCode: null, countryName: null, regionName: null };
   }
 }
 
@@ -72,12 +104,14 @@ export function useSiteTracking(pathname: string) {
   const ipRef = useRef<string | null>(null);
   const countryCodeRef = useRef<string | null>(null);
   const countryNameRef = useRef<string | null>(null);
+  const regionNameRef = useRef<string | null>(null);
 
   useEffect(() => {
     void getGeoInfo().then((geo) => {
       ipRef.current = geo.ip;
       countryCodeRef.current = geo.countryCode;
       countryNameRef.current = geo.countryName;
+      regionNameRef.current = geo.regionName;
     });
   }, []);
 
@@ -99,14 +133,24 @@ export function useSiteTracking(pathname: string) {
           ip_address: ipRef.current,
           country_code: countryCodeRef.current,
           country_name: countryNameRef.current,
+          region_name: regionNameRef.current,
           user_agent: navigator.userAgent,
           entry_path: pathname,
           current_path: pathname,
           pages_count: 1,
         };
-        const { data, error } = await audit.from("gr_site_sessions").insert(payload).select("id").single();
-        if (error) return;
-        nextSessionId = data.id;
+        let insertRes = await audit.from("gr_site_sessions").insert(payload).select("id").single();
+        if (insertRes.error && isMissingRegionColumnError(insertRes.error)) {
+          // Backward compatibility: produkcija bez poslednje migracije.
+          const fallbackPayload = { ...payload };
+          delete (fallbackPayload as { region_name?: string | null }).region_name;
+          insertRes = await audit.from("gr_site_sessions").insert(fallbackPayload).select("id").single();
+        }
+        if (insertRes.error) {
+          logTrackError("insert session", insertRes.error);
+          return;
+        }
+        nextSessionId = insertRes.data.id;
         sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
       }
 
@@ -117,7 +161,8 @@ export function useSiteTracking(pathname: string) {
           path: lastPath,
           duration_seconds: lastDuration,
         };
-        await audit.from("gr_site_page_views").insert(viewPayload);
+        const { error } = await audit.from("gr_site_page_views").insert(viewPayload);
+        if (error) logTrackError("insert page view", error);
       }
 
       if (nextSessionId) {
@@ -126,18 +171,35 @@ export function useSiteTracking(pathname: string) {
           .select("pages_count")
           .eq("id", nextSessionId)
           .single();
+        if (prev.error) {
+          logTrackError("select session pages_count", prev.error);
+        }
         const currentCount = prev.data?.pages_count ?? 1;
         const shouldIncrement = lastPath && lastPath !== pathname;
         const nextCount = shouldIncrement ? currentCount + 1 : currentCount;
-        await audit
+        const updatePayload = {
+          ip_address: ipRef.current,
+          country_code: countryCodeRef.current,
+          country_name: countryNameRef.current,
+          region_name: regionNameRef.current,
+          pages_count: nextCount,
+          last_seen: new Date().toISOString(),
+          current_path: pathname,
+          ended_at: null,
+        };
+        let updateRes = await audit
           .from("gr_site_sessions")
-          .update({
-            pages_count: nextCount,
-            last_seen: new Date().toISOString(),
-            current_path: pathname,
-            ended_at: null,
-          })
+          .update(updatePayload)
           .eq("id", nextSessionId);
+        if (updateRes.error && isMissingRegionColumnError(updateRes.error)) {
+          const fallbackPayload = { ...updatePayload };
+          delete (fallbackPayload as { region_name?: string | null }).region_name;
+          updateRes = await audit
+            .from("gr_site_sessions")
+            .update(fallbackPayload)
+            .eq("id", nextSessionId);
+        }
+        if (updateRes.error) logTrackError("update session heartbeat/path", updateRes.error);
       }
       sessionStorage.setItem(LAST_PAGE_KEY, pathname);
       sessionStorage.setItem(LAST_PAGE_AT_KEY, `${Date.now()}`);
@@ -149,7 +211,11 @@ export function useSiteTracking(pathname: string) {
   useEffect(() => {
     if (!supabase || !audit) return;
     const pullStats = async () => {
-      const { data } = await supabase.rpc("get_site_stats");
+      const { data, error } = await supabase.rpc("get_site_stats");
+      if (error) {
+        logTrackError("rpc get_site_stats", error);
+        return;
+      }
       const first = data?.[0];
       setTotals({
         totalVisits: Number(first?.total_visits ?? 0),
