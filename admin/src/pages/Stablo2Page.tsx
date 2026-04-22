@@ -867,12 +867,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno).
    *  Zahvaljujući SCROLL_PAD prostoru, ovo uspeva i kad graf inače staje u viewport. */
   const centerOnPersonNode = useCallback(
-    (personId: string, behavior: ScrollBehavior = "smooth") => {
+    (personId: string, behavior: ScrollBehavior = "auto") => {
       const node = graphNodeByPersonId.get(personId);
-      if (!node) return;
+      if (!node) return false;
       const scroller = treeScrollerRef.current;
-      if (!scroller) return;
-      if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return;
+      if (!scroller) return false;
+      if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return false;
 
       const cx = (SCROLL_PAD_X + node.x + CARD_HALF_W) * zoom;
       const cy =
@@ -884,11 +884,19 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
 
-      scroller.scrollTo({
-        left: Math.max(0, Math.min(maxLeft, targetLeft)),
-        top: Math.max(0, Math.min(maxTop, targetTop)),
-        behavior,
-      });
+      const finalLeft = Math.max(0, Math.min(maxLeft, targetLeft));
+      const finalTop = Math.max(0, Math.min(maxTop, targetTop));
+
+      // Pouzdano kombinujemo scrollTo API i direktno postavljanje svojstava
+      // — neki render ciklusi umeju da poreme scrollTo sa „smooth" ponašanjem.
+      try {
+        scroller.scrollTo({ left: finalLeft, top: finalTop, behavior });
+      } catch {
+        /* starije verzije bez options formata */
+      }
+      scroller.scrollLeft = finalLeft;
+      scroller.scrollTop = finalTop;
+      return true;
     },
     [graphNodeByPersonId, zoom],
   );
@@ -901,7 +909,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         window.setTimeout(() => setLocateHint(null), 4500);
         return;
       }
-      setHighlightedLocatePersonId(personId);
       userInteractedRef.current = true;
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
@@ -917,17 +924,36 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const label = person ? personLabel(person) : "član";
       setLocateHint(`Lociran: ${label}`);
       window.setTimeout(() => setLocateHint(null), 2500);
-      // „auto" umesto „smooth" — pouzdanije uz re-render od zatvaranja dropdown-a;
-      // double rAF + fallback timeout pokriva i slučaj kada layout još nije spreman.
-      const run = () => centerOnPersonNode(personId, "auto");
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(run);
-      });
-      window.setTimeout(run, 60);
-      window.setTimeout(() => centerOnPersonNode(personId, "smooth"), 180);
+      // Stvarno scroll-ovanje sprovodi useEffect koji osluškuje highlightedLocatePersonId
+      // (izvršava se posle React commit-a DOM promena), tako da izbegavamo race condition.
+      // Ako je isti ID već aktivan (korisnik je upravo odabrao istog člana), resetujemo pa postavimo ponovo.
+      setHighlightedLocatePersonId((prev) => (prev === personId ? null : prev));
+      window.requestAnimationFrame(() => setHighlightedLocatePersonId(personId));
     },
-    [graphNodeByPersonId, closeMemberPanel, persons, centerOnPersonNode],
+    [graphNodeByPersonId, closeMemberPanel, persons],
   );
+
+  /** Scroll do člana izvršavamo u effectu — React je do tada commit-ovao sve
+   *  re-render-e (zatvaranje dropdown-a, pojavu locate-hint trake), pa je layout stabilan. */
+  useEffect(() => {
+    if (!highlightedLocatePersonId) return;
+    const id = highlightedLocatePersonId;
+    let cancelled = false;
+    const timers: number[] = [];
+    const attempt = () => {
+      if (cancelled) return;
+      centerOnPersonNode(id, "auto");
+    };
+    // Jedan pokušaj odmah na komit-u, pa još nekoliko da pokriju kasna merenja.
+    attempt();
+    timers.push(window.setTimeout(attempt, 30));
+    timers.push(window.setTimeout(attempt, 120));
+    timers.push(window.setTimeout(attempt, 260));
+    return () => {
+      cancelled = true;
+      for (const t of timers) window.clearTimeout(t);
+    };
+  }, [highlightedLocatePersonId, centerOnPersonNode]);
 
   /** Dok je otvoren dropdown i postoji tačno jedan pogodak, lociraj (pomeri prikaz) bez zatvaranja polja. */
   useEffect(() => {
@@ -939,11 +965,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       if (memberLocateFiltered.length === 1) {
         const id = memberLocateFiltered[0].id;
         if (!graphNodeByPersonId.get(id)) return;
-        setHighlightedLocatePersonId(id);
         userInteractedRef.current = true;
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => centerOnPersonNode(id, "auto"));
-        });
+        // Triggeri useEffect(highlightedLocatePersonId) centriranje.
+        setHighlightedLocatePersonId((prev) => (prev === id ? null : prev));
+        window.requestAnimationFrame(() => setHighlightedLocatePersonId(id));
       } else {
         setHighlightedLocatePersonId(null);
       }
@@ -955,7 +980,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     memberLocateQuery,
     memberLocateFiltered,
     graphNodeByPersonId,
-    centerOnPersonNode,
   ]);
 
   useEffect(() => {
