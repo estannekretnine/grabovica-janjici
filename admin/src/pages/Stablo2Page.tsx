@@ -698,45 +698,56 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     }
   }
 
-  function onWheel(e: React.WheelEvent<HTMLDivElement>) {
-    if (e.ctrlKey || e.metaKey) {
+  const onTreeWheel = useCallback(
+    (e: WheelEvent) => {
+      if (e.ctrlKey || e.metaKey) {
+        e.preventDefault();
+        const delta = -e.deltaY * 0.0015;
+        setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+        return;
+      }
+
+      if ((e.target as Element).closest("input, textarea")) return;
+
+      const wrap = canvasRef.current;
+      if (!wrap) return;
+      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
+      if (!scroller) return;
+      const innerW = scroller.clientWidth;
+      const innerH = scroller.clientHeight;
+      if (innerW < 48 || innerH < 48) return;
+
+      let dy = e.deltaY;
+      let dx = e.deltaX;
+      if (e.deltaMode === 1) {
+        dy *= 16;
+        dx *= 16;
+      } else if (e.deltaMode === 2) {
+        dy *= innerH;
+        dx *= innerW;
+      }
+      if (e.shiftKey && dx === 0 && dy !== 0) {
+        dx = dy;
+        dy = 0;
+      }
+
       e.preventDefault();
-      const delta = -e.deltaY * 0.0015;
-      setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
-      return;
-    }
+      setOffset((o) => {
+        const nx = o.x - dx;
+        const ny = o.y - dy;
+        return clampTreePanOffset(nx, ny, zoom, innerW, innerH, layout.width, layout.height);
+      });
+    },
+    [zoom, layout.width, layout.height],
+  );
 
-    if ((e.target as Element).closest("input, textarea")) return;
-
+  useEffect(() => {
+    if (loading || persons.length === 0) return;
     const wrap = canvasRef.current;
     if (!wrap) return;
-    const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
-    if (!scroller) return;
-    const innerW = scroller.clientWidth;
-    const innerH = scroller.clientHeight;
-    if (innerW < 48 || innerH < 48) return;
-
-    let dy = e.deltaY;
-    let dx = e.deltaX;
-    if (e.deltaMode === 1) {
-      dy *= 16;
-      dx *= 16;
-    } else if (e.deltaMode === 2) {
-      dy *= innerH;
-      dx *= innerW;
-    }
-    if (e.shiftKey && dx === 0 && dy !== 0) {
-      dx = dy;
-      dy = 0;
-    }
-
-    e.preventDefault();
-    setOffset((o) => {
-      const nx = o.x - dx;
-      const ny = o.y - dy;
-      return clampTreePanOffset(nx, ny, zoom, innerW, innerH, layout.width, layout.height);
-    });
-  }
+    wrap.addEventListener("wheel", onTreeWheel, { passive: false });
+    return () => wrap.removeEventListener("wheel", onTreeWheel);
+  }, [onTreeWheel, loading, persons.length]);
 
   const nodesById = useMemo(() => {
     const m = new Map<string, PositionedNode>();
@@ -840,6 +851,20 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     [graphNodeByPersonId, zoom, layout.width, layout.height]
   );
 
+  const scheduleCenterOnPerson = useCallback((personId: string) => {
+    const run = () => {
+      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => centerOnPersonNode(personId));
+        });
+      } else {
+        centerOnPersonNode(personId);
+      }
+    };
+    run();
+    window.setTimeout(run, 320);
+  }, [centerOnPersonNode]);
+
   const locatePersonOnGraph = useCallback(
     (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
@@ -863,20 +888,36 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const label = person ? personLabel(person) : "član";
       setLocateHint(`Lociran: ${label}`);
       window.setTimeout(() => setLocateHint(null), 2500);
-      const runCenter = () => {
-        if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-          window.requestAnimationFrame(() => {
-            window.requestAnimationFrame(() => centerOnPersonNode(personId));
-          });
-        } else {
-          centerOnPersonNode(personId);
-        }
-      };
-      runCenter();
-      window.setTimeout(runCenter, 320);
+      scheduleCenterOnPerson(personId);
     },
-    [graphNodeByPersonId, closeMemberPanel, centerOnPersonNode, persons]
+    [graphNodeByPersonId, closeMemberPanel, persons, scheduleCenterOnPerson]
   );
+
+  /** Dok je otvoren dropdown i postoji tačno jedan pogodak, lociraj (pomeri prikaz) bez zatvaranja polja. */
+  useEffect(() => {
+    if (!memberLocateOpen) return;
+    const q = memberLocateQuery.trim();
+    if (q.length === 0) return;
+
+    const tid = window.setTimeout(() => {
+      if (memberLocateFiltered.length === 1) {
+        const id = memberLocateFiltered[0].id;
+        if (!graphNodeByPersonId.get(id)) return;
+        setHighlightedLocatePersonId(id);
+        scheduleCenterOnPerson(id);
+      } else {
+        setHighlightedLocatePersonId(null);
+      }
+    }, 280);
+
+    return () => window.clearTimeout(tid);
+  }, [
+    memberLocateOpen,
+    memberLocateQuery,
+    memberLocateFiltered,
+    graphNodeByPersonId,
+    scheduleCenterOnPerson,
+  ]);
 
   useEffect(() => {
     if (!memberLocateOpen) return;
@@ -1033,7 +1074,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
-          onWheel={onWheel}
           style={{
             width: "100%",
             ...(isPublic
