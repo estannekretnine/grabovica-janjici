@@ -81,9 +81,6 @@ export function Layout({ email, onSignOut }: Props) {
             <NavLink to="/stablo-2" className={navClass} onClick={closeSidebar}>
               Stablo 2
             </NavLink>
-            <NavLink to="/stablo-import" className={navClass} onClick={closeSidebar}>
-              Import stabla
-            </NavLink>
           </div>
         </nav>
 
