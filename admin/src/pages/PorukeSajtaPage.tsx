@@ -4,6 +4,7 @@ import { TablePagination } from "../components/TablePagination";
 import type { Database } from "../types/database";
 
 type KlijentRow = Database["audit"]["Tables"]["gr_klijenti"]["Row"];
+const KLJ_TABLES = ["gr_klijenti", "klijenti"] as const;
 
 function formatTs(v: string | null) {
   if (!v) return "—";
@@ -17,15 +18,30 @@ export function PorukeSajtaPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
-  const load = useCallback(async () => {
-    if (!audit) return;
-    const { data, error: qErr } = await audit.from("gr_klijenti").select("*").order("datumupisa", { ascending: false });
-    if (qErr) setError(qErr.message);
-    else {
-      setError(null);
-      setRows(data ?? []);
+  const readRows = useCallback(async () => {
+    if (!audit) {
+      return { rows: [] as KlijentRow[], table: null as string | null, error: null as string | null };
     }
+    let lastError: string | null = null;
+    for (const table of KLJ_TABLES) {
+      const { data, error: qErr } = await audit.from(table).select("*").order("datumupisa", { ascending: false });
+      if (!qErr) {
+        return { rows: (data ?? []) as KlijentRow[], table, error: null };
+      }
+      lastError = qErr.message;
+    }
+    return { rows: [] as KlijentRow[], table: null as string | null, error: lastError };
   }, []);
+
+  const load = useCallback(async () => {
+    const result = await readRows();
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setError(null);
+      setRows(result.rows);
+    }
+  }, [readRows]);
 
   useEffect(() => {
     void load();
@@ -55,11 +71,20 @@ export function PorukeSajtaPage() {
   async function toggleArchive(r: KlijentRow) {
     if (!audit) return;
     const next = !r.stsarhiviran;
-    const { error: uErr } = await audit
-      .from("gr_klijenti")
-      .update({ stsarhiviran: next, datumpromene: new Date().toISOString() })
-      .eq("id", r.id);
-    if (uErr) setError(uErr.message);
+    let updated = false;
+    let lastError: string | null = null;
+    for (const table of KLJ_TABLES) {
+      const { error: uErr } = await audit
+        .from(table)
+        .update({ stsarhiviran: next, datumpromene: new Date().toISOString() })
+        .eq("id", r.id);
+      if (!uErr) {
+        updated = true;
+        break;
+      }
+      lastError = uErr.message;
+    }
+    if (!updated) setError(lastError ?? "Greška pri arhiviranju poruke.");
     else await load();
   }
 
