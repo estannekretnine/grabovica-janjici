@@ -769,43 +769,14 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   useEffect(() => {
     if (loading || persons.length === 0) return;
-    const wheelOpts: AddEventListenerOptions = { passive: false, capture: true };
-    let cancelled = false;
-    let attached: HTMLDivElement | null = null;
-    let raf = 0;
-    let attempts = 0;
-
-    const detach = () => {
-      if (attached) {
-        attached.removeEventListener("wheel", onTreeWheel, wheelOpts);
-        attached = null;
-      }
-    };
-
-    const attach = (): boolean => {
-      const el = treeScrollerRef.current;
-      if (!el) return false;
-      detach();
-      el.addEventListener("wheel", onTreeWheel, wheelOpts);
-      attached = el;
-      return true;
-    };
-
-    const tryAttach = () => {
-      if (cancelled) return;
-      if (attach()) return;
-      attempts += 1;
-      if (attempts < 4) {
-        raf = window.requestAnimationFrame(tryAttach);
-      }
-    };
-
-    tryAttach();
-
+    const el = treeScrollerRef.current;
+    if (!el) return;
+    // passive:false — da bismo mogli preventDefault na Ctrl+wheel (zoom).
+    // Bez capture — neka bubble faza radi po standardu, browser skroluje nativno.
+    const opts: AddEventListenerOptions = { passive: false };
+    el.addEventListener("wheel", onTreeWheel, opts);
     return () => {
-      cancelled = true;
-      if (raf) window.cancelAnimationFrame(raf);
-      detach();
+      el.removeEventListener("wheel", onTreeWheel, opts);
     };
   }, [onTreeWheel, loading, persons.length]);
 
