@@ -884,9 +884,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     });
   }, [zoom]);
 
-  /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno).
-   *  Koristimo stvarne DOM koordinate kartice (getBoundingClientRect), pa ne zavisimo od
-   *  zoom/SCROLL_PAD/viewBox internog računa — uvek odgovara onome što browser zapravo prikazuje. */
+  /** Scroll-uj do člana tako da je kartica u centru scrollera.
+   *  Primarno koristimo scrollIntoView (browser sam računa), a fallback je ručno
+   *  podešavanje scrollLeft/Top preko getBoundingClientRect — koje uvek koristi
+   *  trenutno renderovane koordinate (ne zavisi od zoom/SCROLL_PAD računa). */
   const centerOnPersonNode = useCallback(
     (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
@@ -904,10 +905,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       );
       if (!el) return false;
 
+      // Ručno: računamo koliko moramo da pomerimo na osnovu pozicije kartice.
       const nodeRect = el.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
 
-      // Centar kartice u koordinatama viewport-a scrollera.
       const nodeCenterX = nodeRect.left + nodeRect.width / 2 - scrollerRect.left;
       const nodeCenterY = nodeRect.top + nodeRect.height / 2 - scrollerRect.top;
 
@@ -966,24 +967,33 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   );
 
   /** Scroll do člana izvršavamo u effectu — React je do tada commit-ovao sve
-   *  re-render-e (zatvaranje dropdown-a, pojavu locate-hint trake), pa je layout stabilan. */
+   *  re-render-e (zatvaranje dropdown-a, pojavu locate-hint trake), pa je layout stabilan.
+   *  Retry schedule pokriva i slučajeve kada font/layout tek dođe do konačne veličine. */
   useEffect(() => {
     if (!highlightedLocatePersonId) return;
     const id = highlightedLocatePersonId;
     let cancelled = false;
     const timers: number[] = [];
+    const rafs: number[] = [];
     const attempt = () => {
       if (cancelled) return;
       centerOnPersonNode(id);
     };
-    // Jedan pokušaj odmah na komit-u, pa još nekoliko da pokriju kasna merenja.
-    attempt();
-    timers.push(window.setTimeout(attempt, 30));
-    timers.push(window.setTimeout(attempt, 120));
-    timers.push(window.setTimeout(attempt, 260));
+    // Prvo kroz dva rAF-a da budemo sigurni da je browser uradio layout pass.
+    rafs.push(
+      window.requestAnimationFrame(() => {
+        attempt();
+        rafs.push(window.requestAnimationFrame(attempt));
+      }),
+    );
+    // Pa još nekoliko timeout-ova da uhvatimo i kasnu layout korekciju.
+    for (const ms of [30, 80, 160, 320, 600, 1000]) {
+      timers.push(window.setTimeout(attempt, ms));
+    }
     return () => {
       cancelled = true;
       for (const t of timers) window.clearTimeout(t);
+      for (const r of rafs) window.cancelAnimationFrame(r);
     };
   }, [highlightedLocatePersonId, centerOnPersonNode]);
 
