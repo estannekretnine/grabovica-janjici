@@ -513,6 +513,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const [zoom, setZoom] = useState(ZOOM_BASELINE);
   const [offset, setOffset] = useState({ x: 40, y: 40 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
+  const treeScrollerRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ active: boolean; x: number; y: number; ox: number; oy: number }>({
     active: false,
     x: 0,
@@ -709,9 +710,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
       if ((e.target as Element).closest("input, textarea")) return;
 
-      const wrap = canvasRef.current;
-      if (!wrap) return;
-      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
+      const scroller = treeScrollerRef.current;
       if (!scroller) return;
       const innerW = scroller.clientWidth;
       const innerH = scroller.clientHeight;
@@ -743,10 +742,44 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   useEffect(() => {
     if (loading || persons.length === 0) return;
-    const wrap = canvasRef.current;
-    if (!wrap) return;
-    wrap.addEventListener("wheel", onTreeWheel, { passive: false });
-    return () => wrap.removeEventListener("wheel", onTreeWheel);
+    const wheelOpts: AddEventListenerOptions = { passive: false, capture: true };
+    let cancelled = false;
+    let attached: HTMLDivElement | null = null;
+    let raf = 0;
+    let attempts = 0;
+
+    const detach = () => {
+      if (attached) {
+        attached.removeEventListener("wheel", onTreeWheel, wheelOpts);
+        attached = null;
+      }
+    };
+
+    const attach = (): boolean => {
+      const el = treeScrollerRef.current;
+      if (!el) return false;
+      detach();
+      el.addEventListener("wheel", onTreeWheel, wheelOpts);
+      attached = el;
+      return true;
+    };
+
+    const tryAttach = () => {
+      if (cancelled) return;
+      if (attach()) return;
+      attempts += 1;
+      if (attempts < 4) {
+        raf = window.requestAnimationFrame(tryAttach);
+      }
+    };
+
+    tryAttach();
+
+    return () => {
+      cancelled = true;
+      if (raf) window.cancelAnimationFrame(raf);
+      detach();
+    };
   }, [onTreeWheel, loading, persons.length]);
 
   const nodesById = useMemo(() => {
@@ -1154,7 +1187,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 autoComplete="off"
               />
               {memberLocateOpen && memberLocateFiltered.length ? (
-                <ul className="tree-locate-dropdown" role="listbox">
+                <ul
+                  className="tree-locate-dropdown"
+                  role="listbox"
+                  onMouseDown={(e) => e.stopPropagation()}
+                >
                   {memberLocateFiltered.map((p) => (
                     <li key={p.id} role="option">
                       <button
@@ -1186,6 +1223,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           ) : null}
           {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
           <div
+            ref={treeScrollerRef}
             data-tree-scroller="true"
             style={{
               flex: 1,
