@@ -20,8 +20,8 @@ const TREE_CARD_SCALE = 0.5;
 const BASE_CARD_W = 228;
 const BASE_CARD_H = 144;
 const CARD_W = Math.round(BASE_CARD_W * TREE_CARD_SCALE);
-/** Beli pravougaonik još ~30% niži; „Kontakt“ je ispod njega u posebnom traku. */
-const CARD_HEIGHT_SHRINK = 0.7;
+/** Beli pravougaonik je 0.7 × 0.8 = 0.56 od poloviranog originala; unutra samo imena. */
+const CARD_HEIGHT_SHRINK = 0.56;
 const CARD_H = Math.round(BASE_CARD_H * TREE_CARD_SCALE * CARD_HEIGHT_SHRINK);
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
@@ -36,66 +36,22 @@ const NODE_PITCH_H = CARD_H + CARD_KONTAKT_STRIP_H + ROW_GAP;
 const TREE_EDGE_SW = 0.55;
 const TREE_CARD_SW = 0.5;
 const TREE_RING_SW = 2;
-/** Fontovi manji od pola jer bi inače bili nečitljivi; prilagođeno visini kartice. */
-const FS_CARD_TITLE = 11;
-const FS_CARD_PARTNER = 10;
-const FS_CARD_LIFE = 9;
-const FS_CARD_KAR = 8;
+/** Fontovi — kartica sadrži samo imena, pa su veći nego ranije. */
+const FS_CARD_TITLE = 10.5;
+const FS_CARD_PARTNER = 9.5;
+const FS_CARD_KONTAKT = 8.5;
 const FS_GEN_LABEL = 10;
-const CARD_NAME_MAX = 12;
-const CARD_NAME2_MAX = 11;
-const KARIJERA_SNIP_MAX = 22;
+const CARD_NAME_MAX = 14;
+const CARD_NAME2_MAX = 13;
 
 /** Visina SVG dokumenta (samo sadržaj + mali padding — bez starog min 800px koji je pravio prazan vrh). */
 function treeSvgDocumentHeight(layoutHeight: number): number {
   return Math.max(layoutHeight + GEN_LABEL_HEIGHT + 72, 160);
 }
 
-/** Ograničenje translate(offset) da graf ostane u vidnom polju (isti račun kao kod kadrovanja). */
-function clampTreePanOffset(
-  ox: number,
-  oy: number,
-  z: number,
-  innerW: number,
-  innerH: number,
-  layoutWidth: number,
-  layoutHeight: number,
-  opts?: { slackLocate?: boolean },
-): { x: number; y: number } {
-  const margin = 14;
-  const scaledW = layoutWidth * z;
-  const svgH = treeSvgDocumentHeight(layoutHeight);
-  const scaledSvgH = svgH * z;
-  const minOy = innerH - margin - scaledSvgH;
-  const maxOy = margin;
-
-  let x: number;
-  if (scaledW <= innerW - margin * 2) {
-    if (opts?.slackLocate) {
-      const xMin = margin;
-      const xMax = innerW - margin - scaledW;
-      x = Math.max(xMin, Math.min(xMax, ox));
-    } else {
-      x = (innerW - scaledW) / 2;
-    }
-  } else {
-    x = Math.max(innerW - margin - scaledW, Math.min(margin, ox));
-  }
-
-  let y: number;
-  if (minOy > maxOy) {
-    if (opts?.slackLocate) {
-      const yMin = margin;
-      const yMax = innerH - margin - scaledSvgH;
-      y = Math.max(yMin, Math.min(yMax, oy));
-    } else {
-      // Ceo graf staje u visinu — drži gore uz margin (izbegni minOy koji je bio > maxOy i pravio „rupe“).
-      y = maxOy;
-    }
-  } else {
-    y = Math.max(minOy, Math.min(maxOy, oy));
-  }
-  return { x, y };
+/** Širina SVG dokumenta (layout + mali desni odmak za poslednje koleno). */
+function treeSvgDocumentWidth(layoutWidth: number): number {
+  return Math.max(layoutWidth + 80, 320);
 }
 
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
@@ -169,12 +125,6 @@ function primaryPairForNode(node: {
   return { first, second };
 }
 
-function karijeraTreeSnippet(raw: string | null | undefined, maxLen = 34): string {
-  const t = raw?.replace(/\s+/g, " ").trim() ?? "";
-  if (!t) return "";
-  return t.length > maxLen ? `${t.slice(0, maxLen - 1)}…` : t;
-}
-
 function getDefaultPhotoPath(raw: string | null): string | null {
   if (!raw?.trim()) return null;
   const trimmed = raw.trim();
@@ -216,15 +166,6 @@ function activityThumbUrl(path: string | null | undefined): string | null {
 function pedigreeAccent(depth: number) {
   const c = ["#1e40af", "#0d9488", "#7c3aed", "#db2777"];
   return c[depth % c.length] ?? "#1e40af";
-}
-
-function personLifeLine(p: PersonRow) {
-  const b = p.birth_date?.trim();
-  const d = p.death_date?.trim();
-  const birth = b || "—";
-  if (d) return `${birth} – ${d}`;
-  if (p.is_living === false) return `${birth} –`;
-  return b ? `${birth} –` : "—";
 }
 
 /** Opština za listu lociranja: prvo rođenje, zatim prebivalište. */
@@ -511,16 +452,34 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const [error, setError] = useState<string | null>(null);
 
   const [zoom, setZoom] = useState(ZOOM_BASELINE);
-  const [offset, setOffset] = useState({ x: 40, y: 40 });
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const treeScrollerRef = useRef<HTMLDivElement | null>(null);
-  const dragRef = useRef<{ active: boolean; x: number; y: number; ox: number; oy: number }>({
+  const dragRef = useRef<{
+    active: boolean;
+    pointerId: number;
+    x: number;
+    y: number;
+    sx: number;
+    sy: number;
+    moved: boolean;
+  }>({
     active: false,
+    pointerId: -1,
     x: 0,
     y: 0,
-    ox: 0,
-    oy: 0,
+    sx: 0,
+    sy: 0,
+    moved: false,
   });
+  /** Sidro za zoom koji čuva tačku ispod kursora (primena u efektu nakon izmene zoom-a). */
+  const zoomAnchorRef = useRef<{
+    cursorX: number;
+    cursorY: number;
+    worldX: number;
+    worldY: number;
+  } | null>(null);
+  /** Da li je korisnik već pomerao/zumirao prikaz — ako jeste, ne vraćamo auto-kadrovanje. */
+  const userInteractedRef = useRef<boolean>(false);
 
   const [selectedMember, setSelectedMember] = useState<PersonRow | null>(null);
   const [memberPanelPos, setMemberPanelPos] = useState<{ x: number; y: number } | null>(null);
@@ -535,6 +494,8 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const [memberLocateOpen, setMemberLocateOpen] = useState(false);
   const [highlightedLocatePersonId, setHighlightedLocatePersonId] = useState<string | null>(null);
   const [locateHint, setLocateHint] = useState<string | null>(null);
+  const highlightedLocateRef = useRef<string | null>(null);
+  highlightedLocateRef.current = highlightedLocatePersonId;
 
   const personsById = useMemo(() => {
     const m = new Map<string, PersonRow>();
@@ -589,11 +550,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     if (!person) return;
     const wrap = canvasRef.current;
     if (wrap) {
-      const toolbar = wrap.querySelector(".tree-toolbar") as HTMLElement | null;
-      const hint = wrap.querySelector(".tree-locate-hint") as HTMLElement | null;
-      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
-      const panelX = offset.x + node.x * zoom + CARD_W * 0.35 * zoom;
-      const panelY = toolbarH + offset.y + node.y * zoom - CARD_H * 0.15 * zoom;
+      const scroller = treeScrollerRef.current;
+      const scrollLeft = scroller?.scrollLeft ?? 0;
+      const scrollTop = scroller?.scrollTop ?? 0;
+      const scrollerOffsetTop = scroller?.offsetTop ?? 0;
+      const scrollerOffsetLeft = scroller?.offsetLeft ?? 0;
+      const nodeScreenX = scrollerOffsetLeft + node.x * zoom - scrollLeft;
+      const nodeScreenY =
+        scrollerOffsetTop + (GEN_LABEL_HEIGHT + node.y) * zoom - scrollTop;
+      const panelX = nodeScreenX + CARD_W * 0.35 * zoom;
+      const panelY = nodeScreenY - CARD_H * 0.15 * zoom;
       const narrow = typeof window !== "undefined" && window.innerWidth < 640;
       const isChoice = mode === "kontakt-menu";
       const panelW = narrow
@@ -610,7 +576,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           ? 118
           : 220;
       const margin = 8;
-      const minY = toolbarH + margin;
+      const minY = (scroller?.offsetTop ?? 0) + margin;
       const maxX = Math.max(margin, wrap.clientWidth - panelW - margin);
       const maxY = Math.max(minY, wrap.clientHeight - panelH - margin);
       setMemberPanelPos({
@@ -650,32 +616,56 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     if ((e.target as Element).closest(".tree-toolbar")) return;
     if ((e.target as Element).closest(".member-popover")) return;
+    if (e.button !== 0 && e.pointerType === "mouse") return;
+    const scroller = treeScrollerRef.current;
+    if (!scroller) return;
     tapRef.current = {
       x: e.clientX,
       y: e.clientY,
       t: Date.now(),
       target: e.target as Element,
     };
-    if ((e.target as Element).closest(".tree-node")) return;
-    setHighlightedLocatePersonId(null);
+    userInteractedRef.current = true;
     dragRef.current = {
       active: true,
+      pointerId: e.pointerId,
       x: e.clientX,
       y: e.clientY,
-      ox: offset.x,
-      oy: offset.y,
+      sx: scroller.scrollLeft,
+      sy: scroller.scrollTop,
+      moved: false,
     };
-    (e.target as Element).setPointerCapture?.(e.pointerId);
+    try {
+      (e.currentTarget as HTMLDivElement).setPointerCapture?.(e.pointerId);
+    } catch {
+      /* noop */
+    }
   }
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     if (!dragRef.current.active) return;
+    const scroller = treeScrollerRef.current;
+    if (!scroller) return;
     const dx = e.clientX - dragRef.current.x;
     const dy = e.clientY - dragRef.current.y;
-    setOffset({ x: dragRef.current.ox + dx, y: dragRef.current.oy + dy });
+    if (!dragRef.current.moved && dx * dx + dy * dy > 9) {
+      dragRef.current.moved = true;
+    }
+    scroller.scrollLeft = dragRef.current.sx - dx;
+    scroller.scrollTop = dragRef.current.sy - dy;
   }
   function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
-    const wasDrag = dragRef.current.active;
+    const wasDrag = dragRef.current.active && dragRef.current.moved;
+    if (dragRef.current.active) {
+      try {
+        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
+          dragRef.current.pointerId,
+        );
+      } catch {
+        /* noop */
+      }
+    }
     dragRef.current.active = false;
+    dragRef.current.moved = false;
     const tap = tapRef.current;
     tapRef.current = null;
     if (wasDrag || !tap) return;
@@ -701,44 +691,53 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   const onTreeWheel = useCallback(
     (e: WheelEvent) => {
+      const scroller = treeScrollerRef.current;
+      if (!scroller) return;
+
       if (e.ctrlKey || e.metaKey) {
         e.preventDefault();
-        const delta = -e.deltaY * 0.0015;
-        setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+        const rect = scroller.getBoundingClientRect();
+        const cursorX = e.clientX - rect.left;
+        const cursorY = e.clientY - rect.top;
+        const worldX = (cursorX + scroller.scrollLeft) / zoom;
+        const worldY = (cursorY + scroller.scrollTop) / zoom;
+        const factor = Math.exp(-e.deltaY * 0.0015);
+        const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
+        if (Math.abs(newZoom - zoom) < 0.0001) return;
+        zoomAnchorRef.current = { cursorX, cursorY, worldX, worldY };
+        userInteractedRef.current = true;
+        setHighlightedLocatePersonId(null);
+        setZoom(newZoom);
         return;
       }
 
-      if ((e.target as Element).closest("input, textarea")) return;
-
-      const scroller = treeScrollerRef.current;
-      if (!scroller) return;
-      const innerW = scroller.clientWidth;
-      const innerH = scroller.clientHeight;
-      if (innerW < 48 || innerH < 48) return;
-
-      let dy = e.deltaY;
-      let dx = e.deltaX;
-      if (e.deltaMode === 1) {
-        dy *= 16;
-        dx *= 16;
-      } else if (e.deltaMode === 2) {
-        dy *= innerH;
-        dx *= innerW;
-      }
-      if (e.shiftKey && dx === 0 && dy !== 0) {
-        dx = dy;
-        dy = 0;
-      }
-
-      e.preventDefault();
-      setOffset((o) => {
-        const nx = o.x - dx;
-        const ny = o.y - dy;
-        return clampTreePanOffset(nx, ny, zoom, innerW, innerH, layout.width, layout.height);
-      });
+      // Native wheel scroll (horizontal/vertical) radi browser na overflow:auto scroll-eru.
+      userInteractedRef.current = true;
     },
-    [zoom, layout.width, layout.height],
+    [zoom],
   );
+
+  /** Nakon promene zoom-a, zadrži tačku ispod kursora na istom mestu. */
+  useEffect(() => {
+    const anchor = zoomAnchorRef.current;
+    if (!anchor) return;
+    const scroller = treeScrollerRef.current;
+    if (!scroller) {
+      zoomAnchorRef.current = null;
+      return;
+    }
+    const targetScrollLeft = anchor.worldX * zoom - anchor.cursorX;
+    const targetScrollTop = anchor.worldY * zoom - anchor.cursorY;
+    scroller.scrollLeft = Math.max(
+      0,
+      Math.min(scroller.scrollWidth - scroller.clientWidth, targetScrollLeft),
+    );
+    scroller.scrollTop = Math.max(
+      0,
+      Math.min(scroller.scrollHeight - scroller.clientHeight, targetScrollTop),
+    );
+    zoomAnchorRef.current = null;
+  }, [zoom]);
 
   useEffect(() => {
     if (loading || persons.length === 0) return;
@@ -823,80 +822,45 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       .slice(0, 120);
   }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
-  /** Javni prikaz: poravnaj tako da je poslednje (najdublje) koleno uvek u vidnom polju — desna ivica grafa uz desnu ivicu prostora. */
+  /** Javni prikaz: scroll-uj ka desnoj ivici (poslednje koleno u fokusu) i vertikalno uz vrh. */
   const framePublicViewToLastGeneration = useCallback(
-    (zoomOverride?: number) => {
+    (_zoomOverride?: number) => {
       if (!isPublic) return;
-      const z = zoomOverride ?? zoom;
-      const wrap = canvasRef.current;
-      if (!wrap) return;
-      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
+      const scroller = treeScrollerRef.current;
       if (!scroller) return;
-      const innerW = scroller.clientWidth;
-      const innerH = scroller.clientHeight;
-      if (innerW < 48 || innerH < 48) return;
-      const scaledW = layout.width * z;
-      let ox: number;
-      if (scaledW <= innerW - 28) {
-        ox = (innerW - scaledW) / 2;
-      } else {
-        ox = innerW - 14 - scaledW;
-      }
-      // Vertikalno: drži stablo uz vrh (bez centriranja koje sa starim svgH pravilo prazan prostor).
-      const oyTop = 14;
-      setOffset(clampTreePanOffset(ox, oyTop, z, innerW, innerH, layout.width, layout.height));
+      if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return;
+      const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      scroller.scrollTo({ left: maxLeft, top: 0, behavior: "auto" });
     },
-    [isPublic, layout.width, layout.height, zoom],
+    [isPublic],
   );
 
+  /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno). */
   const centerOnPersonNode = useCallback(
-    (personId: string) => {
+    (personId: string, behavior: ScrollBehavior = "smooth") => {
       const node = graphNodeByPersonId.get(personId);
       if (!node) return;
-      const wrap = canvasRef.current;
-      if (!wrap) return;
-      const toolbar = wrap.querySelector(".tree-toolbar") as HTMLElement | null;
-      const hint = wrap.querySelector(".tree-locate-hint") as HTMLElement | null;
-      const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]') ?? null;
-      const toolbarH = (toolbar?.offsetHeight ?? 0) + (hint?.offsetHeight ?? 0);
-      const cx = node.x + CARD_HALF_W;
-      const cy = GEN_LABEL_HEIGHT + node.y + CARD_HALF_H;
-      const rect = wrap.getBoundingClientRect();
-      const vv = typeof window !== "undefined" ? window.visualViewport : null;
-      const visibleBottom = vv ? vv.offsetTop + vv.height : window.innerHeight;
-      const visibleH = Math.max(
-        120,
-        Math.min(wrap.clientHeight, visibleBottom - rect.top)
-      );
-      const innerW = (scroller?.clientWidth ?? wrap.clientWidth) || 980;
-      const innerH = scroller?.clientHeight ?? Math.max(120, visibleH - toolbarH);
-      if (innerW < 48 || innerH < 48) return;
-      // Isti širinski prostor kao kod klampa (wrap može biti širi od scroller-a zbog scrollbara).
-      const ox = innerW / 2 - cx * zoom;
-      // Pomak ka vrhu: član u gornjoj trećini, ne u sredini ekrana.
-      const oy = innerH * 0.22 - cy * zoom;
-      setOffset(
-        clampTreePanOffset(ox, oy, zoom, innerW, innerH, layout.width, layout.height, {
-          slackLocate: true,
-        }),
-      );
-    },
-    [graphNodeByPersonId, zoom, layout.width, layout.height]
-  );
+      const scroller = treeScrollerRef.current;
+      if (!scroller) return;
+      if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return;
 
-  const scheduleCenterOnPerson = useCallback((personId: string) => {
-    const run = () => {
-      if (typeof window !== "undefined" && typeof window.requestAnimationFrame === "function") {
-        window.requestAnimationFrame(() => {
-          window.requestAnimationFrame(() => centerOnPersonNode(personId));
-        });
-      } else {
-        centerOnPersonNode(personId);
-      }
-    };
-    run();
-    window.setTimeout(run, 320);
-  }, [centerOnPersonNode]);
+      const cx = (node.x + CARD_HALF_W) * zoom;
+      const cy = (GEN_LABEL_HEIGHT + node.y + CARD_HALF_H) * zoom;
+
+      const targetLeft = cx - scroller.clientWidth / 2;
+      const targetTop = cy - scroller.clientHeight * 0.22;
+
+      const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+
+      scroller.scrollTo({
+        left: Math.max(0, Math.min(maxLeft, targetLeft)),
+        top: Math.max(0, Math.min(maxTop, targetTop)),
+        behavior,
+      });
+    },
+    [graphNodeByPersonId, zoom],
+  );
 
   const locatePersonOnGraph = useCallback(
     (personId: string) => {
@@ -907,6 +871,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         return;
       }
       setHighlightedLocatePersonId(personId);
+      userInteractedRef.current = true;
       setMemberLocateOpen(false);
       setMemberLocateQuery("");
       closeMemberPanel();
@@ -921,9 +886,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const label = person ? personLabel(person) : "član";
       setLocateHint(`Lociran: ${label}`);
       window.setTimeout(() => setLocateHint(null), 2500);
-      scheduleCenterOnPerson(personId);
+      window.requestAnimationFrame(() => centerOnPersonNode(personId));
     },
-    [graphNodeByPersonId, closeMemberPanel, persons, scheduleCenterOnPerson]
+    [graphNodeByPersonId, closeMemberPanel, persons, centerOnPersonNode],
   );
 
   /** Dok je otvoren dropdown i postoji tačno jedan pogodak, lociraj (pomeri prikaz) bez zatvaranja polja. */
@@ -937,7 +902,8 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         const id = memberLocateFiltered[0].id;
         if (!graphNodeByPersonId.get(id)) return;
         setHighlightedLocatePersonId(id);
-        scheduleCenterOnPerson(id);
+        userInteractedRef.current = true;
+        window.requestAnimationFrame(() => centerOnPersonNode(id));
       } else {
         setHighlightedLocatePersonId(null);
       }
@@ -949,7 +915,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     memberLocateQuery,
     memberLocateFiltered,
     graphNodeByPersonId,
-    scheduleCenterOnPerson,
+    centerOnPersonNode,
   ]);
 
   useEffect(() => {
@@ -978,46 +944,22 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     return () => window.clearTimeout(t);
   }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
 
-  useEffect(() => {
-    if (!highlightedLocatePersonId) return;
-    const vv = typeof window !== "undefined" ? window.visualViewport : null;
-    if (!vv) return;
-    let timer: number | null = null;
-    const handler = () => {
-      if (timer !== null) window.clearTimeout(timer);
-      timer = window.setTimeout(() => {
-        centerOnPersonNode(highlightedLocatePersonId);
-      }, 120);
-    };
-    vv.addEventListener("resize", handler);
-    vv.addEventListener("scroll", handler);
-    return () => {
-      vv.removeEventListener("resize", handler);
-      vv.removeEventListener("scroll", handler);
-      if (timer !== null) window.clearTimeout(timer);
-    };
-  }, [highlightedLocatePersonId, centerOnPersonNode]);
-
-  useEffect(() => {
-    if (!locateHint || !highlightedLocatePersonId) return;
-    let cancelled = false;
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        if (!cancelled) centerOnPersonNode(highlightedLocatePersonId);
-      });
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [locateHint, highlightedLocatePersonId, centerOnPersonNode]);
-
+  /** Inicijalno kadriranje javnog prikaza (samo jednom, dok korisnik nije ništa dodirnuo). */
   useEffect(() => {
     if (!isPublic || loading || persons.length === 0) return;
     if (highlightPersonParam) return;
-    const id = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => framePublicViewToLastGeneration());
+    if (highlightedLocatePersonId) return;
+    if (userInteractedRef.current) return;
+    let innerRaf = 0;
+    const outerRaf = window.requestAnimationFrame(() => {
+      innerRaf = window.requestAnimationFrame(() => {
+        if (!userInteractedRef.current) framePublicViewToLastGeneration();
+      });
     });
-    return () => window.cancelAnimationFrame(id);
+    return () => {
+      window.cancelAnimationFrame(outerRaf);
+      if (innerRaf) window.cancelAnimationFrame(innerRaf);
+    };
   }, [
     isPublic,
     loading,
@@ -1025,22 +967,21 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     layout.width,
     layout.height,
     highlightPersonParam,
+    highlightedLocatePersonId,
     framePublicViewToLastGeneration,
   ]);
 
+  /** Na promeni veličine prozora, ako korisnik nije interagovao, ponovo kadriraj. */
   useEffect(() => {
     if (!isPublic) return;
     const onResize = () => {
+      if (userInteractedRef.current) return;
+      if (highlightedLocateRef.current) return;
       window.requestAnimationFrame(() => framePublicViewToLastGeneration());
     };
     window.addEventListener("resize", onResize);
-    const vv = window.visualViewport;
-    vv?.addEventListener("resize", onResize);
-    vv?.addEventListener("scroll", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
-      vv?.removeEventListener("resize", onResize);
-      vv?.removeEventListener("scroll", onResize);
     };
   }, [isPublic, framePublicViewToLastGeneration]);
 
@@ -1103,10 +1044,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         <div
           className="stablo2-canvas"
           ref={canvasRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
           style={{
             width: "100%",
             ...(isPublic
@@ -1116,8 +1053,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             border: "1px solid #d4c9a8",
             borderRadius: 8,
             overflow: "hidden",
-            cursor: dragRef.current.active ? "grabbing" : "grab",
-            touchAction: "none",
             position: "relative",
             display: "flex",
             flexDirection: "column",
@@ -1150,13 +1085,17 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 setMemberLocateQuery("");
                 setMemberLocateOpen(false);
                 setLocateHint(null);
-                if (isPublic) {
+                userInteractedRef.current = false;
+                const scroller = treeScrollerRef.current;
+                window.requestAnimationFrame(() => {
                   window.requestAnimationFrame(() => {
-                    window.requestAnimationFrame(() => framePublicViewToLastGeneration(ZOOM_BASELINE));
+                    if (isPublic) {
+                      framePublicViewToLastGeneration(ZOOM_BASELINE);
+                    } else if (scroller) {
+                      scroller.scrollTo({ left: 0, top: 0, behavior: "auto" });
+                    }
                   });
-                } else {
-                  setOffset({ x: 40, y: 40 });
-                }
+                });
               }}
             >
               Reset prikaza
@@ -1225,19 +1164,34 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           <div
             ref={treeScrollerRef}
             data-tree-scroller="true"
+            className="tree-scroller"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
             style={{
               flex: 1,
               minHeight: 0,
-              overflow: "hidden",
+              overflow: "auto",
               position: "relative",
+              cursor: dragRef.current.active ? "grabbing" : "grab",
               touchAction: "none",
+              WebkitOverflowScrolling: "touch",
+            }}
+          >
+          <div
+            className="tree-scale-content"
+            style={{
+              width: treeSvgDocumentWidth(layout.width) * zoom,
+              height: treeSvgDocumentHeight(layout.height) * zoom,
+              position: "relative",
             }}
           >
           <svg
-            width={Math.max(layout.width + 200, 2000)}
+            width={treeSvgDocumentWidth(layout.width)}
             height={treeSvgDocumentHeight(layout.height)}
             style={{
-              transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`,
+              transform: `scale(${zoom})`,
               transformOrigin: "0 0",
               display: "block",
             }}
@@ -1275,13 +1229,22 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               {layout.nodes.map((node) => {
                 const accent = pedigreeAccent(node.depth);
                 const { first, second } = primaryPairForNode(node);
-                const kSnip = karijeraTreeSnippet(first.person.karijera, KARIJERA_SNIP_MAX);
-                const life1 = personLifeLine(first.person);
-                const life2 = second ? personLifeLine(second.person) : "";
                 const isLocateHighlight =
                   highlightedLocatePersonId &&
                   (node.id === highlightedLocatePersonId ||
                     node.partners.some((x) => x.id === highlightedLocatePersonId));
+                const firstName =
+                  first.label.length > CARD_NAME_MAX
+                    ? `${first.label.slice(0, CARD_NAME_MAX - 1)}…`
+                    : first.label;
+                const secondName = second
+                  ? second.label.length > CARD_NAME2_MAX
+                    ? `${second.label.slice(0, CARD_NAME2_MAX - 1)}…`
+                    : second.label
+                  : "";
+                // Sa dve vrste (partner): prva i druga linija bliže centru; bez partnera: jedna centralna.
+                const y1 = second ? -4 : 3;
+                const y2 = 9;
                 return (
                   <g
                     key={node.id}
@@ -1335,7 +1298,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       fill={accent}
                     />
                     <text
-                      y={-CARD_HALF_H + ty(20)}
+                      y={y1}
                       textAnchor="middle"
                       fill="#0f172a"
                       fontSize={FS_CARD_TITLE}
@@ -1345,13 +1308,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       data-person-id={first.id}
                     >
                       <title>{first.label}</title>
-                      {first.label.length > CARD_NAME_MAX
-                        ? `${first.label.slice(0, CARD_NAME_MAX - 1)}…`
-                        : first.label}
+                      {firstName}
                     </text>
                     {second ? (
                       <text
-                        y={-CARD_HALF_H + ty(33)}
+                        y={y2}
                         textAnchor="middle"
                         fill="#334155"
                         fontSize={FS_CARD_PARTNER}
@@ -1363,77 +1324,14 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       >
                         <title>{second.label}</title>
                         <tspan>+ </tspan>
-                        <tspan>
-                          {second.label.length > CARD_NAME2_MAX
-                            ? `${second.label.slice(0, CARD_NAME2_MAX - 1)}…`
-                            : second.label}
-                        </tspan>
-                      </text>
-                    ) : null}
-                    {second ? (
-                      <>
-                        <text
-                          y={-CARD_HALF_H + ty(42)}
-                          textAnchor="middle"
-                          fill="#64748b"
-                          fontSize={FS_CARD_LIFE}
-                          fontWeight="500"
-                          fontFamily="Georgia, 'Times New Roman', serif"
-                          style={{ cursor: "pointer" }}
-                          data-person-id={first.id}
-                        >
-                          <title>{life1}</title>
-                          {life1}
-                        </text>
-                        <text
-                          y={-CARD_HALF_H + ty(51)}
-                          textAnchor="middle"
-                          fill="#64748b"
-                          fontSize={FS_CARD_LIFE}
-                          fontWeight="500"
-                          fontFamily="Georgia, 'Times New Roman', serif"
-                          style={{ cursor: "pointer" }}
-                          data-person-id={second.id}
-                        >
-                          <title>{life2}</title>
-                          {life2}
-                        </text>
-                      </>
-                    ) : (
-                      <text
-                        y={-CARD_HALF_H + ty(40)}
-                        textAnchor="middle"
-                        fill="#64748b"
-                        fontSize={FS_CARD_LIFE}
-                        fontWeight="500"
-                        fontFamily="Georgia, 'Times New Roman', serif"
-                        style={{ cursor: "pointer" }}
-                        data-person-id={first.id}
-                      >
-                        <title>{life1}</title>
-                        {life1}
-                      </text>
-                    )}
-                    {kSnip && !second ? (
-                      <text
-                        y={-CARD_HALF_H + ty(52)}
-                        textAnchor="middle"
-                        fill="#64748b"
-                        fontSize={FS_CARD_KAR}
-                        fontWeight="500"
-                        fontFamily="Georgia, 'Times New Roman', serif"
-                        style={{ cursor: "pointer" }}
-                        data-person-id={first.id}
-                      >
-                        <title>{first.person.karijera?.trim() ?? ""}</title>
-                        {kSnip}
+                        <tspan>{secondName}</tspan>
                       </text>
                     ) : null}
                     <text
-                      y={CARD_HALF_H + ty(9)}
+                      y={CARD_HALF_H + ty(10)}
                       textAnchor="middle"
                       fill="#2563eb"
-                      fontSize={FS_CARD_LIFE - 0.5}
+                      fontSize={FS_CARD_KONTAKT}
                       fontWeight="600"
                       textDecoration="underline"
                       fontFamily="Georgia, 'Times New Roman', serif"
@@ -1448,6 +1346,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               })}
             </g>
           </svg>
+          </div>
           </div>
 
           {selectedMember && memberPanelPos ? (

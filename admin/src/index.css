@@ -613,6 +613,33 @@ th {
   word-break: break-word;
 }
 
+/* Tanak, diskretan scrollbar za kontejner stabla (natively scrollable). */
+.tree-scroller {
+  scrollbar-width: thin;
+  scrollbar-color: #b8a775 transparent;
+}
+.tree-scroller::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.tree-scroller::-webkit-scrollbar-thumb {
+  background: #b8a775;
+  border-radius: 6px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.tree-scroller::-webkit-scrollbar-thumb:hover {
+  background: #8f7f53;
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+.tree-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+.tree-scroller::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 @media (max-width: 720px) {
   .row.tree-toolbar {
     padding: 0.45rem 0.55rem !important;
