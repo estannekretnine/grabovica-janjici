@@ -16,13 +16,24 @@ type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
 /** Horizontalno stablo — kartice (isti vizuel kao Stablo 1). */
-const CARD_W = 228;
-const CARD_H = 144;
+const TREE_SCALE = 0.95;
+const CARD_W = Math.round(228 * TREE_SCALE);
+const CARD_H = Math.round(144 * TREE_SCALE);
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
-const COL_GAP = 48;
-const ROW_GAP = 16;
-const GEN_LABEL_HEIGHT = 28;
+const COL_GAP = Math.round(48 * TREE_SCALE);
+const ROW_GAP = Math.round(16 * TREE_SCALE);
+const GEN_LABEL_HEIGHT = Math.round(28 * TREE_SCALE);
+
+const ty = (px: number) => Math.round(px * TREE_SCALE);
+const TREE_EDGE_SW = 0.85;
+const TREE_CARD_SW = 0.65;
+const TREE_RING_SW = 3;
+const FS_CARD_TITLE = 13.75;
+const FS_CARD_PARTNER = 11.875;
+const FS_CARD_LIFE = 10.925;
+const FS_CARD_KAR = 9.975;
+const FS_GEN_LABEL = 13.75;
 
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
 const ZOOM_BASELINE = 0.85;
@@ -1033,10 +1044,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               {generationStats.map((g) => {
                 const cx = g.depth * (CARD_W + COL_GAP) + CARD_W / 2;
                 return (
-                  <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${-8})`}>
+                  <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${Math.round(-8 * TREE_SCALE)})`}>
                     <text
                       textAnchor="middle"
-                      fontSize={14.5}
+                      fontSize={FS_GEN_LABEL}
                       fontWeight={700}
                       fontFamily="Georgia, 'Times New Roman', serif"
                       fill="#4a3c24"
@@ -1056,13 +1067,13 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 const y2 = b.y + CARD_H / 2;
                 const mx = x1 + (x2 - x1) / 2;
                 const d = `M ${x1} ${y1} H ${mx} V ${y2} H ${x2}`;
-                return <path key={i} d={d} stroke="#6b5a3a" strokeWidth={1.2} fill="none" />;
+                return <path key={i} d={d} stroke="#6b5a3a" strokeWidth={TREE_EDGE_SW} fill="none" />;
               })}
 
               {layout.nodes.map((node) => {
                 const accent = pedigreeAccent(node.depth);
                 const { first, second } = primaryPairForNode(node);
-                const kSnip = karijeraTreeSnippet(first.person.karijera, 46);
+                const kSnip = karijeraTreeSnippet(first.person.karijera, 44);
                 const life1 = personLifeLine(first.person);
                 const life2 = second ? personLifeLine(second.person) : "";
                 const isLocateHighlight =
@@ -1080,25 +1091,25 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     {isLocateHighlight ? (
                       <>
                         <rect
-                          x={-CARD_HALF_W - 6}
-                          y={-CARD_HALF_H - 6}
-                          width={CARD_W + 12}
-                          height={CARD_H + 12}
+                          x={-CARD_HALF_W - ty(6)}
+                          y={-CARD_HALF_H - ty(6)}
+                          width={CARD_W + ty(12)}
+                          height={CARD_H + ty(12)}
                           fill="#fde68a"
                           fillOpacity={0.35}
                           stroke="none"
-                          rx={3}
+                          rx={2.5}
                           pointerEvents="none"
                           className="pedigree-locate-fill"
                         />
                         <rect
-                          x={-CARD_HALF_W - 4}
-                          y={-CARD_HALF_H - 4}
-                          width={CARD_W + 8}
-                          height={CARD_H + 8}
+                          x={-CARD_HALF_W - ty(4)}
+                          y={-CARD_HALF_H - ty(4)}
+                          width={CARD_W + ty(8)}
+                          height={CARD_H + ty(8)}
                           fill="none"
                           stroke="#f59e0b"
-                          strokeWidth={4}
+                          strokeWidth={TREE_RING_SW}
                           rx={2}
                           pointerEvents="none"
                           className="pedigree-locate-ring"
@@ -1112,20 +1123,20 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       height={CARD_H}
                       fill="#ffffff"
                       stroke="#e2e8f0"
-                      strokeWidth={1}
+                      strokeWidth={TREE_CARD_SW}
                     />
                     <rect
                       x={-CARD_HALF_W}
                       y={-CARD_HALF_H}
                       width={CARD_W}
-                      height={5}
+                      height={Math.max(4, ty(5))}
                       fill={accent}
                     />
                     <text
-                      y={-CARD_HALF_H + 24}
+                      y={-CARD_HALF_H + ty(24)}
                       textAnchor="middle"
                       fill="#0f172a"
-                      fontSize="14.5"
+                      fontSize={FS_CARD_TITLE}
                       fontWeight="700"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
@@ -1136,10 +1147,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     </text>
                     {second ? (
                       <text
-                        y={-CARD_HALF_H + 40}
+                        y={-CARD_HALF_H + ty(40)}
                         textAnchor="middle"
                         fill="#475569"
-                        fontSize="12.5"
+                        fontSize={FS_CARD_PARTNER}
                         fontStyle="italic"
                         fontWeight="600"
                         fontFamily="Georgia, 'Times New Roman', serif"
@@ -1154,10 +1165,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       </text>
                     ) : null}
                     <text
-                      y={-CARD_HALF_H + (second ? 56 : 44)}
+                      y={-CARD_HALF_H + (second ? ty(56) : ty(44))}
                       textAnchor="middle"
                       fill="#64748b"
-                      fontSize="11.5"
+                      fontSize={FS_CARD_LIFE}
                       fontWeight="500"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
@@ -1168,10 +1179,10 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     </text>
                     {kSnip ? (
                       <text
-                        y={-CARD_HALF_H + (second ? 72 : 60)}
+                        y={-CARD_HALF_H + (second ? ty(72) : ty(60))}
                         textAnchor="middle"
                         fill="#64748b"
-                        fontSize="10.5"
+                        fontSize={FS_CARD_KAR}
                         fontWeight="500"
                         fontFamily="Georgia, 'Times New Roman', serif"
                         style={{ cursor: "pointer" }}
@@ -1182,10 +1193,13 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       </text>
                     ) : null}
                     <text
-                      y={-CARD_HALF_H + (second ? (kSnip ? 86 : 78) : kSnip ? 74 : 62)}
+                      y={
+                        -CARD_HALF_H +
+                        (second ? (kSnip ? ty(86) : ty(78)) : kSnip ? ty(74) : ty(62))
+                      }
                       textAnchor="middle"
                       fill="#2563eb"
-                      fontSize="11.5"
+                      fontSize={FS_CARD_LIFE}
                       fontWeight="600"
                       textDecoration="underline"
                       fontFamily="Georgia, 'Times New Roman', serif"
