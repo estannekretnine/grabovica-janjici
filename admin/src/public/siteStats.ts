@@ -27,6 +27,13 @@ function isMissingRegionColumnError(error: unknown) {
   return msg.includes("region_name") && (msg.includes("column") || msg.includes("schema cache"));
 }
 
+function isMissingGeoColumnError(error: unknown) {
+  if (!error || typeof error !== "object") return false;
+  const msg = String((error as { message?: unknown }).message ?? "").toLowerCase();
+  if (!msg.includes("column") && !msg.includes("schema cache")) return false;
+  return msg.includes("region_name") || msg.includes("country_code") || msg.includes("country_name");
+}
+
 function getOrCreateVisitorId() {
   const existing = localStorage.getItem(VISITOR_STORAGE_KEY);
   if (existing) return existing;
@@ -141,9 +148,11 @@ export function useSiteTracking(pathname: string) {
           pages_count: 1,
         };
         let insertRes = await audit.from("gr_site_sessions").insert(payload).select("id").single();
-        if (insertRes.error && isMissingRegionColumnError(insertRes.error)) {
-          // Backward compatibility: produkcija bez poslednje migracije.
+        if (insertRes.error && (isMissingRegionColumnError(insertRes.error) || isMissingGeoColumnError(insertRes.error))) {
+          // Backward compatibility: produkcija bez geo kolona iz novijih migracija.
           const fallbackPayload = { ...payload };
+          delete (fallbackPayload as { country_code?: string | null }).country_code;
+          delete (fallbackPayload as { country_name?: string | null }).country_name;
           delete (fallbackPayload as { region_name?: string | null }).region_name;
           insertRes = await audit.from("gr_site_sessions").insert(fallbackPayload).select("id").single();
         }
@@ -192,8 +201,10 @@ export function useSiteTracking(pathname: string) {
           .from("gr_site_sessions")
           .update(updatePayload)
           .eq("id", nextSessionId);
-        if (updateRes.error && isMissingRegionColumnError(updateRes.error)) {
+        if (updateRes.error && (isMissingRegionColumnError(updateRes.error) || isMissingGeoColumnError(updateRes.error))) {
           const fallbackPayload = { ...updatePayload };
+          delete (fallbackPayload as { country_code?: string | null }).country_code;
+          delete (fallbackPayload as { country_name?: string | null }).country_name;
           delete (fallbackPayload as { region_name?: string | null }).region_name;
           updateRes = await audit
             .from("gr_site_sessions")
