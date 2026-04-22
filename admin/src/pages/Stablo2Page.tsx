@@ -41,6 +41,31 @@ const CARD_NAME_MAX = 12;
 const CARD_NAME2_MAX = 11;
 const KARIJERA_SNIP_MAX = 22;
 
+/** Ograničenje translate(offset) da graf ostane u vidnom polju (isti račun kao kod kadrovanja). */
+function clampTreePanOffset(
+  ox: number,
+  oy: number,
+  z: number,
+  innerW: number,
+  innerH: number,
+  layoutWidth: number,
+  layoutHeight: number,
+): { x: number; y: number } {
+  const margin = 14;
+  const scaledW = layoutWidth * z;
+  const svgH = Math.max(layoutHeight + 200 + GEN_LABEL_HEIGHT, 800);
+  let x = ox;
+  if (scaledW <= innerW - margin * 2) {
+    x = (innerW - scaledW) / 2;
+  } else {
+    x = Math.max(innerW - margin - scaledW, Math.min(margin, x));
+  }
+  const minOy = innerH - margin - svgH * z;
+  const maxOy = margin;
+  const y = Math.max(minOy, Math.min(maxOy, oy));
+  return { x, y };
+}
+
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
 const ZOOM_BASELINE = 0.85;
 const ZOOM_MIN = 0.5;
@@ -642,10 +667,43 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   }
 
   function onWheel(e: React.WheelEvent<HTMLDivElement>) {
-    if (!e.ctrlKey && !e.metaKey) return;
+    if (e.ctrlKey || e.metaKey) {
+      e.preventDefault();
+      const delta = -e.deltaY * 0.0015;
+      setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+      return;
+    }
+
+    if ((e.target as Element).closest("input, textarea")) return;
+
+    const wrap = canvasRef.current;
+    if (!wrap) return;
+    const scroller = wrap.querySelector<HTMLDivElement>('[data-tree-scroller="true"]');
+    if (!scroller) return;
+    const innerW = scroller.clientWidth;
+    const innerH = scroller.clientHeight;
+    if (innerW < 48 || innerH < 48) return;
+
+    let dy = e.deltaY;
+    let dx = e.deltaX;
+    if (e.deltaMode === 1) {
+      dy *= 16;
+      dx *= 16;
+    } else if (e.deltaMode === 2) {
+      dy *= innerH;
+      dx *= innerW;
+    }
+    if (e.shiftKey && dx === 0 && dy !== 0) {
+      dx = dy;
+      dy = 0;
+    }
+
     e.preventDefault();
-    const delta = -e.deltaY * 0.0015;
-    setZoom((z) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z + delta)));
+    setOffset((o) => {
+      const nx = o.x - dx;
+      const ny = o.y - dy;
+      return clampTreePanOffset(nx, ny, zoom, innerW, innerH, layout.width, layout.height);
+    });
   }
 
   const nodesById = useMemo(() => {
@@ -701,21 +759,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const innerW = scroller.clientWidth;
       const innerH = scroller.clientHeight;
       if (innerW < 48 || innerH < 48) return;
-      const margin = 14;
       const scaledW = layout.width * z;
-      const svgH = Math.max(layout.height + 200 + GEN_LABEL_HEIGHT, 800);
       let ox: number;
-      if (scaledW <= innerW - margin * 2) {
+      if (scaledW <= innerW - 28) {
         ox = (innerW - scaledW) / 2;
       } else {
-        ox = innerW - margin - scaledW;
+        ox = innerW - 14 - scaledW;
       }
       const cy = GEN_LABEL_HEIGHT + layout.height / 2;
       const oyIdeal = innerH / 2 - cy * z;
-      const minOy = innerH - margin - svgH * z;
-      const maxOy = margin;
-      const oy = Math.max(minOy, Math.min(maxOy, oyIdeal));
-      setOffset({ x: ox, y: oy });
+      setOffset(clampTreePanOffset(ox, oyIdeal, z, innerW, innerH, layout.width, layout.height));
     },
     [isPublic, layout.width, layout.height, zoom],
   );
@@ -741,13 +794,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       );
       const vw = wrap.clientWidth || 980;
       const innerH = Math.max(120, visibleH - toolbarH);
-      if (scroller) {
-        scroller.scrollLeft = 0;
-        scroller.scrollTop = 0;
-      }
-      setOffset({ x: vw / 2 - cx * zoom, y: innerH / 2 - cy * zoom });
+      const innerW = scroller?.clientWidth ?? vw;
+      const ox = vw / 2 - cx * zoom;
+      const oy = innerH / 2 - cy * zoom;
+      setOffset(clampTreePanOffset(ox, oy, zoom, innerW, innerH, layout.width, layout.height));
     },
-    [graphNodeByPersonId, zoom]
+    [graphNodeByPersonId, zoom, layout.width, layout.height]
   );
 
   const locatePersonOnGraph = useCallback(
@@ -894,7 +946,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           </div>
           <p className="muted" style={{ margin: "0.25rem 0 0" }}>
             {isPublic
-              ? "Horizontalni prikaz stabla — zumiranje (Ctrl+točkić ili +/−), prevlačenje mišem i kartica člana (detalji, kontakt, aktivnosti). Prikazano je glavno porodično stablo."
+              ? "Horizontalni prikaz stabla — zumiranje (Ctrl+točkić ili +/−), pomak prikaza točkićem ili prevlačenjem, kartica člana (detalji, kontakt, aktivnosti). Prikazano je glavno porodično stablo."
               : 'Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".'}
           </p>
           {!loading && generationStats.length > 0 ? (
