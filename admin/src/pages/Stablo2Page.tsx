@@ -717,30 +717,25 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     tapRef.current = null;
   }
 
-  const onTreeWheel = useCallback(
-    (e: WheelEvent) => {
+  /** React onWheel (passive) — Ctrl+wheel zoom. Ne možemo preventDefault (passive),
+   *  ali je najvažnije da ne kvarimo native scroll koji Chrome dobro radi na overflow:auto. */
+  const onTreeWheelReact = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      if (!(e.ctrlKey || e.metaKey)) return;
       const scroller = treeScrollerRef.current;
       if (!scroller) return;
-
-      if (e.ctrlKey || e.metaKey) {
-        e.preventDefault();
-        const rect = scroller.getBoundingClientRect();
-        const cursorX = e.clientX - rect.left;
-        const cursorY = e.clientY - rect.top;
-        const worldX = (cursorX + scroller.scrollLeft) / zoom;
-        const worldY = (cursorY + scroller.scrollTop) / zoom;
-        const factor = Math.exp(-e.deltaY * 0.0015);
-        const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
-        if (Math.abs(newZoom - zoom) < 0.0001) return;
-        zoomAnchorRef.current = { cursorX, cursorY, worldX, worldY };
-        userInteractedRef.current = true;
-        setHighlightedLocatePersonId(null);
-        setZoom(newZoom);
-        return;
-      }
-
-      // Native wheel scroll (horizontal/vertical) radi browser na overflow:auto scroll-eru.
+      const rect = scroller.getBoundingClientRect();
+      const cursorX = e.clientX - rect.left;
+      const cursorY = e.clientY - rect.top;
+      const worldX = (cursorX + scroller.scrollLeft) / zoom;
+      const worldY = (cursorY + scroller.scrollTop) / zoom;
+      const factor = Math.exp(-e.deltaY * 0.0015);
+      const newZoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, zoom * factor));
+      if (Math.abs(newZoom - zoom) < 0.0001) return;
+      zoomAnchorRef.current = { cursorX, cursorY, worldX, worldY };
       userInteractedRef.current = true;
+      setHighlightedLocatePersonId(null);
+      setZoom(newZoom);
     },
     [zoom],
   );
@@ -767,18 +762,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     zoomAnchorRef.current = null;
   }, [zoom]);
 
-  useEffect(() => {
-    if (loading || persons.length === 0) return;
-    const el = treeScrollerRef.current;
-    if (!el) return;
-    // passive:false — da bismo mogli preventDefault na Ctrl+wheel (zoom).
-    // Bez capture — neka bubble faza radi po standardu, browser skroluje nativno.
-    const opts: AddEventListenerOptions = { passive: false };
-    el.addEventListener("wheel", onTreeWheel, opts);
-    return () => {
-      el.removeEventListener("wheel", onTreeWheel, opts);
-    };
-  }, [onTreeWheel, loading, persons.length]);
 
   const nodesById = useMemo(() => {
     const m = new Map<string, PositionedNode>();
@@ -1246,6 +1229,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
             onPointerCancel={onPointerCancel}
+            onWheel={onTreeWheelReact}
             style={{
               flex: 1,
               minHeight: 0,
