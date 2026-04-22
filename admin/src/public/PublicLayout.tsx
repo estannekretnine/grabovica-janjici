@@ -32,7 +32,9 @@ function PublicLayoutInner() {
       data-theme="light"
       data-public-page={isPublicHome ? "home" : "inner"}
     >
-      <header className="public-header public-header--hero">
+      <header
+        className={`public-header public-header--hero${menuOpen ? " public-header--menu-open" : ""}`}
+      >
         <div className="public-header-bg" aria-hidden="true" />
         <div className="public-header-overlay" aria-hidden="true" />
 
