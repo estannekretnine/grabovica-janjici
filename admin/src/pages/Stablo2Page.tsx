@@ -634,6 +634,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       target: e.target as Element,
     };
     userInteractedRef.current = true;
+    // Na dodirnim uređajima pustimo browser da nativno scroll-uje (touch-action: pan-x pan-y).
+    // Ručni drag koristimo samo za miš/pero, inače bismo se sudarili sa nativnim scroll-om.
+    if (e.pointerType === "touch") return;
     dragRef.current = {
       active: true,
       pointerId: e.pointerId,
@@ -695,6 +698,23 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     if (n) {
       openMemberPanelAtNode(n, id, "kontakt-menu");
     }
+  }
+
+  /** Na mobilnom, čim browser počne da scroll-uje, emituje pointercancel — tada tap ne sme
+   *  pogrešno otvoriti karticu. */
+  function onPointerCancel(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragRef.current.active) {
+      try {
+        (e.currentTarget as HTMLDivElement).releasePointerCapture?.(
+          dragRef.current.pointerId,
+        );
+      } catch {
+        /* noop */
+      }
+    }
+    dragRef.current.active = false;
+    dragRef.current.moved = false;
+    tapRef.current = null;
   }
 
   const onTreeWheel = useCallback(
@@ -1250,15 +1270,16 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             onPointerDown={onPointerDown}
             onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
+            onPointerCancel={onPointerCancel}
             style={{
               flex: 1,
               minHeight: 0,
               overflow: "auto",
               position: "relative",
               cursor: dragRef.current.active ? "grabbing" : "grab",
-              touchAction: "none",
+              touchAction: "pan-x pan-y",
               WebkitOverflowScrolling: "touch",
+              overscrollBehavior: "contain",
             }}
           >
           <svg
