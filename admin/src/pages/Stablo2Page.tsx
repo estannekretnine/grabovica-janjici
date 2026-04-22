@@ -884,10 +884,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     });
   }, [zoom]);
 
-  /** Scroll-uj do člana tako da je kartica u centru scrollera.
-   *  Primarno koristimo scrollIntoView (browser sam računa), a fallback je ručno
-   *  podešavanje scrollLeft/Top preko getBoundingClientRect — koje uvek koristi
-   *  trenutno renderovane koordinate (ne zavisi od zoom/SCROLL_PAD računa). */
+  /** Skroluj scroller tako da kartica člana bude centrirana.
+   *  Primarno koristimo browser-nativni scrollIntoView na SVG <g> elementu — on
+   *  tačno zna gde je element i skroluje nadređene scrollere do centra. */
   const centerOnPersonNode = useCallback(
     (personId: string) => {
       const node = graphNodeByPersonId.get(personId);
@@ -905,7 +904,18 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       );
       if (!el) return false;
 
-      // Ručno: računamo koliko moramo da pomerimo na osnovu pozicije kartice.
+      try {
+        (el as unknown as Element).scrollIntoView({
+          block: "center",
+          inline: "center",
+          behavior: "auto",
+        });
+      } catch {
+        /* starije verzije bez options formata — padamo na ručni račun ispod */
+      }
+
+      // Fallback / korekcija: ako scrollIntoView iz bilo kog razloga nije
+      // pomerio scroller dovoljno, dodatno doteramo scrollLeft/Top ručno.
       const nodeRect = el.getBoundingClientRect();
       const scrollerRect = scroller.getBoundingClientRect();
 
@@ -915,20 +925,22 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const targetCenterX = scroller.clientWidth / 2;
       const targetCenterY = scroller.clientHeight * 0.35;
 
-      const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      const dx = nodeCenterX - targetCenterX;
+      const dy = nodeCenterY - targetCenterY;
 
-      const finalLeft = Math.max(
-        0,
-        Math.min(maxLeft, scroller.scrollLeft + (nodeCenterX - targetCenterX)),
-      );
-      const finalTop = Math.max(
-        0,
-        Math.min(maxTop, scroller.scrollTop + (nodeCenterY - targetCenterY)),
-      );
-
-      scroller.scrollLeft = finalLeft;
-      scroller.scrollTop = finalTop;
+      // Ako je kartica već blizu centra (tolerancija 4px), nemoj dirati.
+      if (Math.abs(dx) > 4 || Math.abs(dy) > 4) {
+        const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+        const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+        scroller.scrollLeft = Math.max(
+          0,
+          Math.min(maxLeft, scroller.scrollLeft + dx),
+        );
+        scroller.scrollTop = Math.max(
+          0,
+          Math.min(maxTop, scroller.scrollTop + dy),
+        );
+      }
       return true;
     },
     [graphNodeByPersonId],
@@ -1098,15 +1110,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     };
   }, [isPublic, framePublicViewToLastGeneration]);
 
-  const { totalMembers, generationStats } = layout;
-
-  const generationSummaryLine = useMemo(
-    () =>
-      generationStats.length > 0
-        ? generationStats.map((g) => `${g.depth + 1}. koleno: ${g.count}`).join(" · ")
-        : null,
-    [generationStats],
-  );
+  const { totalMembers } = layout;
 
   return (
     <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
@@ -1138,11 +1142,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               ? "Horizontalni prikaz stabla — zumiranje (Ctrl+točkić ili +/−), pomak prikaza točkićem ili prevlačenjem, kartica člana (detalji, kontakt, aktivnosti). Prikazano je glavno porodično stablo."
               : 'Horizontalni prikaz po uzoru na knjigu „Bratstvo Janjić".'}
           </p>
-          {!loading && generationSummaryLine ? (
-            <p className="muted" style={{ margin: "0.25rem 0 0", fontSize: "0.9rem" }}>
-              {generationSummaryLine}
-            </p>
-          ) : null}
         </div>
       </header>
 
@@ -1267,11 +1266,6 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               ) : null}
             </div>
           </div>
-          {!loading && generationSummaryLine ? (
-            <div className="tree-generation-summary" role="status" aria-label="Broj članova po kolenu">
-              {generationSummaryLine}
-            </div>
-          ) : null}
           {locateHint ? <p className="muted tree-locate-hint" style={{ padding: "0 0.65rem", margin: 0 }}>{locateHint}</p> : null}
           <div
             ref={treeScrollerRef}
