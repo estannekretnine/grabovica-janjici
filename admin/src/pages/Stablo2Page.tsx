@@ -16,8 +16,8 @@ type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type MemberPanelMode = "details" | "kontakt-menu" | "activities";
 
 /** Horizontalno stablo — kartice (isti vizuel kao Stablo 1). */
-const CARD_W = 186;
-const CARD_H = 118;
+const CARD_W = 228;
+const CARD_H = 144;
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
 const COL_GAP = 48;
@@ -25,8 +25,8 @@ const ROW_GAP = 16;
 const GEN_LABEL_HEIGHT = 28;
 
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
-const ZOOM_BASELINE = 0.6;
-const ZOOM_MIN = 0.36;
+const ZOOM_BASELINE = 0.85;
+const ZOOM_MIN = 0.5;
 const ZOOM_MAX = 2.5;
 
 function zoomDisplayPercent(physicalZoom: number) {
@@ -964,7 +964,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                   <g key={`gen-${g.depth}`} transform={`translate(${cx}, ${-8})`}>
                     <text
                       textAnchor="middle"
-                      fontSize={13}
+                      fontSize={14.5}
                       fontWeight={700}
                       fontFamily="Georgia, 'Times New Roman', serif"
                       fill="#4a3c24"
@@ -990,7 +990,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               {layout.nodes.map((node) => {
                 const accent = pedigreeAccent(node.depth);
                 const { first, second } = primaryPairForNode(node);
-                const kSnip = karijeraTreeSnippet(first.person.karijera, 40);
+                const kSnip = karijeraTreeSnippet(first.person.karijera, 46);
                 const life1 = personLifeLine(first.person);
                 const life2 = second ? personLifeLine(second.person) : "";
                 const isLocateHighlight =
@@ -1053,21 +1053,21 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       y={-CARD_HALF_H + 24}
                       textAnchor="middle"
                       fill="#0f172a"
-                      fontSize="12.5"
+                      fontSize="14.5"
                       fontWeight="700"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
                       data-person-id={first.id}
                     >
                       <title>{first.label}</title>
-                      {first.label.length > 22 ? `${first.label.slice(0, 21)}…` : first.label}
+                      {first.label.length > 24 ? `${first.label.slice(0, 23)}…` : first.label}
                     </text>
                     {second ? (
                       <text
                         y={-CARD_HALF_H + 40}
                         textAnchor="middle"
                         fill="#475569"
-                        fontSize="11"
+                        fontSize="12.5"
                         fontStyle="italic"
                         fontWeight="600"
                         fontFamily="Georgia, 'Times New Roman', serif"
@@ -1077,7 +1077,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         <title>{second.label}</title>
                         <tspan>+ </tspan>
                         <tspan>
-                          {second.label.length > 20 ? `${second.label.slice(0, 19)}…` : second.label}
+                          {second.label.length > 23 ? `${second.label.slice(0, 22)}…` : second.label}
                         </tspan>
                       </text>
                     ) : null}
@@ -1085,7 +1085,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       y={-CARD_HALF_H + (second ? 56 : 44)}
                       textAnchor="middle"
                       fill="#64748b"
-                      fontSize="10.5"
+                      fontSize="11.5"
                       fontWeight="500"
                       fontFamily="Georgia, 'Times New Roman', serif"
                       style={{ cursor: "pointer" }}
@@ -1099,7 +1099,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                         y={-CARD_HALF_H + (second ? 72 : 60)}
                         textAnchor="middle"
                         fill="#64748b"
-                        fontSize="9"
+                        fontSize="10.5"
                         fontWeight="500"
                         fontFamily="Georgia, 'Times New Roman', serif"
                         style={{ cursor: "pointer" }}
@@ -1113,7 +1113,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                       y={-CARD_HALF_H + (second ? (kSnip ? 86 : 78) : kSnip ? 74 : 62)}
                       textAnchor="middle"
                       fill="#2563eb"
-                      fontSize="10"
+                      fontSize="11.5"
                       fontWeight="600"
                       textDecoration="underline"
                       fontFamily="Georgia, 'Times New Roman', serif"
