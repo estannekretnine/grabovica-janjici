@@ -1287,9 +1287,8 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               overflow: "auto",
               position: "relative",
               cursor: dragRef.current.active ? "grabbing" : "grab",
-              touchAction: "pan-x pan-y",
+              touchAction: "manipulation",
               WebkitOverflowScrolling: "touch",
-              overscrollBehavior: "contain",
             }}
           >
           <svg
