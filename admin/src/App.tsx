@@ -12,6 +12,7 @@ import { OpstinePage } from "./pages/OpstinePage";
 import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
 import { PorukeSajtaPage } from "./pages/PorukeSajtaPage";
+import { StatistikaSajtaPage } from "./pages/StatistikaSajtaPage";
 import { StabloImportPage } from "./pages/StabloImportPage";
 import { Stablo2Page } from "./pages/Stablo2Page";
 import { PublicShell } from "./public/PublicLayout";
@@ -95,6 +96,7 @@ export default function App() {
         >
           <Route path="/korisnici" element={<KorisniciPage />} />
           <Route path="/poruke-sajta" element={<PorukeSajtaPage />} />
+          <Route path="/statistika-sajta" element={<StatistikaSajtaPage />} />
           <Route path="/countries" element={<DrzavePage />} />
           <Route path="/municipalities" element={<OpstinePage />} />
           <Route path="/locations" element={<LokacijaPage />} />

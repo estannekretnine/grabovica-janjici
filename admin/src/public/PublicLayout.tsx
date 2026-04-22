@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { PublicThemeProvider } from "./PublicThemeContext";
+import { useSiteTracking } from "./siteStats";
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `public-nav-link${isActive ? " public-nav-link--active" : ""}`;
@@ -9,6 +10,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 function PublicLayoutInner() {
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
+  const { totalVisits, currentlyOnline } = useSiteTracking(location.pathname);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -110,6 +112,11 @@ function PublicLayoutInner() {
           </div>
           <p className="public-footer-copyright">© 2026 Porodično stablo. Sva prava zadržana.</p>
           <div className="public-footer-aside">
+            <p className="public-footer-stats">
+              Ukupno poseta: <strong>{totalVisits}</strong>
+              <br />
+              Trenutno na sajtu: <strong>{currentlyOnline}</strong>
+            </p>
             <NavLink to="/login" className="public-footer-link public-footer-login">
               Prijava (admin)
             </NavLink>

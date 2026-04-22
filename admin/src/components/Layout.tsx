@@ -46,6 +46,9 @@ export function Layout({ email, onSignOut }: Props) {
             <NavLink to="/poruke-sajta" className={navClass} onClick={closeSidebar}>
               Poruke sa sajta
             </NavLink>
+            <NavLink to="/statistika-sajta" className={navClass} onClick={closeSidebar}>
+              Statistika sajta
+            </NavLink>
           </div>
 
           <div className="sidebar-group">

@@ -336,6 +336,70 @@ type GenealogyTables = {
       created_at?: string;
     };
   };
+  gr_site_sessions: {
+    Row: {
+      id: string;
+      visitor_id: string;
+      ip_address: string | null;
+      user_agent: string | null;
+      entry_path: string;
+      current_path: string;
+      pages_count: number;
+      started_at: string;
+      last_seen: string;
+      ended_at: string | null;
+    };
+    Insert: {
+      id?: string;
+      visitor_id: string;
+      ip_address?: string | null;
+      user_agent?: string | null;
+      entry_path: string;
+      current_path: string;
+      pages_count?: number;
+      started_at?: string;
+      last_seen?: string;
+      ended_at?: string | null;
+    };
+    Update: {
+      id?: string;
+      visitor_id?: string;
+      ip_address?: string | null;
+      user_agent?: string | null;
+      entry_path?: string;
+      current_path?: string;
+      pages_count?: number;
+      started_at?: string;
+      last_seen?: string;
+      ended_at?: string | null;
+    };
+  };
+  gr_site_page_views: {
+    Row: {
+      id: number;
+      session_id: string;
+      visitor_id: string;
+      path: string;
+      viewed_at: string;
+      duration_seconds: number | null;
+    };
+    Insert: {
+      id?: number;
+      session_id: string;
+      visitor_id: string;
+      path: string;
+      viewed_at?: string;
+      duration_seconds?: number | null;
+    };
+    Update: {
+      id?: number;
+      session_id?: string;
+      visitor_id?: string;
+      path?: string;
+      viewed_at?: string;
+      duration_seconds?: number | null;
+    };
+  };
 };
 
 type KorisniciRow = {
@@ -435,6 +499,13 @@ export type Database = {
       get_public_home_person: {
         Args: Record<string, never>;
         Returns: Record<string, unknown> | null;
+      };
+      get_site_stats: {
+        Args: Record<string, never>;
+        Returns: {
+          total_visits: number;
+          currently_online: number;
+        }[];
       };
       login_korisnik: {
         Args: { p_email: string; p_password: string };
