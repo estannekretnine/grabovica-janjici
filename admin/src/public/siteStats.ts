@@ -153,7 +153,10 @@ export function useSiteTracking(pathname: string) {
         }
       }
       if (!nextSessionId) {
+        const generatedSessionId =
+          typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
         const payload: SiteSessionInsert = {
+          id: generatedSessionId,
           visitor_id: visitorId,
           ip_address: ipRef.current,
           country_code: countryCodeRef.current,
@@ -164,7 +167,7 @@ export function useSiteTracking(pathname: string) {
           current_path: pathname,
           pages_count: 1,
         };
-        let insertRes = await audit.from("gr_site_sessions").insert(payload).select("id").single();
+        let insertRes = await audit.from("gr_site_sessions").insert(payload);
         if (insertRes.error && isMissingSessionColumnError(insertRes.error)) {
           // Backward compatibility: produkcija bez IP/geo kolona iz novijih migracija.
           const fallbackPayload = { ...payload };
@@ -172,13 +175,13 @@ export function useSiteTracking(pathname: string) {
           delete (fallbackPayload as { country_code?: string | null }).country_code;
           delete (fallbackPayload as { country_name?: string | null }).country_name;
           delete (fallbackPayload as { region_name?: string | null }).region_name;
-          insertRes = await audit.from("gr_site_sessions").insert(fallbackPayload).select("id").single();
+          insertRes = await audit.from("gr_site_sessions").insert(fallbackPayload);
         }
         if (insertRes.error) {
           logTrackError("insert session", insertRes.error);
           return;
         }
-        nextSessionId = insertRes.data.id;
+        nextSessionId = generatedSessionId;
         sessionStorage.setItem(SESSION_STORAGE_KEY, nextSessionId);
       }
 
