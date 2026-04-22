@@ -7,6 +7,14 @@ import {
   type PersonRow,
 } from "../lib/familyTreeGraphLoad";
 import { PUBLIC_FAMILY_TREE_ID } from "../lib/publicFamilyTree";
+import {
+  DEFAULT_OGRANAK,
+  OGRANCI,
+  computeAllowedPersonIds,
+  filterFamilyGraph,
+  isOgranakId,
+  type OgranakId,
+} from "../lib/stabloOgranci";
 import { audit, supabase } from "../lib/supabase";
 import type { Database } from "../types/database";
 
@@ -447,8 +455,17 @@ type Stablo2PageProps = { variant?: "admin" | "public" };
 
 export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const isPublic = variant === "public";
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const highlightPersonParam = isPublic ? searchParams.get("person") : null;
+  const ogranakParam = searchParams.get("ogranak");
+  const initialOgranak: OgranakId = isOgranakId(ogranakParam)
+    ? ogranakParam
+    : DEFAULT_OGRANAK;
+  const [selectedOgranak, setSelectedOgranak] = useState<OgranakId>(initialOgranak);
+  const activeOgranakDef = useMemo(
+    () => OGRANCI.find((o) => o.id === selectedOgranak) ?? OGRANCI[0],
+    [selectedOgranak],
+  );
   const [autoLocateDone, setAutoLocateDone] = useState(false);
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [relations, setRelations] = useState<PcRow[]>([]);
@@ -502,11 +519,27 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   const highlightedLocateRef = useRef<string | null>(null);
   highlightedLocateRef.current = highlightedLocatePersonId;
 
+  /** Filter po ograncima: Janja i njena tri sina su uvek vidljivi, a ispod toga
+   *  prikazujemo samo potomke odabranog ogranka (Šukovići/Trivunovići/Vidići). */
+  const filteredGraph = useMemo(() => {
+    const allowed = computeAllowedPersonIds(
+      persons,
+      relations,
+      partnerships,
+      selectedOgranak,
+    );
+    return filterFamilyGraph(persons, relations, partnerships, allowed);
+  }, [persons, relations, partnerships, selectedOgranak]);
+
+  const visiblePersons = filteredGraph.persons;
+  const visibleRelations = filteredGraph.relations;
+  const visiblePartnerships = filteredGraph.partnerships;
+
   const personsById = useMemo(() => {
     const m = new Map<string, PersonRow>();
-    for (const p of persons) m.set(p.id, p);
+    for (const p of visiblePersons) m.set(p.id, p);
     return m;
-  }, [persons]);
+  }, [visiblePersons]);
 
   const loadOpstine = useCallback(async () => {
     if (!supabase) return;
@@ -534,8 +567,37 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   }, [load]);
 
   const layout = useMemo(
-    () => computeHorizontalLayout(persons, relations, partnerships),
-    [persons, relations, partnerships]
+    () => computeHorizontalLayout(visiblePersons, visibleRelations, visiblePartnerships),
+    [visiblePersons, visibleRelations, visiblePartnerships]
+  );
+
+  /** Promena aktivnog ogranka — resetuje scroll / highlight i sinhronizuje URL (?ogranak=…). */
+  const handleSelectOgranak = useCallback(
+    (next: OgranakId) => {
+      if (next === selectedOgranak) return;
+      setSelectedOgranak(next);
+      setHighlightedLocatePersonId(null);
+      setLocateHint(null);
+      setMemberLocateQuery("");
+      setMemberLocateOpen(false);
+      // Tab menja prikazani graf — inicijalno kadriranje opet treba da odluči automatski.
+      userInteractedRef.current = false;
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev);
+          if (next === DEFAULT_OGRANAK) {
+            p.delete("ogranak");
+          } else {
+            p.set("ogranak", next);
+          }
+          // Kad menjamo ogranak, deep-link ?person= više nije relevantan.
+          p.delete("person");
+          return p;
+        },
+        { replace: true },
+      );
+    },
+    [selectedOgranak, setSearchParams],
   );
 
   const closeMemberPanel = useCallback(() => {
@@ -787,7 +849,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
   }, [layout.nodes]);
 
   const memberLocateFiltered = useMemo(() => {
-    const visible = persons.filter((p) => graphNodeByPersonId.has(p.id));
+    const visible = visiblePersons.filter((p) => graphNodeByPersonId.has(p.id));
     const sorted = [...visible].sort((a, b) =>
       personLabel(a).localeCompare(personLabel(b), "sr", { sensitivity: "base" })
     );
@@ -802,7 +864,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         return hay.includes(q);
       })
       .slice(0, 120);
-  }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
+  }, [visiblePersons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
   /** Javni prikaz: poslednje (najdublje) koleno na desnoj strani viewport-a, vertikalno uz vrh sadržaja. */
   const framePublicViewToLastGeneration = useCallback(
@@ -1003,18 +1065,53 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   useEffect(() => {
     setAutoLocateDone(false);
-  }, [highlightPersonParam]);
+  }, [highlightPersonParam, selectedOgranak]);
+
+  /** Ako je deep-link ?person=XYZ ciljao osobu koja nije u trenutno odabranom
+   *  ogranku, automatski prebacimo na ogranak koji tu osobu sadrži (ako takav postoji).
+   *  Korisnik je već eksplicitno izabrao kog člana hoće da vidi — ima prednost nad defaultom. */
+  useEffect(() => {
+    if (!highlightPersonParam || persons.length === 0) return;
+    if (ogranakParam && isOgranakId(ogranakParam)) return; // korisnik je eksplicitno zadao ogranak u URL-u
+    const currentAllowed = computeAllowedPersonIds(
+      persons,
+      relations,
+      partnerships,
+      selectedOgranak,
+    );
+    if (!currentAllowed || currentAllowed.has(highlightPersonParam)) return;
+    for (const def of OGRANCI) {
+      if (def.id === selectedOgranak) continue;
+      const allowed = computeAllowedPersonIds(
+        persons,
+        relations,
+        partnerships,
+        def.id,
+      );
+      if (allowed && allowed.has(highlightPersonParam)) {
+        setSelectedOgranak(def.id);
+        return;
+      }
+    }
+  }, [
+    highlightPersonParam,
+    ogranakParam,
+    persons,
+    relations,
+    partnerships,
+    selectedOgranak,
+  ]);
 
   useEffect(() => {
-    if (!highlightPersonParam || persons.length === 0 || autoLocateDone) return;
-    const person = persons.find((p) => p.id === highlightPersonParam);
+    if (!highlightPersonParam || visiblePersons.length === 0 || autoLocateDone) return;
+    const person = visiblePersons.find((p) => p.id === highlightPersonParam);
     if (!person) return;
     const t = window.setTimeout(() => {
       locatePersonOnGraph(person.id);
       setAutoLocateDone(true);
     }, 150);
     return () => window.clearTimeout(t);
-  }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
+  }, [highlightPersonParam, visiblePersons, autoLocateDone, locatePersonOnGraph]);
 
   /** Inicijalno kadriranje (samo jednom, dok korisnik nije ništa dodirnuo).
    *  Javni: poslednje koleno desno; admin: početak stabla uz levu ivicu (uz padding). */
@@ -1071,7 +1168,11 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       <header className="page-header">
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", flexWrap: "wrap" }}>
-            <h1 style={{ margin: 0 }}>{isPublic ? "Stablo" : "Stablo 2 — ogranak Šukovići"}</h1>
+            <h1 style={{ margin: 0 }}>
+              {isPublic
+                ? `Stablo — ogranak ${activeOgranakDef.label}`
+                : `Stablo 2 — ogranak ${activeOgranakDef.label}`}
+            </h1>
             {!loading && totalMembers > 0 ? (
               <span
                 style={{
@@ -1136,6 +1237,29 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               alignItems: "center",
             }}
           >
+            <div
+              className="tree-ogranak-switch"
+              role="tablist"
+              aria-label="Izbor ogranka"
+            >
+              {OGRANCI.map((o) => {
+                const isActive = o.id === selectedOgranak;
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isActive}
+                    aria-label={o.fullLabel}
+                    className={`tree-ogranak-pill${isActive ? " is-active" : ""}`}
+                    onClick={() => handleSelectOgranak(o.id)}
+                  >
+                    {o.label}
+                  </button>
+                );
+              })}
+            </div>
+            <span className="tree-toolbar-sep" aria-hidden="true" />
             <button type="button" onClick={() => setZoom((z) => Math.min(ZOOM_MAX, z * 1.12))}>
               +
             </button>
