@@ -44,14 +44,19 @@ const FS_GEN_LABEL = 10;
 const CARD_NAME_MAX = 14;
 const CARD_NAME2_MAX = 13;
 
-/** Visina SVG dokumenta (samo sadržaj + mali padding — bez starog min 800px koji je pravio prazan vrh). */
+/** Padding oko sadržaja (u SVG jedinicama) — obezbeđuje da lociranje uvek može da centrira čvor,
+ *  i kada graf inače celeg staje u viewport. */
+const SCROLL_PAD_X = 600;
+const SCROLL_PAD_Y = 160;
+
+/** Visina SVG dokumenta = sadržaj + labele kolena + vertikalni scroll-padding. */
 function treeSvgDocumentHeight(layoutHeight: number): number {
-  return Math.max(layoutHeight + GEN_LABEL_HEIGHT + 72, 160);
+  return Math.max(layoutHeight + GEN_LABEL_HEIGHT + SCROLL_PAD_Y * 2, 160);
 }
 
-/** Širina SVG dokumenta (layout + mali desni odmak za poslednje koleno). */
+/** Širina SVG dokumenta = sadržaj + horizontalni scroll-padding sa obe strane. */
 function treeSvgDocumentWidth(layoutWidth: number): number {
-  return Math.max(layoutWidth + 80, 320);
+  return Math.max(layoutWidth + SCROLL_PAD_X * 2, 320);
 }
 
 /** Fizička skala koja u UI odgovara „100%“ (raniji prikaz na ~60% bio je prevelik na starom 100%). */
@@ -555,9 +560,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const scrollTop = scroller?.scrollTop ?? 0;
       const scrollerOffsetTop = scroller?.offsetTop ?? 0;
       const scrollerOffsetLeft = scroller?.offsetLeft ?? 0;
-      const nodeScreenX = scrollerOffsetLeft + node.x * zoom - scrollLeft;
+      const nodeScreenX =
+        scrollerOffsetLeft + (SCROLL_PAD_X + node.x) * zoom - scrollLeft;
       const nodeScreenY =
-        scrollerOffsetTop + (GEN_LABEL_HEIGHT + node.y) * zoom - scrollTop;
+        scrollerOffsetTop +
+        (SCROLL_PAD_Y + GEN_LABEL_HEIGHT + node.y) * zoom -
+        scrollTop;
       const panelX = nodeScreenX + CARD_W * 0.35 * zoom;
       const panelY = nodeScreenY - CARD_H * 0.15 * zoom;
       const narrow = typeof window !== "undefined" && window.innerWidth < 640;
@@ -822,20 +830,42 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       .slice(0, 120);
   }, [persons, memberLocateQuery, graphNodeByPersonId, opstinaById]);
 
-  /** Javni prikaz: scroll-uj ka desnoj ivici (poslednje koleno u fokusu) i vertikalno uz vrh. */
+  /** Javni prikaz: poslednje (najdublje) koleno na desnoj strani viewport-a, vertikalno uz vrh sadržaja. */
   const framePublicViewToLastGeneration = useCallback(
-    (_zoomOverride?: number) => {
+    (zoomOverride?: number) => {
       if (!isPublic) return;
       const scroller = treeScrollerRef.current;
       if (!scroller) return;
       if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return;
+      const z = zoomOverride ?? zoom;
+      // Desna ivica sadržaja = početak desnog padding-a.
+      const contentRightEdge = (SCROLL_PAD_X + layout.width) * z;
+      const targetLeft = contentRightEdge - scroller.clientWidth + 14;
+      const targetTop = SCROLL_PAD_Y * z - 8;
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
-      scroller.scrollTo({ left: maxLeft, top: 0, behavior: "auto" });
+      const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
+      scroller.scrollTo({
+        left: Math.max(0, Math.min(maxLeft, targetLeft)),
+        top: Math.max(0, Math.min(maxTop, targetTop)),
+        behavior: "auto",
+      });
     },
-    [isPublic],
+    [isPublic, layout.width, zoom],
   );
 
-  /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno). */
+  /** Pozicija scrollera tako da je tree početak (prvi stupac) uz levu ivicu viewport-a. */
+  const resetAdminScroll = useCallback(() => {
+    const scroller = treeScrollerRef.current;
+    if (!scroller) return;
+    scroller.scrollTo({
+      left: SCROLL_PAD_X * zoom - 14,
+      top: SCROLL_PAD_Y * zoom - 8,
+      behavior: "auto",
+    });
+  }, [zoom]);
+
+  /** Scroll-uj do člana tako da je kartica u centru scrollera (horizontalno) i u gornjoj trećini (vertikalno).
+   *  Zahvaljujući SCROLL_PAD prostoru, ovo uspeva i kad graf inače staje u viewport. */
   const centerOnPersonNode = useCallback(
     (personId: string, behavior: ScrollBehavior = "smooth") => {
       const node = graphNodeByPersonId.get(personId);
@@ -844,11 +874,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       if (!scroller) return;
       if (scroller.clientWidth < 48 || scroller.clientHeight < 48) return;
 
-      const cx = (node.x + CARD_HALF_W) * zoom;
-      const cy = (GEN_LABEL_HEIGHT + node.y + CARD_HALF_H) * zoom;
+      const cx = (SCROLL_PAD_X + node.x + CARD_HALF_W) * zoom;
+      const cy =
+        (SCROLL_PAD_Y + GEN_LABEL_HEIGHT + node.y + CARD_HALF_H) * zoom;
 
       const targetLeft = cx - scroller.clientWidth / 2;
-      const targetTop = cy - scroller.clientHeight * 0.22;
+      const targetTop = cy - scroller.clientHeight * 0.35;
 
       const maxLeft = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
       const maxTop = Math.max(0, scroller.scrollHeight - scroller.clientHeight);
@@ -886,7 +917,14 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       const label = person ? personLabel(person) : "član";
       setLocateHint(`Lociran: ${label}`);
       window.setTimeout(() => setLocateHint(null), 2500);
-      window.requestAnimationFrame(() => centerOnPersonNode(personId));
+      // „auto" umesto „smooth" — pouzdanije uz re-render od zatvaranja dropdown-a;
+      // double rAF + fallback timeout pokriva i slučaj kada layout još nije spreman.
+      const run = () => centerOnPersonNode(personId, "auto");
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(run);
+      });
+      window.setTimeout(run, 60);
+      window.setTimeout(() => centerOnPersonNode(personId, "smooth"), 180);
     },
     [graphNodeByPersonId, closeMemberPanel, persons, centerOnPersonNode],
   );
@@ -903,7 +941,9 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
         if (!graphNodeByPersonId.get(id)) return;
         setHighlightedLocatePersonId(id);
         userInteractedRef.current = true;
-        window.requestAnimationFrame(() => centerOnPersonNode(id));
+        window.requestAnimationFrame(() => {
+          window.requestAnimationFrame(() => centerOnPersonNode(id, "auto"));
+        });
       } else {
         setHighlightedLocatePersonId(null);
       }
@@ -944,16 +984,22 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     return () => window.clearTimeout(t);
   }, [highlightPersonParam, persons, autoLocateDone, locatePersonOnGraph]);
 
-  /** Inicijalno kadriranje javnog prikaza (samo jednom, dok korisnik nije ništa dodirnuo). */
+  /** Inicijalno kadriranje (samo jednom, dok korisnik nije ništa dodirnuo).
+   *  Javni: poslednje koleno desno; admin: početak stabla uz levu ivicu (uz padding). */
   useEffect(() => {
-    if (!isPublic || loading || persons.length === 0) return;
+    if (loading || persons.length === 0) return;
     if (highlightPersonParam) return;
     if (highlightedLocatePersonId) return;
     if (userInteractedRef.current) return;
     let innerRaf = 0;
     const outerRaf = window.requestAnimationFrame(() => {
       innerRaf = window.requestAnimationFrame(() => {
-        if (!userInteractedRef.current) framePublicViewToLastGeneration();
+        if (userInteractedRef.current) return;
+        if (isPublic) {
+          framePublicViewToLastGeneration();
+        } else {
+          resetAdminScroll();
+        }
       });
     });
     return () => {
@@ -969,6 +1015,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     highlightPersonParam,
     highlightedLocatePersonId,
     framePublicViewToLastGeneration,
+    resetAdminScroll,
   ]);
 
   /** Na promeni veličine prozora, ako korisnik nije interagovao, ponovo kadriraj. */
@@ -1086,13 +1133,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 setMemberLocateOpen(false);
                 setLocateHint(null);
                 userInteractedRef.current = false;
-                const scroller = treeScrollerRef.current;
                 window.requestAnimationFrame(() => {
                   window.requestAnimationFrame(() => {
                     if (isPublic) {
                       framePublicViewToLastGeneration(ZOOM_BASELINE);
-                    } else if (scroller) {
-                      scroller.scrollTo({ left: 0, top: 0, behavior: "auto" });
+                    } else {
+                      resetAdminScroll();
                     }
                   });
                 });
@@ -1196,7 +1242,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               display: "block",
             }}
           >
-            <g transform={`translate(0, ${GEN_LABEL_HEIGHT})`}>
+            <g transform={`translate(${SCROLL_PAD_X}, ${SCROLL_PAD_Y + GEN_LABEL_HEIGHT})`}>
               {generationStats.map((g) => {
                 const cx = g.depth * (CARD_W + COL_GAP) + CARD_W / 2;
                 return (
