@@ -1349,6 +1349,24 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             >
               Reset prikaza
             </button>
+            {!isPublic ? (
+              <button
+                type="button"
+                onClick={() => {
+                  closeMemberPanel();
+                  setHighlightedLocatePersonId(null);
+                  setLocateHint("Osvežavanje podataka…");
+                  void (async () => {
+                    await load();
+                    setLocateHint("Podaci osveženi.");
+                    window.setTimeout(() => setLocateHint(null), 1800);
+                  })();
+                }}
+                title="Ponovo učitaj osobe, roditelje-deca veze i partnerstva iz baze"
+              >
+                Osveži podatke
+              </button>
+            ) : null}
             <span className="muted">Zoom: {zoomDisplayPercent(zoom)}%</span>
             <div
               className="tree-ogranak-switch"
