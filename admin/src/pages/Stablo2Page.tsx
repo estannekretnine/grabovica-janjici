@@ -443,9 +443,12 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
     rootPos.y = sonsYs.reduce((s, y) => s + y, 0) / sonsYs.length;
   }
 
-  /** Kompakcija po kolonama (dubinama): garantuje da u istoj koloni dva susedna
-   *  čvora nikad nisu bliža od NODE_PITCH_H. Ako jesu, pomera niži čvor (i sve
-   *  njegove potomke, UKLJUČUJUĆI decu preko partnera) dole za razliku. */
+  /** Minimalna kompakcija direktnih sibling-a (deca istog roditelja): ako se
+   *  dva susedna (po Y) sibling-a dodiruju (gap < NODE_PITCH_H), pomeri niži
+   *  čvor i njegov subtree dole za razliku. Bottom-up obilazak čuva strukturu;
+   *  ne radi globalno po dubinama (to bi razvlačilo stablo jer interni čvorovi
+   *  po originalnom algoritmu dele red sa svojom decom, a forsiran razmak
+   *  između svih u koloni bi pomerao sve unedogled). */
   function collectSubtreeIds(rootId: string): Set<string> {
     const out = new Set<string>();
     const stack: string[] = [rootId];
@@ -453,10 +456,6 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
       const cur = stack.pop()!;
       if (out.has(cur)) continue;
       out.add(cur);
-      // Koristi childrenFor (uključuje decu preko partnera) umesto samo
-      // childByParent; inače pomeranje roditelja ne bi povuklo decu koja su
-      // u bazi vezana za njegovog partnera, pa bi ivice pukle i vizuelno bi
-      // izgledalo kao preklapanje u koloni deteta.
       for (const c of childrenFor(cur)) {
         if (!out.has(c) && positions.has(c)) stack.push(c);
       }
@@ -464,92 +463,32 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
     return out;
   }
 
-  /** Efektivna deca za re-centriranje roditelja — ista logika kao u
-   *  `childrenFor` (uključuje decu preko partnera), samo vraća PositionedNode. */
-  function effectiveKidsForRecenter(parentId: string): PositionedNode[] {
-    const ids = childrenFor(parentId);
-    const out: PositionedNode[] = [];
-    for (const id of ids) {
-      const p = positions.get(id);
-      if (p) out.push(p);
-    }
-    return out;
-  }
-
-  // Više prolaza: posle pomeranja u jednoj koloni može se pojaviti problem
-  // u susednoj — pa ponavljamo dok se ne stabilizuje ili se ne dostigne limit.
-  for (let pass = 0; pass < 16; pass++) {
-    const nodesByDepth = new Map<number, PositionedNode[]>();
-    for (const node of positions.values()) {
-      const arr = nodesByDepth.get(node.depth) ?? [];
-      arr.push(node);
-      nodesByDepth.set(node.depth, arr);
-    }
-
-    let shiftedAny = false;
-    const depthKeys = Array.from(nodesByDepth.keys()).sort((a, b) => a - b);
-    for (const depth of depthKeys) {
-      const colNodes = (nodesByDepth.get(depth) ?? []).slice().sort((a, b) => a.y - b.y);
-      for (let i = 1; i < colNodes.length; i++) {
-        const prev = colNodes[i - 1];
-        const cur = colNodes[i];
-        const minY = prev.y + NODE_PITCH_H;
-        if (cur.y + 0.5 < minY) {
-          const shift = minY - cur.y;
-          const ids = collectSubtreeIds(cur.id);
-          for (const id of ids) {
-            const p = positions.get(id);
-            if (p) p.y += shift;
-          }
-          shiftedAny = true;
+  // Bottom-up: obradi najdublje roditelje prvo, pa se promena propaguje nagore.
+  const allNodesDeepFirst = Array.from(positions.values()).sort(
+    (a, b) => b.depth - a.depth,
+  );
+  for (const parent of allNodesDeepFirst) {
+    const kidIds = childrenFor(parent.id).filter((id) => positions.has(id));
+    if (kidIds.length < 2) continue;
+    const kids = kidIds
+      .map((id) => positions.get(id)!)
+      .sort((a, b) => a.y - b.y);
+    for (let i = 1; i < kids.length; i++) {
+      const prev = kids[i - 1];
+      const cur = kids[i];
+      const minY = prev.y + NODE_PITCH_H;
+      if (cur.y + 0.5 < minY) {
+        const shift = minY - cur.y;
+        const ids = collectSubtreeIds(cur.id);
+        for (const id of ids) {
+          const p = positions.get(id);
+          if (p) p.y += shift;
         }
       }
     }
-
-    if (!shiftedAny) break;
-
-    // Ponovno centriranje roditelja kao proseka Y pozicija svoje dece —
-    // tako posle pomeranja u koloni subtree zadrži vizuelno centriranog roditelja.
-    // Obilazi se BOTTOM-UP (od najvećih ka najmanjim dubinama) da bi promena
-    // dece stigla do roditelja u istom prolazu.
-    const allNodesDeepFirst = Array.from(positions.values()).sort(
-      (a, b) => b.depth - a.depth,
-    );
-    for (const node of allNodesDeepFirst) {
-      const kids = effectiveKidsForRecenter(node.id);
-      if (kids.length === 0) continue;
-      const ys = kids.map((k) => k.y);
-      node.y = ys.reduce((s, y) => s + y, 0) / ys.length;
-    }
-  }
-
-  /** Zadnji "tvrdi" prolaz: jednostavno razdvajanje bez re-centriranja, samo
-   *  da bi se garantovalo da nijedna dva čvora u istoj koloni nisu bliža od
-   *  NODE_PITCH_H. Ovo je mreža bezbednosti — re-centriranje koje pomera
-   *  roditelja može minimalno ga približiti sibling-u, pa ovo zatvara rupu. */
-  {
-    const nodesByDepthFinal = new Map<number, PositionedNode[]>();
-    for (const node of positions.values()) {
-      const arr = nodesByDepthFinal.get(node.depth) ?? [];
-      arr.push(node);
-      nodesByDepthFinal.set(node.depth, arr);
-    }
-    for (const colNodes of nodesByDepthFinal.values()) {
-      colNodes.sort((a, b) => a.y - b.y);
-      for (let i = 1; i < colNodes.length; i++) {
-        const prev = colNodes[i - 1];
-        const cur = colNodes[i];
-        const minY = prev.y + NODE_PITCH_H;
-        if (cur.y + 0.5 < minY) {
-          const shift = minY - cur.y;
-          const ids = collectSubtreeIds(cur.id);
-          for (const id of ids) {
-            const p = positions.get(id);
-            if (p) p.y += shift;
-          }
-        }
-      }
-    }
+    // Posle razdvajanja dece, roditelj treba biti centriran na sredinu opsega.
+    const ys = kids.map((k) => k.y);
+    parent.y = (Math.min(...ys) + Math.max(...ys)) / 2;
   }
 
   const edges: Array<{ from: string; to: string }> = [];
