@@ -116,12 +116,36 @@ export function useSiteTracking(pathname: string) {
   const countryNameRef = useRef<string | null>(null);
   const regionNameRef = useRef<string | null>(null);
 
+  const syncGeoToCurrentSession = async () => {
+    if (!audit) return;
+    const sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY);
+    if (!sessionId) return;
+    const hasGeo =
+      Boolean(ipRef.current) ||
+      Boolean(countryCodeRef.current) ||
+      Boolean(countryNameRef.current) ||
+      Boolean(regionNameRef.current);
+    if (!hasGeo) return;
+    const { error } = await audit
+      .from("gr_site_sessions")
+      .update({
+        ip_address: ipRef.current,
+        country_code: countryCodeRef.current,
+        country_name: countryNameRef.current,
+        region_name: regionNameRef.current,
+        last_seen: new Date().toISOString(),
+      })
+      .eq("id", sessionId);
+    if (error) logTrackError("sync session geo", error);
+  };
+
   useEffect(() => {
     void getGeoInfo().then((geo) => {
       ipRef.current = geo.ip;
       countryCodeRef.current = geo.countryCode;
       countryNameRef.current = geo.countryName;
       regionNameRef.current = geo.regionName;
+      void syncGeoToCurrentSession();
     });
   }, []);
 
@@ -266,7 +290,15 @@ export function useSiteTracking(pathname: string) {
       if (!sessionId) return;
       void audit
         .from("gr_site_sessions")
-        .update({ last_seen: new Date().toISOString(), current_path: pathname, ended_at: null })
+        .update({
+          ip_address: ipRef.current,
+          country_code: countryCodeRef.current,
+          country_name: countryNameRef.current,
+          region_name: regionNameRef.current,
+          last_seen: new Date().toISOString(),
+          current_path: pathname,
+          ended_at: null,
+        })
         .eq("id", sessionId);
       sessionStorage.setItem(SESSION_LAST_SEEN_KEY, `${Date.now()}`);
       void pullStats();

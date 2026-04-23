@@ -17,6 +17,9 @@ type CountryStat = {
   uniqueVisitors: number;
 };
 
+const ONLINE_WINDOW_MS = 5 * 60 * 1000;
+const AUTO_REFRESH_MS = 15000;
+
 function toDateInputValue(value: Date) {
   const d = new Date(value.getTime() - value.getTimezoneOffset() * 60000);
   return d.toISOString().slice(0, 10);
@@ -97,6 +100,13 @@ export function StatistikaSajtaPage() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      void load();
+    }, AUTO_REFRESH_MS);
+    return () => window.clearInterval(timer);
+  }, [load]);
+
   const stats = useMemo<SessionStat[]>(() => {
     const bySession = new Map<string, ViewRow[]>();
     for (const view of views) {
@@ -116,7 +126,15 @@ export function StatistikaSajtaPage() {
   }, [sessions, views]);
 
   const currentlyOnline = useMemo(
-    () => sessions.filter((s) => Date.now() - new Date(s.last_seen).getTime() <= 2 * 60 * 1000).length,
+    () =>
+      sessions.filter((s) => {
+        const lastSeenAt = new Date(s.last_seen).getTime();
+        if (Number.isNaN(lastSeenAt)) return false;
+        const fresh = Date.now() - lastSeenAt <= ONLINE_WINDOW_MS;
+        const notEndedAfterLastSeen =
+          !s.ended_at || new Date(s.ended_at).getTime() <= lastSeenAt;
+        return fresh && notEndedAfterLastSeen;
+      }).length,
     [sessions],
   );
 
