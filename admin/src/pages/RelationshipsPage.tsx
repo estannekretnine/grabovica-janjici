@@ -161,19 +161,35 @@ export function RelationshipsPage() {
     return `${ime} — ${opstina}`;
   }
 
-  const pcTotalPages = Math.max(1, Math.ceil(pcRows.length / pcListPageSize));
+  const filteredPcRows = useMemo(() => {
+    return pcRows.filter((r) => {
+      if (pcParent && r.parent_person_id !== pcParent) return false;
+      if (pcChild && r.child_person_id !== pcChild) return false;
+      return true;
+    });
+  }, [pcRows, pcParent, pcChild]);
+
+  const filteredPartRows = useMemo(() => {
+    return partRows.filter((r) => {
+      if (pA && r.person_a_id !== pA && r.person_b_id !== pA) return false;
+      if (pB && r.person_a_id !== pB && r.person_b_id !== pB) return false;
+      return true;
+    });
+  }, [partRows, pA, pB]);
+
+  const pcTotalPages = Math.max(1, Math.ceil(filteredPcRows.length / pcListPageSize));
   const pcSafePage = Math.min(Math.max(1, pcListPage), pcTotalPages);
   const paginatedPcRows = useMemo(() => {
     const start = (pcSafePage - 1) * pcListPageSize;
-    return pcRows.slice(start, start + pcListPageSize);
-  }, [pcRows, pcSafePage, pcListPageSize]);
+    return filteredPcRows.slice(start, start + pcListPageSize);
+  }, [filteredPcRows, pcSafePage, pcListPageSize]);
 
-  const partTotalPages = Math.max(1, Math.ceil(partRows.length / partListPageSize));
+  const partTotalPages = Math.max(1, Math.ceil(filteredPartRows.length / partListPageSize));
   const partSafePage = Math.min(Math.max(1, partListPage), partTotalPages);
   const paginatedPartRows = useMemo(() => {
     const start = (partSafePage - 1) * partListPageSize;
-    return partRows.slice(start, start + partListPageSize);
-  }, [partRows, partSafePage, partListPageSize]);
+    return filteredPartRows.slice(start, start + partListPageSize);
+  }, [filteredPartRows, partSafePage, partListPageSize]);
 
   useEffect(() => {
     setPcListPage((p) => Math.min(p, pcTotalPages));
@@ -187,6 +203,14 @@ export function RelationshipsPage() {
     setPcListPage(1);
     setPartListPage(1);
   }, [treeId]);
+
+  useEffect(() => {
+    setPcListPage(1);
+  }, [pcParent, pcChild]);
+
+  useEffect(() => {
+    setPartListPage(1);
+  }, [pA, pB]);
 
   async function addParentChild(e: React.FormEvent) {
     e.preventDefault();
@@ -353,12 +377,36 @@ export function RelationshipsPage() {
             </form>
           </div>
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Lista ({pcRows.length})</h2>
+            <h2 style={{ marginTop: 0 }}>
+              Lista ({filteredPcRows.length}
+              {filteredPcRows.length !== pcRows.length ? ` od ${pcRows.length}` : ""})
+            </h2>
+            {pcParent || pcChild ? (
+              <div className="row" style={{ marginBottom: "0.5rem", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.9em", color: "#555" }}>
+                  Filter:
+                  {pcParent ? ` Roditelj = ${personById.get(pcParent) ? personLabel(personById.get(pcParent)!) : pcParent}` : ""}
+                  {pcParent && pcChild ? "," : ""}
+                  {pcChild ? ` Dete = ${personById.get(pcChild) ? personLabel(personById.get(pcChild)!) : pcChild}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPcParent("");
+                    setPcChild("");
+                    setPcParentSearch("");
+                    setPcChildSearch("");
+                  }}
+                >
+                  Poništi filter
+                </button>
+              </div>
+            ) : null}
             <TablePagination
               idPrefix="veze-pc"
               page={pcListPage}
               pageSize={pcListPageSize}
-              totalItems={pcRows.length}
+              totalItems={filteredPcRows.length}
               onPageChange={setPcListPage}
               onPageSizeChange={setPcListPageSize}
             />
@@ -443,12 +491,36 @@ export function RelationshipsPage() {
             </form>
           </div>
           <div className="card">
-            <h2 style={{ marginTop: 0 }}>Lista ({partRows.length})</h2>
+            <h2 style={{ marginTop: 0 }}>
+              Lista ({filteredPartRows.length}
+              {filteredPartRows.length !== partRows.length ? ` od ${partRows.length}` : ""})
+            </h2>
+            {pA || pB ? (
+              <div className="row" style={{ marginBottom: "0.5rem", alignItems: "center", gap: "0.5rem" }}>
+                <span style={{ fontSize: "0.9em", color: "#555" }}>
+                  Filter:
+                  {pA ? ` Osoba A = ${personById.get(pA) ? personLabel(personById.get(pA)!) : pA}` : ""}
+                  {pA && pB ? "," : ""}
+                  {pB ? ` Osoba B = ${personById.get(pB) ? personLabel(personById.get(pB)!) : pB}` : ""}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPA("");
+                    setPB("");
+                    setPASearch("");
+                    setPBSearch("");
+                  }}
+                >
+                  Poništi filter
+                </button>
+              </div>
+            ) : null}
             <TablePagination
               idPrefix="veze-part"
               page={partListPage}
               pageSize={partListPageSize}
-              totalItems={partRows.length}
+              totalItems={filteredPartRows.length}
               onPageChange={setPartListPage}
               onPageSizeChange={setPartListPageSize}
             />
