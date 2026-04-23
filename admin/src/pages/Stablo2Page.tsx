@@ -28,8 +28,9 @@ const TREE_CARD_SCALE = 0.5;
 const BASE_CARD_W = 228;
 const BASE_CARD_H = 144;
 const CARD_W = Math.round(BASE_CARD_W * TREE_CARD_SCALE);
-/** Beli pravougaonik je 0.7 × 0.8 = 0.56 od poloviranog originala; unutra samo imena. */
-const CARD_HEIGHT_SHRINK = 0.56;
+/** Beli pravougaonik je 0.7 × 0.8 = 0.56 od poloviranog originala; unutra samo imena.
+ *  Dodatno snižen za 10% (× 0.9) da bude kompaktniji. */
+const CARD_HEIGHT_SHRINK = 0.56 * 0.9;
 const CARD_H = Math.round(BASE_CARD_H * TREE_CARD_SCALE * CARD_HEIGHT_SHRINK);
 const CARD_HALF_W = CARD_W / 2;
 const CARD_HALF_H = CARD_H / 2;
@@ -44,10 +45,10 @@ const NODE_PITCH_H = CARD_H + CARD_KONTAKT_STRIP_H + ROW_GAP;
 const TREE_EDGE_SW = 0.55;
 const TREE_CARD_SW = 0.5;
 const TREE_RING_SW = 2;
-/** Fontovi — kartica sadrži samo imena, pa su veći nego ranije. */
-const FS_CARD_TITLE = 10.5;
-const FS_CARD_PARTNER = 9.5;
-const FS_CARD_KONTAKT = 8.5;
+/** Fontovi — kartica sadrži samo imena. Blago smanjeni da prate nižu karticu. */
+const FS_CARD_TITLE = 9.5;
+const FS_CARD_PARTNER = 8.5;
+const FS_CARD_KONTAKT = 7.8;
 const FS_GEN_LABEL = 10;
 const CARD_NAME_MAX = 14;
 const CARD_NAME2_MAX = 13;
