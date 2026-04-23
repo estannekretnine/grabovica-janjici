@@ -56,7 +56,7 @@ const CARD_NAME2_MAX = 13;
 /** Padding oko sadržaja (u SVG jedinicama) — obezbeđuje da lociranje uvek može da centrira čvor,
  *  i kada graf inače celeg staje u viewport. */
 const SCROLL_PAD_X = 600;
-const SCROLL_PAD_Y = 160;
+const SCROLL_PAD_Y = 72;
 
 /** Visina SVG dokumenta = sadržaj + labele kolena + vertikalni scroll-padding. */
 function treeSvgDocumentHeight(layoutHeight: number): number {
@@ -1399,9 +1399,86 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       parentsByChild.set(r.child_person_id, arr);
     }
 
-    const orphans = persons.filter(
+    // Partneri po osobi — za svrstavanje "nepovezanih" supružnika u posebnu grupu
+    // (oni nisu pravi orphani jer pripadaju stablu preko partnera).
+    const partnersOf = new Map<string, Set<string>>();
+    for (const pr of partnerships) {
+      if (!partnersOf.has(pr.person_a_id))
+        partnersOf.set(pr.person_a_id, new Set<string>());
+      if (!partnersOf.has(pr.person_b_id))
+        partnersOf.set(pr.person_b_id, new Set<string>());
+      partnersOf.get(pr.person_a_id)!.add(pr.person_b_id);
+      partnersOf.get(pr.person_b_id)!.add(pr.person_a_id);
+    }
+
+    const spouseLabel = (p: PersonRow) => {
+      if (p.gender === "female") return "supruga";
+      if (p.gender === "male") return "suprug";
+      return "partner";
+    };
+
+    const rawOrphans = persons.filter(
       (p) => !childIds.has(p.id) && !parentIds.has(p.id),
     );
+    // Podela: "nepovezani" koji su zapravo supružnici (vidljivi preko partnera)
+    // vs pravi orphani (nemaju ni partnera ni parent_child vezu).
+    const spouseOrphansRows = rawOrphans
+      .filter((p) => (partnersOf.get(p.id)?.size ?? 0) > 0)
+      .map((p) => {
+        const partnerIds = Array.from(partnersOf.get(p.id) ?? []);
+        const partnerNames = partnerIds
+          .map((pid) => {
+            const par = personsById.get(pid);
+            return par ? fullName(par) : "(nepoznat)";
+          })
+          .join(" / ");
+        return {
+          id: p.id,
+          name: fullName(p),
+          role: spouseLabel(p),
+          partnerNames,
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" }));
+    const trulyOrphanRows = rawOrphans
+      .filter((p) => (partnersOf.get(p.id)?.size ?? 0) === 0)
+      .map((p) => ({ id: p.id, name: fullName(p) }))
+      .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" }));
+
+    // Osobe koje nisu ni u jednom od tri ogranka (unija dozvoljenih skupova).
+    // Uključuje osobe bez ikakve parent_child veze (pravi orphani) i one koje
+    // jesu povezane ali van svih ograničavajućih grana stabla.
+    const unionAllowed = new Set<string>();
+    for (const def of OGRANCI) {
+      const a = computeAllowedPersonIds(persons, relations, partnerships, def.id);
+      if (a) for (const id of a) unionAllowed.add(id);
+    }
+    const notInAnyBranchRows = persons
+      .filter((p) => !unionAllowed.has(p.id))
+      .map((p) => {
+        const parentIdsForP = parentsByChild.get(p.id) ?? [];
+        const parentNames = parentIdsForP
+          .map((pid) => {
+            const par = personsById.get(pid);
+            return par ? fullName(par) : "(nepoznat)";
+          })
+          .join(" / ");
+        const partnerIds = Array.from(partnersOf.get(p.id) ?? []);
+        const partnerNames = partnerIds
+          .map((pid) => {
+            const par = personsById.get(pid);
+            return par ? fullName(par) : "(nepoznat)";
+          })
+          .join(" / ");
+        return {
+          id: p.id,
+          name: fullName(p),
+          parents: parentNames || "— (nema roditelja u bazi)",
+          partners: partnerNames || "— (nema partnera u bazi)",
+          hasAnyRelation: childIds.has(p.id) || parentIds.has(p.id),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" }));
 
     const visiblePersonsCount = visiblePersons.length;
     const renderedNodes = layout.nodes.length;
@@ -1436,6 +1513,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
           name: fullName(p),
           parents: parentNames || "— (nema roditelja u bazi)",
           hasAnyRelation: childIds.has(p.id) || parentIds.has(p.id),
+          inAnyBranch: unionAllowed.has(p.id),
         };
       })
       .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" }));
@@ -1444,10 +1522,12 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       totalPersons,
       totalRelations,
       totalPartnerships,
-      orphanCount: orphans.length,
-      orphanRows: orphans
-        .map((p) => ({ id: p.id, name: fullName(p) }))
-        .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" })),
+      trulyOrphanCount: trulyOrphanRows.length,
+      trulyOrphanRows,
+      spouseOrphanCount: spouseOrphansRows.length,
+      spouseOrphanRows: spouseOrphansRows,
+      notInAnyBranchCount: notInAnyBranchRows.length,
+      notInAnyBranchRows,
       visiblePersonsCount,
       renderedNodes,
       missingInLayoutCount: missingInLayout.length,
@@ -1552,10 +1632,22 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               </>
             ) : null}
           </div>
-          {diagnostics.orphanCount > 0 ? (
+          {diagnostics.trulyOrphanCount > 0 ? (
             <div style={{ color: "#b91c1c" }}>
-              Osobe bez ijedne parent_child veze (ni roditelj ni dete): <strong>{diagnostics.orphanCount}</strong>
+              Potpuno nepovezane osobe (ni parent_child ni partner veza): <strong>{diagnostics.trulyOrphanCount}</strong>
               {" "}— ne mogu biti vidljive ni u jednom ogranku dok se ne povežu.
+            </div>
+          ) : null}
+          {diagnostics.spouseOrphanCount > 0 ? (
+            <div style={{ color: "#92400e" }}>
+              Supružnici bez sopstvene parent_child veze: <strong>{diagnostics.spouseOrphanCount}</strong>
+              {" "}— vidljivi su u stablu preko partnera (bračni status/deca se vode preko partnera).
+            </div>
+          ) : null}
+          {diagnostics.notInAnyBranchCount > 0 ? (
+            <div style={{ color: "#b45309" }}>
+              Nisu ni u jednom ogranku (Šukovići/Trivunovići/Vidići): <strong>{diagnostics.notInAnyBranchCount}</strong>
+              {" "}— nezavisno od trenutnog filtera.
             </div>
           ) : null}
           {diagnostics.missingInLayoutCount > 0 && diagnostics.missingInLayoutNames.length > 0 ? (
@@ -1567,7 +1659,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
           {showDiagnosticsDetails ? (
             <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.6rem" }}>
-              {diagnostics.orphanRows.length > 0 ? (
+              {diagnostics.trulyOrphanRows.length > 0 ? (
                 <div
                   style={{
                     padding: "0.4rem 0.55rem",
@@ -1577,16 +1669,91 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                   }}
                 >
                   <div style={{ fontWeight: 700, marginBottom: "0.3rem", color: "#7f1d1d" }}>
-                    Nepovezane osobe ({diagnostics.orphanRows.length}) — nemaju nijednu parent_child vezu:
+                    Potpuno nepovezane osobe ({diagnostics.trulyOrphanRows.length}) — nemaju ni parent_child ni partner vezu:
                   </div>
                   <ol style={{ margin: 0, paddingLeft: "1.3rem", color: "#7f1d1d" }}>
-                    {diagnostics.orphanRows.map((r) => (
+                    {diagnostics.trulyOrphanRows.map((r) => (
                       <li key={r.id}>{r.name}</li>
                     ))}
                   </ol>
                   <div style={{ marginTop: "0.3rem", fontSize: "0.8rem", color: "#4a3c24" }}>
-                    Otvori modul <strong>Veze → Roditelj–Dete</strong> i dodaj svakom njegovog roditelja (ili bar nekog deteta).
+                    Otvori modul <strong>Veze → Roditelj–Dete</strong> i dodaj svakom njegovog roditelja (ili bar nekog deteta),
+                    ili ga poveži kao partnera ako je reč o supružniku.
                   </div>
+                </div>
+              ) : null}
+
+              {diagnostics.spouseOrphanRows.length > 0 ? (
+                <div
+                  style={{
+                    padding: "0.4rem 0.55rem",
+                    background: "#fffbeb",
+                    border: "1px solid #fcd34d",
+                    borderRadius: 4,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: "0.3rem", color: "#78350f" }}>
+                    Supružnici bez sopstvene parent_child veze ({diagnostics.spouseOrphanRows.length}):
+                  </div>
+                  <ol style={{ margin: 0, paddingLeft: "1.3rem", color: "#78350f" }}>
+                    {diagnostics.spouseOrphanRows.map((r) => (
+                      <li key={r.id}>
+                        {r.name} — {r.role} od <em>{r.partnerNames}</em>
+                      </li>
+                    ))}
+                  </ol>
+                  <div style={{ marginTop: "0.3rem", fontSize: "0.8rem", color: "#4a3c24" }}>
+                    Ove osobe su u stablu preko partnera; njihova deca i bračni status nasleđuju se preko partnera.
+                  </div>
+                </div>
+              ) : null}
+
+              {diagnostics.notInAnyBranchRows.length > 0 ? (
+                <div
+                  style={{
+                    padding: "0.4rem 0.55rem",
+                    background: "#fffaf0",
+                    border: "1px solid #f59e0b",
+                    borderRadius: 4,
+                    maxHeight: 280,
+                    overflow: "auto",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: "0.3rem", color: "#7c2d12" }}>
+                    Nisu ni u jednom ogranku ({diagnostics.notInAnyBranchRows.length}) — nezavisno od filtera:
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left" }}>
+                        <th style={{ borderBottom: "1px solid #f59e0b", padding: "0.2rem 0.3rem" }}>Ime</th>
+                        <th style={{ borderBottom: "1px solid #f59e0b", padding: "0.2rem 0.3rem" }}>Roditelj(i)</th>
+                        <th style={{ borderBottom: "1px solid #f59e0b", padding: "0.2rem 0.3rem" }}>Partner(i)</th>
+                        <th style={{ borderBottom: "1px solid #f59e0b", padding: "0.2rem 0.3rem" }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {diagnostics.notInAnyBranchRows.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #fde68a" }}>
+                            {r.name}
+                          </td>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #fde68a" }}>
+                            {r.parents}
+                          </td>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #fde68a" }}>
+                            {r.partners}
+                          </td>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #fde68a" }}>
+                            {r.hasAnyRelation ? (
+                              <span style={{ color: "#065f46" }}>povezan — ali linija ne pripada nijednom ogranku</span>
+                            ) : (
+                              <span style={{ color: "#b91c1c" }}>bez parent_child veze</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               ) : null}
 
@@ -1721,27 +1888,30 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
               </button>
             ) : null}
             <span className="muted">Zoom: {zoomDisplayPercent(zoom)}%</span>
-            <div
-              className="tree-ogranak-switch"
-              role="tablist"
-              aria-label="Izbor ogranka"
-            >
-              {OGRANCI.map((o) => {
-                const isActive = o.id === selectedOgranak;
-                return (
-                  <button
-                    key={o.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={isActive}
-                    aria-label={o.fullLabel}
-                    className={`tree-ogranak-pill${isActive ? " is-active" : ""}`}
-                    onClick={() => handleSelectOgranak(o.id)}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
+            <div className="tree-ogranak-block">
+              <div className="tree-ogranak-heading">Bratstvo Janjića — Ogranak</div>
+              <div
+                className="tree-ogranak-switch"
+                role="tablist"
+                aria-label="Izbor ogranka"
+              >
+                {OGRANCI.map((o) => {
+                  const isActive = o.id === selectedOgranak;
+                  return (
+                    <button
+                      key={o.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={isActive}
+                      aria-label={o.fullLabel}
+                      className={`tree-ogranak-pill${isActive ? " is-active" : ""}`}
+                      onClick={() => handleSelectOgranak(o.id)}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
             <div className="tree-toolbar-locate" ref={locateWrapRef}>
               <input
