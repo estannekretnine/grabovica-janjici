@@ -1246,6 +1246,57 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
   const { totalMembers, generationStats } = layout;
 
+  /** Dijagnostika (samo admin): koliko osoba/veza postoji u bazi vs. koliko
+   *  se stvarno prikazuje u trenutnom ogranku i layout-u. Pomaže da se
+   *  identifikuju osobe koje su unete ali nisu povezane parent_child vezom
+   *  (zbog toga neće biti potomci Trifuna/Simeuna/Save i neće biti vidljive
+   *  u pojedinačnim ograncima). */
+  const diagnostics = useMemo(() => {
+    const totalPersons = persons.length;
+    const totalRelations = relations.length;
+    const totalPartnerships = partnerships.length;
+
+    const childIds = new Set(relations.map((r) => r.child_person_id));
+    const parentIds = new Set(relations.map((r) => r.parent_person_id));
+
+    const orphanIds = persons
+      .filter((p) => !childIds.has(p.id) && !parentIds.has(p.id))
+      .map((p) => p.id);
+
+    const visiblePersonsCount = visiblePersons.length;
+    const renderedNodes = layout.nodes.length;
+
+    // Osobe koje su u trenutnom ogranku (visiblePersons) ali ih layout nije
+    // raspodelio (mogu biti "hidden partner" u paru koji je sveden na jedan
+    // čvor, ili — retko — nisu priključene parent_child vezama).
+    const renderedIds = new Set(layout.nodes.map((n) => n.id));
+    const partnersInNodes = new Set<string>();
+    for (const n of layout.nodes) {
+      for (const p of n.partners) partnersInNodes.add(p.id);
+    }
+    const missingInLayout = visiblePersons.filter(
+      (p) => !renderedIds.has(p.id) && !partnersInNodes.has(p.id),
+    );
+
+    return {
+      totalPersons,
+      totalRelations,
+      totalPartnerships,
+      orphanCount: orphanIds.length,
+      visiblePersonsCount,
+      renderedNodes,
+      missingInLayoutCount: missingInLayout.length,
+      missingInLayoutNames: missingInLayout
+        .slice(0, 8)
+        .map((p) =>
+          [p.first_name, p.middle_name, p.last_name]
+            .map((s) => (s ?? "").trim())
+            .filter(Boolean)
+            .join(" "),
+        ),
+    };
+  }, [persons, relations, partnerships, visiblePersons, layout.nodes]);
+
   return (
     <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
       <header className="page-header">
@@ -1285,6 +1336,54 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
 
       {error ? <p className="muted" style={{ color: "#b91c1c" }}>{error}</p> : null}
       {loading ? <p className="muted">Učitavanje…</p> : null}
+
+      {!isPublic && !loading && persons.length > 0 ? (
+        <div
+          style={{
+            margin: "0.25rem 0 0.5rem",
+            padding: "0.5rem 0.75rem",
+            background: "#fffdf6",
+            border: "1px solid #d4c9a8",
+            borderRadius: 6,
+            fontSize: "0.85rem",
+            color: "#4a3c24",
+            lineHeight: 1.45,
+          }}
+        >
+          <strong style={{ marginRight: "0.5rem" }}>Dijagnostika:</strong>
+          <span>
+            osobe u bazi: <strong>{diagnostics.totalPersons}</strong> · roditelj-dete veze: <strong>{diagnostics.totalRelations}</strong> · partnerstva: <strong>{diagnostics.totalPartnerships}</strong>
+          </span>
+          <br />
+          <span>
+            u ogranku „{activeOgranakDef.label}" vidljivih: <strong>{diagnostics.visiblePersonsCount}</strong> · iscrtanih čvorova (parovi se sažimaju u jedan): <strong>{diagnostics.renderedNodes}</strong>
+            {diagnostics.missingInLayoutCount > 0 ? (
+              <>
+                {" "}
+                · <span style={{ color: "#b91c1c" }}>nepovezanih u ogranku: <strong>{diagnostics.missingInLayoutCount}</strong></span>
+              </>
+            ) : null}
+          </span>
+          {diagnostics.orphanCount > 0 ? (
+            <>
+              <br />
+              <span style={{ color: "#b91c1c" }}>
+                Osobe bez ijedne parent_child veze (ni roditelj ni dete): <strong>{diagnostics.orphanCount}</strong>
+                {" "}— ne mogu biti vidljive ni u jednom ogranku dok se ne povežu.
+              </span>
+            </>
+          ) : null}
+          {diagnostics.missingInLayoutCount > 0 && diagnostics.missingInLayoutNames.length > 0 ? (
+            <>
+              <br />
+              <span style={{ color: "#b91c1c" }}>
+                Primeri članova u ogranku koji nisu iscrtani: {diagnostics.missingInLayoutNames.join(", ")}
+                {diagnostics.missingInLayoutCount > diagnostics.missingInLayoutNames.length ? " …" : ""}
+              </span>
+            </>
+          ) : null}
+        </div>
+      ) : null}
 
       {!loading && persons.length === 0 ? (
         <p className="muted">Nema unetih članova za prikazano stablo.</p>
