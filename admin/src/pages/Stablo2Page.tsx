@@ -963,6 +963,80 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     return m;
   }, [layout.nodes]);
 
+  /** Tooltip (hover) po čvoru: "Ime S. Prezime" + "od oca: ..." + lista dece.
+   *  Koristi SVE osobe i veze (ne samo trenutni ogranak), pa tooltip radi i za
+   *  reference van ogranka. */
+  const tooltipByNodeId = useMemo(() => {
+    const allById = new Map<string, PersonRow>();
+    for (const p of persons) allById.set(p.id, p);
+
+    const parentsOf = new Map<string, string[]>();
+    const childrenOf = new Map<string, string[]>();
+    for (const r of relations) {
+      const parr = parentsOf.get(r.child_person_id) ?? [];
+      parr.push(r.parent_person_id);
+      parentsOf.set(r.child_person_id, parr);
+      const carr = childrenOf.get(r.parent_person_id) ?? [];
+      carr.push(r.child_person_id);
+      childrenOf.set(r.parent_person_id, carr);
+    }
+
+    const withInitial = (p: PersonRow) => {
+      const first = (p.first_name ?? "").trim();
+      const middle = (p.middle_name ?? "").trim();
+      const last = (p.last_name ?? "").trim();
+      const init = middle ? `${middle.charAt(0).toUpperCase()}.` : "";
+      return [first, init, last].filter(Boolean).join(" ") || "(bez imena)";
+    };
+
+    const fatherOf = (pid: string) => {
+      const pids = parentsOf.get(pid) ?? [];
+      const parents = pids
+        .map((i) => allById.get(i))
+        .filter(Boolean) as PersonRow[];
+      const father =
+        parents.find((p) => p.gender === "male") ?? parents[0] ?? null;
+      return father ? withInitial(father) : "—";
+    };
+
+    const m = new Map<string, string>();
+    for (const node of layout.nodes) {
+      const { first, second } = primaryPairForNode(node);
+      const firstP = allById.get(first.id);
+      const secondP = second ? allById.get(second.id) : null;
+
+      const lines: string[] = [];
+      if (firstP) {
+        lines.push(withInitial(firstP));
+        lines.push(`od oca: ${fatherOf(firstP.id)}`);
+      }
+      if (secondP) {
+        lines.push("");
+        lines.push(`+ ${withInitial(secondP)}`);
+        lines.push(`od oca: ${fatherOf(secondP.id)}`);
+      }
+
+      const kidIds = new Set<string>();
+      for (const c of childrenOf.get(node.id) ?? []) kidIds.add(c);
+      for (const par of node.partners) {
+        for (const c of childrenOf.get(par.id) ?? []) kidIds.add(c);
+      }
+      const kids = Array.from(kidIds)
+        .map((id) => allById.get(id))
+        .filter(Boolean) as PersonRow[];
+      if (kids.length) {
+        const names = kids
+          .map((p) => withInitial(p))
+          .sort((a, b) => a.localeCompare(b, "sr"));
+        lines.push("");
+        lines.push(`deca (${names.length}):`);
+        for (const n of names) lines.push(`• ${n}`);
+      }
+      m.set(node.id, lines.join("\n"));
+    }
+    return m;
+  }, [layout.nodes, persons, relations]);
+
   const opstinaById = useMemo(() => {
     const m = new Map<number, string>();
     for (const o of opstine) m.set(o.id, o.opis ?? `id ${o.id}`);
@@ -1808,6 +1882,7 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                     data-person-id={node.id}
                     transform={`translate(${node.x + CARD_HALF_W},${node.y + CARD_HALF_H})`}
                   >
+                    <title>{tooltipByNodeId.get(node.id) ?? first.label}</title>
                     {isLocateHighlight ? (
                       <>
                         <rect
