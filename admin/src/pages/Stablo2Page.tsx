@@ -442,6 +442,73 @@ function computeHorizontalLayout(persons: PersonRow[], relations: PcRow[], partn
     rootPos.y = sonsYs.reduce((s, y) => s + y, 0) / sonsYs.length;
   }
 
+  /** Kompakcija po kolonama (dubinama): garantuje da u istoj koloni dva susedna
+   *  čvora nikad nisu bliža od NODE_PITCH_H. Ako jesu, pomera niži čvor (i sve
+   *  njegove potomke) dole za razliku. Time se eliminišu preklapanja koja
+   *  nastaju zbog usrednjavanja Y roditelja po Y djece (internal node sa
+   *  jednim detetom zauzima isti red kao to dete, a sibling sa više listova
+   *  šire zauzima više redova — u praksi susedni sibling-ovi mogu biti bliži
+   *  od PITCH-a i vizuelno se dodirivati/preklapati). */
+  function collectSubtreeIds(rootId: string): Set<string> {
+    const out = new Set<string>();
+    const stack: string[] = [rootId];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      if (out.has(cur)) continue;
+      out.add(cur);
+      for (const c of childByParent.get(cur) ?? []) {
+        if (!out.has(c) && positions.has(c)) stack.push(c);
+      }
+    }
+    return out;
+  }
+
+  // Više prolaza: posle pomeranja u jednoj koloni može se pojaviti problem
+  // u susednoj — pa ponavljamo dok se ne stabilizuje ili se ne dostigne limit.
+  for (let pass = 0; pass < 6; pass++) {
+    const nodesByDepth = new Map<number, PositionedNode[]>();
+    for (const node of positions.values()) {
+      const arr = nodesByDepth.get(node.depth) ?? [];
+      arr.push(node);
+      nodesByDepth.set(node.depth, arr);
+    }
+
+    let shiftedAny = false;
+    const depthKeys = Array.from(nodesByDepth.keys()).sort((a, b) => a - b);
+    for (const depth of depthKeys) {
+      const colNodes = (nodesByDepth.get(depth) ?? []).slice().sort((a, b) => a.y - b.y);
+      for (let i = 1; i < colNodes.length; i++) {
+        const prev = colNodes[i - 1];
+        const cur = colNodes[i];
+        const minY = prev.y + NODE_PITCH_H;
+        if (cur.y + 0.5 < minY) {
+          const shift = minY - cur.y;
+          const ids = collectSubtreeIds(cur.id);
+          for (const id of ids) {
+            const p = positions.get(id);
+            if (p) p.y += shift;
+          }
+          shiftedAny = true;
+        }
+      }
+    }
+
+    if (!shiftedAny) break;
+
+    // Ponovno centriranje roditelja kao proseka Y pozicija svoje dece —
+    // tako posle pomeranja u koloni subtree zadrži vizuelno centriranog roditelja.
+    // Za čvor sa jednim detetom y se poklapa sa detetom (posle čega će sledeći
+    // pass u istoj koloni rešiti eventualne sudare sa sibling-om).
+    for (const node of positions.values()) {
+      const kids = (childByParent.get(node.id) ?? [])
+        .map((cid) => positions.get(cid))
+        .filter((x): x is PositionedNode => Boolean(x));
+      if (kids.length === 0) continue;
+      const ys = kids.map((k) => k.y);
+      node.y = ys.reduce((s, y) => s + y, 0) / ys.length;
+    }
+  }
+
   const edges: Array<{ from: string; to: string }> = [];
   for (const rel of relations) {
     if (positions.has(rel.parent_person_id) && positions.has(rel.child_person_id)) {
@@ -1256,12 +1323,29 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
     const totalRelations = relations.length;
     const totalPartnerships = partnerships.length;
 
+    const personsById = new Map<string, PersonRow>();
+    for (const p of persons) personsById.set(p.id, p);
+
     const childIds = new Set(relations.map((r) => r.child_person_id));
     const parentIds = new Set(relations.map((r) => r.parent_person_id));
 
-    const orphanIds = persons
-      .filter((p) => !childIds.has(p.id) && !parentIds.has(p.id))
-      .map((p) => p.id);
+    const fullName = (p: PersonRow) =>
+      [p.first_name, p.middle_name, p.last_name]
+        .map((s) => (s ?? "").trim())
+        .filter(Boolean)
+        .join(" ") || "(bez imena)";
+
+    // Roditelji po detetu — za tooltip/prikaz "od koga je dete".
+    const parentsByChild = new Map<string, string[]>();
+    for (const r of relations) {
+      const arr = parentsByChild.get(r.child_person_id) ?? [];
+      arr.push(r.parent_person_id);
+      parentsByChild.set(r.child_person_id, arr);
+    }
+
+    const orphans = persons.filter(
+      (p) => !childIds.has(p.id) && !parentIds.has(p.id),
+    );
 
     const visiblePersonsCount = visiblePersons.length;
     const renderedNodes = layout.nodes.length;
@@ -1278,24 +1362,50 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
       (p) => !renderedIds.has(p.id) && !partnersInNodes.has(p.id),
     );
 
+    // Osobe u bazi koje NISU u trenutnom ogranku. Za svaku ispiši ime roditelja
+    // (ako postoji), pa korisnik brzo vidi u kom se ogranku (ili van stabla) nalazi.
+    const visibleIds = new Set(visiblePersons.map((p) => p.id));
+    const outOfOgranakRows = persons
+      .filter((p) => !visibleIds.has(p.id))
+      .map((p) => {
+        const parentIdsForP = parentsByChild.get(p.id) ?? [];
+        const parentNames = parentIdsForP
+          .map((pid) => {
+            const par = personsById.get(pid);
+            return par ? fullName(par) : "(nepoznat)";
+          })
+          .join(" / ");
+        return {
+          id: p.id,
+          name: fullName(p),
+          parents: parentNames || "— (nema roditelja u bazi)",
+          hasAnyRelation: childIds.has(p.id) || parentIds.has(p.id),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" }));
+
     return {
       totalPersons,
       totalRelations,
       totalPartnerships,
-      orphanCount: orphanIds.length,
+      orphanCount: orphans.length,
+      orphanRows: orphans
+        .map((p) => ({ id: p.id, name: fullName(p) }))
+        .sort((a, b) => a.name.localeCompare(b.name, "sr", { sensitivity: "base" })),
       visiblePersonsCount,
       renderedNodes,
       missingInLayoutCount: missingInLayout.length,
       missingInLayoutNames: missingInLayout
         .slice(0, 8)
-        .map((p) =>
-          [p.first_name, p.middle_name, p.last_name]
-            .map((s) => (s ?? "").trim())
-            .filter(Boolean)
-            .join(" "),
-        ),
+        .map(fullName),
+      outOfOgranakCount: outOfOgranakRows.length,
+      outOfOgranakRows,
     };
   }, [persons, relations, partnerships, visiblePersons, layout.nodes]);
+
+  /** Detalji o nepovezanim i osobama van ogranka otvoreni po default-u — da ih
+   *  korisnik ne propusti. Može se ručno sakriti dugmetom u dijagnostičkoj traci. */
+  const [showDiagnosticsDetails, setShowDiagnosticsDetails] = useState(true);
 
   return (
     <div className={`page stablo2-page${isPublic ? " stablo2-page--public" : ""}`}>
@@ -1350,12 +1460,28 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
             lineHeight: 1.45,
           }}
         >
-          <strong style={{ marginRight: "0.5rem" }}>Dijagnostika:</strong>
-          <span>
-            osobe u bazi: <strong>{diagnostics.totalPersons}</strong> · roditelj-dete veze: <strong>{diagnostics.totalRelations}</strong> · partnerstva: <strong>{diagnostics.totalPartnerships}</strong>
-          </span>
-          <br />
-          <span>
+          <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+            <strong>Dijagnostika:</strong>
+            <span>
+              osobe u bazi: <strong>{diagnostics.totalPersons}</strong> · roditelj-dete veze: <strong>{diagnostics.totalRelations}</strong> · partnerstva: <strong>{diagnostics.totalPartnerships}</strong>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowDiagnosticsDetails((v) => !v)}
+              style={{
+                padding: "0.15rem 0.55rem",
+                fontSize: "0.8rem",
+                background: "#fff",
+                border: "1px solid #d4c9a8",
+                borderRadius: 4,
+                cursor: "pointer",
+                color: "#4a3c24",
+              }}
+            >
+              {showDiagnosticsDetails ? "Sakrij detalje" : "Prikaži detalje (nepovezane / van ogranka)"}
+            </button>
+          </div>
+          <div>
             u ogranku „{activeOgranakDef.label}" vidljivih: <strong>{diagnostics.visiblePersonsCount}</strong> · iscrtanih čvorova (parovi se sažimaju u jedan): <strong>{diagnostics.renderedNodes}</strong>
             {diagnostics.missingInLayoutCount > 0 ? (
               <>
@@ -1363,24 +1489,96 @@ export function Stablo2Page({ variant = "admin" }: Stablo2PageProps) {
                 · <span style={{ color: "#b91c1c" }}>nepovezanih u ogranku: <strong>{diagnostics.missingInLayoutCount}</strong></span>
               </>
             ) : null}
-          </span>
+            {diagnostics.outOfOgranakCount > 0 ? (
+              <>
+                {" · van ogranka: "}
+                <strong>{diagnostics.outOfOgranakCount}</strong>
+              </>
+            ) : null}
+          </div>
           {diagnostics.orphanCount > 0 ? (
-            <>
-              <br />
-              <span style={{ color: "#b91c1c" }}>
-                Osobe bez ijedne parent_child veze (ni roditelj ni dete): <strong>{diagnostics.orphanCount}</strong>
-                {" "}— ne mogu biti vidljive ni u jednom ogranku dok se ne povežu.
-              </span>
-            </>
+            <div style={{ color: "#b91c1c" }}>
+              Osobe bez ijedne parent_child veze (ni roditelj ni dete): <strong>{diagnostics.orphanCount}</strong>
+              {" "}— ne mogu biti vidljive ni u jednom ogranku dok se ne povežu.
+            </div>
           ) : null}
           {diagnostics.missingInLayoutCount > 0 && diagnostics.missingInLayoutNames.length > 0 ? (
-            <>
-              <br />
-              <span style={{ color: "#b91c1c" }}>
-                Primeri članova u ogranku koji nisu iscrtani: {diagnostics.missingInLayoutNames.join(", ")}
-                {diagnostics.missingInLayoutCount > diagnostics.missingInLayoutNames.length ? " …" : ""}
-              </span>
-            </>
+            <div style={{ color: "#b91c1c" }}>
+              Primeri članova u ogranku koji nisu iscrtani: {diagnostics.missingInLayoutNames.join(", ")}
+              {diagnostics.missingInLayoutCount > diagnostics.missingInLayoutNames.length ? " …" : ""}
+            </div>
+          ) : null}
+
+          {showDiagnosticsDetails ? (
+            <div style={{ marginTop: "0.5rem", display: "grid", gap: "0.6rem" }}>
+              {diagnostics.orphanRows.length > 0 ? (
+                <div
+                  style={{
+                    padding: "0.4rem 0.55rem",
+                    background: "#fff5f5",
+                    border: "1px solid #f1b0b0",
+                    borderRadius: 4,
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: "0.3rem", color: "#7f1d1d" }}>
+                    Nepovezane osobe ({diagnostics.orphanRows.length}) — nemaju nijednu parent_child vezu:
+                  </div>
+                  <ol style={{ margin: 0, paddingLeft: "1.3rem", color: "#7f1d1d" }}>
+                    {diagnostics.orphanRows.map((r) => (
+                      <li key={r.id}>{r.name}</li>
+                    ))}
+                  </ol>
+                  <div style={{ marginTop: "0.3rem", fontSize: "0.8rem", color: "#4a3c24" }}>
+                    Otvori modul <strong>Veze → Roditelj–Dete</strong> i dodaj svakom njegovog roditelja (ili bar nekog deteta).
+                  </div>
+                </div>
+              ) : null}
+
+              {diagnostics.outOfOgranakRows.length > 0 ? (
+                <div
+                  style={{
+                    padding: "0.4rem 0.55rem",
+                    background: "#fff",
+                    border: "1px solid #d4c9a8",
+                    borderRadius: 4,
+                    maxHeight: 320,
+                    overflow: "auto",
+                  }}
+                >
+                  <div style={{ fontWeight: 700, marginBottom: "0.3rem" }}>
+                    Osobe u bazi koje nisu u ogranku „{activeOgranakDef.label}" ({diagnostics.outOfOgranakRows.length}):
+                  </div>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.82rem" }}>
+                    <thead>
+                      <tr style={{ textAlign: "left" }}>
+                        <th style={{ borderBottom: "1px solid #d4c9a8", padding: "0.2rem 0.3rem" }}>Ime</th>
+                        <th style={{ borderBottom: "1px solid #d4c9a8", padding: "0.2rem 0.3rem" }}>Roditelj(i) u bazi</th>
+                        <th style={{ borderBottom: "1px solid #d4c9a8", padding: "0.2rem 0.3rem" }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {diagnostics.outOfOgranakRows.map((r) => (
+                        <tr key={r.id}>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #e5dfc9" }}>
+                            {r.name}
+                          </td>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #e5dfc9" }}>
+                            {r.parents}
+                          </td>
+                          <td style={{ padding: "0.18rem 0.3rem", borderBottom: "1px dotted #e5dfc9" }}>
+                            {r.hasAnyRelation ? (
+                              <span style={{ color: "#065f46" }}>povezan — ali ne pripada ovom ogranku</span>
+                            ) : (
+                              <span style={{ color: "#b91c1c" }}>bez ikakve veze</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
