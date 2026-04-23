@@ -15,6 +15,8 @@ const IP_STORAGE_KEY = "gr_site_ip";
 const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code";
 const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
 const REGION_NAME_STORAGE_KEY = "gr_site_region_name";
+const GEO_CACHE_AT_KEY = "gr_site_geo_cached_at";
+const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const HEARTBEAT_MS = 30000;
 const STATS_REFRESH_MS = 5000;
 const SESSION_STALE_MS = 5 * 60 * 1000;
@@ -51,12 +53,84 @@ type GeoInfo = {
   regionName: string | null;
 };
 
+function normalizeGeo(v: unknown): string | null {
+  if (typeof v !== "string") return null;
+  const t = v.trim();
+  return t.length ? t : null;
+}
+
+function pickBestRegion(values: unknown[]): string | null {
+  for (const v of values) {
+    const t = normalizeGeo(v);
+    if (t) return t;
+  }
+  return null;
+}
+
+async function fetchGeoFromIpapi(): Promise<GeoInfo> {
+  const response = await fetch("https://ipapi.co/json/");
+  if (!response.ok) throw new Error(`ipapi status ${response.status}`);
+  const data = (await response.json()) as {
+    ip?: string;
+    country_code?: string;
+    country_name?: string;
+    region?: string;
+    region_code?: string;
+    city?: string;
+  };
+  return {
+    ip: normalizeGeo(data.ip),
+    countryCode: normalizeGeo(data.country_code),
+    countryName: normalizeGeo(data.country_name),
+    regionName: pickBestRegion([data.region, data.region_code, data.city]),
+  };
+}
+
+async function fetchGeoFromIpwhois(): Promise<GeoInfo> {
+  const response = await fetch("https://ipwho.is/");
+  if (!response.ok) throw new Error(`ipwho status ${response.status}`);
+  const data = (await response.json()) as {
+    success?: boolean;
+    ip?: string;
+    country_code?: string;
+    country?: string;
+    region?: string;
+    region_code?: string;
+    city?: string;
+  };
+  if (data.success === false) throw new Error("ipwho unsuccessful");
+  return {
+    ip: normalizeGeo(data.ip),
+    countryCode: normalizeGeo(data.country_code),
+    countryName: normalizeGeo(data.country),
+    regionName: pickBestRegion([data.region, data.region_code, data.city]),
+  };
+}
+
+async function fetchIpOnly(): Promise<string | null> {
+  try {
+    const ipRes = await fetch("https://api.ipify.org?format=json");
+    if (!ipRes.ok) return null;
+    const ipData = (await ipRes.json()) as { ip?: string };
+    return normalizeGeo(ipData.ip);
+  } catch {
+    return null;
+  }
+}
+
 async function getGeoInfo(): Promise<GeoInfo> {
+  const now = Date.now();
+  const cachedAtRaw = localStorage.getItem(GEO_CACHE_AT_KEY);
+  const cachedAt = cachedAtRaw ? Number(cachedAtRaw) : 0;
   const cachedIp = localStorage.getItem(IP_STORAGE_KEY);
   const cachedCountryCode = localStorage.getItem(COUNTRY_CODE_STORAGE_KEY);
   const cachedCountryName = localStorage.getItem(COUNTRY_NAME_STORAGE_KEY);
   const cachedRegionName = localStorage.getItem(REGION_NAME_STORAGE_KEY);
-  if (cachedIp || cachedCountryCode || cachedCountryName || cachedRegionName) {
+  if (
+    cachedAt > 0 &&
+    now - cachedAt <= GEO_CACHE_TTL_MS &&
+    (cachedIp || cachedCountryCode || cachedCountryName || cachedRegionName)
+  ) {
     return {
       ip: cachedIp || null,
       countryCode: cachedCountryCode || null,
@@ -64,43 +138,35 @@ async function getGeoInfo(): Promise<GeoInfo> {
       regionName: cachedRegionName || null,
     };
   }
-  try {
-    const response = await fetch("https://ipapi.co/json/");
-    if (!response.ok) {
-      return { ip: null, countryCode: null, countryName: null, regionName: null };
+  const providers: Array<() => Promise<GeoInfo>> = [fetchGeoFromIpapi, fetchGeoFromIpwhois];
+  let geo: GeoInfo = { ip: null, countryCode: null, countryName: null, regionName: null };
+  for (const provider of providers) {
+    try {
+      const candidate = await provider();
+      geo = {
+        ip: geo.ip ?? candidate.ip,
+        countryCode: geo.countryCode ?? candidate.countryCode,
+        countryName: geo.countryName ?? candidate.countryName,
+        regionName: geo.regionName ?? candidate.regionName,
+      };
+      if (geo.ip && geo.countryCode && geo.countryName && geo.regionName) break;
+    } catch {
+      // probaj sledeći provider
     }
-    const data = (await response.json()) as {
-      ip?: string;
-      country_code?: string;
-      country_name?: string;
-      region?: string;
-    };
-    let ip = data.ip?.trim() || null;
-    const countryCode = data.country_code?.trim() || null;
-    const countryName = data.country_name?.trim() || null;
-    const regionName = data.region?.trim() || null;
-
-    // Fallback ako geo servis ne vrati IP (rate limit / blokada).
-    if (!ip) {
-      try {
-        const ipRes = await fetch("https://api.ipify.org?format=json");
-        if (ipRes.ok) {
-          const ipData = (await ipRes.json()) as { ip?: string };
-          ip = ipData.ip?.trim() || null;
-        }
-      } catch {
-        ip = null;
-      }
-    }
-
-    if (ip) localStorage.setItem(IP_STORAGE_KEY, ip);
-    if (countryCode) localStorage.setItem(COUNTRY_CODE_STORAGE_KEY, countryCode);
-    if (countryName) localStorage.setItem(COUNTRY_NAME_STORAGE_KEY, countryName);
-    if (regionName) localStorage.setItem(REGION_NAME_STORAGE_KEY, regionName);
-    return { ip, countryCode, countryName, regionName };
-  } catch {
-    return { ip: null, countryCode: null, countryName: null, regionName: null };
   }
+
+  if (!geo.ip) {
+    geo.ip = await fetchIpOnly();
+  }
+
+  if (geo.ip) localStorage.setItem(IP_STORAGE_KEY, geo.ip);
+  if (geo.countryCode) localStorage.setItem(COUNTRY_CODE_STORAGE_KEY, geo.countryCode);
+  if (geo.countryName) localStorage.setItem(COUNTRY_NAME_STORAGE_KEY, geo.countryName);
+  if (geo.regionName) localStorage.setItem(REGION_NAME_STORAGE_KEY, geo.regionName);
+  if (geo.ip || geo.countryCode || geo.countryName || geo.regionName) {
+    localStorage.setItem(GEO_CACHE_AT_KEY, `${Date.now()}`);
+  }
+  return geo;
 }
 
 function getDurationSeconds(fromMs: number | null) {
