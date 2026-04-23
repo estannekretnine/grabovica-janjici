@@ -26,8 +26,8 @@ export const OGRANCI: OgranakDef[] = [
   },
   {
     id: "trivunovici",
-    label: "Trivunovići",
-    fullLabel: "Ogranak Trivunovići",
+    label: "Trifunovići",
+    fullLabel: "Ogranak Trifunovići",
     branchPath: ["Miloš", "Trifun"],
   },
   {
