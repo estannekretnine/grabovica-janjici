@@ -4,7 +4,7 @@ import { ensureDefaultTreeExists } from "../lib/ensureDefaultTree";
 import { DEFAULT_TREE_ID } from "../constants";
 import { PersonActivitiesModal } from "./PersonActivitiesModal";
 import { TablePagination } from "../components/TablePagination";
-import type { Database } from "../types/database";
+import type { Database, ZanimanjeEntry } from "../types/database";
 import type { Gender } from "../types/database";
 
 type PersonRow = Database["audit"]["Tables"]["gr_persons"]["Row"];
@@ -13,6 +13,8 @@ type TreeRow = Database["audit"]["Tables"]["gr_family_trees"]["Row"];
 type DrzavaRow = Database["public"]["Tables"]["drzava"]["Row"];
 type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
+type SkolskaSpremaRow = Database["public"]["Tables"]["skolskasprema"]["Row"];
+type ZanimanjeRow = Database["public"]["Tables"]["zanimanje"]["Row"];
 type PhotoItem = { id: string; storagePath: string; previewUrl: string | null; file: File | null };
 
 const emptyForm: PersonInsert = {
@@ -39,7 +41,37 @@ const emptyForm: PersonInsert = {
   mob1: null,
   mob2: null,
   karijera: null,
+  skolskaspremaid: null,
+  zanimanja: [],
 };
+
+function emptyZanimanjeEntry(): ZanimanjeEntry {
+  return { zanimanjeid: null, datum_od: null, datum_do: null };
+}
+
+function normalizeZanimanja(raw: unknown): ZanimanjeEntry[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((row): ZanimanjeEntry | null => {
+      if (!row || typeof row !== "object") return null;
+      const r = row as Record<string, unknown>;
+      const idRaw = r.zanimanjeid;
+      const id =
+        typeof idRaw === "number"
+          ? idRaw
+          : typeof idRaw === "string" && idRaw.trim()
+            ? Number(idRaw)
+            : null;
+      return {
+        zanimanjeid: id == null || Number.isNaN(id) ? null : id,
+        datum_od: typeof r.datum_od === "string" && r.datum_od ? r.datum_od : null,
+        datum_do: typeof r.datum_do === "string" && r.datum_do ? r.datum_do : null,
+        napomena:
+          typeof r.napomena === "string" && r.napomena ? r.napomena : null,
+      };
+    })
+    .filter((x): x is ZanimanjeEntry => x !== null);
+}
 
 function personLabel(p: Pick<PersonRow, "first_name" | "middle_name" | "last_name">) {
   const a = [p.first_name, p.middle_name, p.last_name]
@@ -108,6 +140,8 @@ export function PersonsPage() {
   const [drzave, setDrzave] = useState<DrzavaRow[]>([]);
   const [opstine, setOpstine] = useState<OpstinaRow[]>([]);
   const [lokacije, setLokacije] = useState<LokacijaRow[]>([]);
+  const [skolskeSpreme, setSkolskeSpreme] = useState<SkolskaSpremaRow[]>([]);
+  const [zanimanja, setZanimanja] = useState<ZanimanjeRow[]>([]);
   const [treeId, setTreeId] = useState(DEFAULT_TREE_ID);
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [search, setSearch] = useState("");
@@ -131,18 +165,29 @@ export function PersonsPage() {
 
   const loadLocations = useCallback(async () => {
     if (!supabase) return;
-    const [drRes, opRes, loRes] = await Promise.all([
+    const [drRes, opRes, loRes, ssRes, zaRes] = await Promise.all([
       supabase.from("drzava").select("*").order("opis", { ascending: true }),
       supabase.from("opstina").select("*").order("opis", { ascending: true }),
       supabase.from("lokacija").select("*").order("opis", { ascending: true }),
+      supabase.from("skolskasprema").select("*").order("opis", { ascending: true }),
+      supabase.from("zanimanje").select("*").order("opis", { ascending: true }),
     ]);
-    if (drRes.error || opRes.error || loRes.error) {
-      setError(drRes.error?.message ?? opRes.error?.message ?? loRes.error?.message ?? null);
+    if (drRes.error || opRes.error || loRes.error || ssRes.error || zaRes.error) {
+      setError(
+        drRes.error?.message ??
+          opRes.error?.message ??
+          loRes.error?.message ??
+          ssRes.error?.message ??
+          zaRes.error?.message ??
+          null
+      );
       return;
     }
     setDrzave(drRes.data ?? []);
     setOpstine(opRes.data ?? []);
     setLokacije(loRes.data ?? []);
+    setSkolskeSpreme(ssRes.data ?? []);
+    setZanimanja(zaRes.data ?? []);
   }, []);
 
   const loadPersons = useCallback(async (tid: string) => {
@@ -270,6 +315,8 @@ export function PersonsPage() {
       mob1: p.mob1,
       mob2: p.mob2,
       karijera: p.karijera,
+      skolskaspremaid: p.skolskaspremaid,
+      zanimanja: normalizeZanimanja(p.zanimanja),
     });
     const parsed = parsePhotoItems(p.photo_storage_path);
     setPhotoItems(
@@ -351,6 +398,30 @@ export function PersonsPage() {
 
   function parseNullableId(v: string): number | null {
     return v ? Number(v) : null;
+  }
+
+  function addZanimanjeRow() {
+    setForm((f) => ({
+      ...f,
+      zanimanja: [...(f.zanimanja ?? []), emptyZanimanjeEntry()],
+    }));
+  }
+
+  function updateZanimanjeRow(index: number, patch: Partial<ZanimanjeEntry>) {
+    setForm((f) => {
+      const list = [...(f.zanimanja ?? [])];
+      if (!list[index]) return f;
+      list[index] = { ...list[index], ...patch };
+      return { ...f, zanimanja: list };
+    });
+  }
+
+  function removeZanimanjeRow(index: number) {
+    setForm((f) => {
+      const list = [...(f.zanimanja ?? [])];
+      list.splice(index, 1);
+      return { ...f, zanimanja: list };
+    });
   }
 
   function addPhotoPath() {
@@ -769,6 +840,95 @@ export function PersonsPage() {
                 placeholder="Radno mesto, obrazovanje, iskustvo…"
               />
             </label>
+            <div className="person-form-section">
+              <h3>Školska sprema i zanimanja</h3>
+              <label>
+                Školska sprema
+                <select
+                  value={form.skolskaspremaid != null ? String(form.skolskaspremaid) : ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      skolskaspremaid: parseNullableId(e.target.value),
+                    }))
+                  }
+                >
+                  <option value="">— Bez vrednosti —</option>
+                  {skolskeSpreme.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.opis ?? `id ${s.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="row" style={{ alignItems: "center", marginTop: "0.5rem" }}>
+                <strong>Zanimanja</strong>
+                <button type="button" onClick={addZanimanjeRow}>
+                  Dodaj zanimanje
+                </button>
+              </div>
+
+              {(form.zanimanja ?? []).length === 0 ? (
+                <p className="muted">Nema dodatih zanimanja.</p>
+              ) : (
+                <div className="stack" style={{ gap: "0.5rem", marginTop: "0.5rem" }}>
+                  {(form.zanimanja ?? []).map((entry, idx) => (
+                    <div
+                      key={idx}
+                      className="row"
+                      style={{ alignItems: "flex-end", flexWrap: "wrap", gap: "0.5rem" }}
+                    >
+                      <label style={{ flex: "2 1 14rem" }}>
+                        Zanimanje
+                        <select
+                          value={entry.zanimanjeid != null ? String(entry.zanimanjeid) : ""}
+                          onChange={(e) =>
+                            updateZanimanjeRow(idx, {
+                              zanimanjeid: parseNullableId(e.target.value),
+                            })
+                          }
+                        >
+                          <option value="">— Izaberi —</option>
+                          {zanimanja.map((z) => (
+                            <option key={z.id} value={z.id}>
+                              {z.opis ?? `id ${z.id}`}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                      <label style={{ flex: "1 1 9rem" }}>
+                        Datum od
+                        <input
+                          type="date"
+                          value={entry.datum_od ?? ""}
+                          onChange={(e) =>
+                            updateZanimanjeRow(idx, { datum_od: e.target.value || null })
+                          }
+                        />
+                      </label>
+                      <label style={{ flex: "1 1 9rem" }}>
+                        Datum do
+                        <input
+                          type="date"
+                          value={entry.datum_do ?? ""}
+                          onChange={(e) =>
+                            updateZanimanjeRow(idx, { datum_do: e.target.value || null })
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="danger"
+                        onClick={() => removeZanimanjeRow(idx)}
+                      >
+                        Ukloni
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="row">
               <button className="primary" type="submit">
                 {editingId ? "Sačuvaj" : "Dodaj osobu"}

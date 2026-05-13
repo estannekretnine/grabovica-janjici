@@ -11,6 +11,13 @@ export type PartnershipType =
   | "domestic_partnership"
   | "other";
 
+export type ZanimanjeEntry = {
+  zanimanjeid: number | null;
+  datum_od: string | null;
+  datum_do: string | null;
+  napomena?: string | null;
+};
+
 type GenealogyTables = {
   gr_family_trees: {
     Row: {
@@ -60,6 +67,8 @@ type GenealogyTables = {
       mob1: string | null;
       mob2: string | null;
       karijera: string | null;
+      skolskaspremaid: number | null;
+      zanimanja: ZanimanjeEntry[];
     };
     Insert: {
       id?: string;
@@ -88,6 +97,8 @@ type GenealogyTables = {
       mob1?: string | null;
       mob2?: string | null;
       karijera?: string | null;
+      skolskaspremaid?: number | null;
+      zanimanja?: ZanimanjeEntry[];
     };
     Update: {
       id?: string;
@@ -116,6 +127,8 @@ type GenealogyTables = {
       mob1?: string | null;
       mob2?: string | null;
       karijera?: string | null;
+      skolskaspremaid?: number | null;
+      zanimanja?: ZanimanjeEntry[];
     };
   };
   gr_aktivnosti: {
@@ -500,6 +513,40 @@ export type Database = {
           created_at?: string;
           opis?: string | null;
           idopstina?: number | null;
+        };
+      };
+      skolskasprema: {
+        Row: {
+          id: number;
+          created_at: string;
+          opis: string | null;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+        };
+      };
+      zanimanje: {
+        Row: {
+          id: number;
+          created_at: string;
+          opis: string | null;
+        };
+        Insert: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
+        };
+        Update: {
+          id?: number;
+          created_at?: string;
+          opis?: string | null;
         };
       };
     };

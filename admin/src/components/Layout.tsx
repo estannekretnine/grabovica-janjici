@@ -43,6 +43,12 @@ export function Layout({ email, onSignOut }: Props) {
             <NavLink to="/korisnici" className={navClass} onClick={closeSidebar}>
               Korisnici
             </NavLink>
+            <NavLink to="/skolska-sprema" className={navClass} onClick={closeSidebar}>
+              Školska sprema
+            </NavLink>
+            <NavLink to="/zanimanja" className={navClass} onClick={closeSidebar}>
+              Zanimanja
+            </NavLink>
             <NavLink to="/poruke-sajta" className={navClass} onClick={closeSidebar}>
               Poruke sa sajta
             </NavLink>
