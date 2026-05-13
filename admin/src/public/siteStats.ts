@@ -11,11 +11,14 @@ const SESSION_LAST_SEEN_KEY = "gr_site_session_last_seen_at";
 const SESSION_PAGES_COUNT_KEY = "gr_site_session_pages_count";
 const LAST_PAGE_KEY = "gr_site_last_page";
 const LAST_PAGE_AT_KEY = "gr_site_last_page_at";
-const IP_STORAGE_KEY = "gr_site_ip";
-const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code";
-const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name";
-const REGION_NAME_STORAGE_KEY = "gr_site_region_name";
-const GEO_CACHE_AT_KEY = "gr_site_geo_cached_at";
+// v2 sufiks invalidira keseve iz prethodne verzije gde su mnogi posetioci
+// imali NULL geo zbog ad-blokiranja eksternih providera. Sada se prvo
+// koristi same-origin /api/geo endpoint.
+const IP_STORAGE_KEY = "gr_site_ip_v2";
+const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code_v2";
+const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name_v2";
+const REGION_NAME_STORAGE_KEY = "gr_site_region_name_v2";
+const GEO_CACHE_AT_KEY = "gr_site_geo_cached_at_v2";
 const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const HEARTBEAT_MS = 30000;
 const STATS_REFRESH_MS = 5000;
@@ -67,6 +70,27 @@ function pickBestRegion(values: unknown[]): string | null {
   return null;
 }
 
+async function fetchGeoFromVercelEdge(): Promise<GeoInfo> {
+  // Same-origin endpoint koji cita Vercel edge headere (x-vercel-ip-country, ...).
+  // Ovo je primarni izvor jer ad-blokeri ne blokiraju same-origin pozive,
+  // nema rate-limita, i radi za sve posetioce.
+  const response = await fetch("/api/geo", { cache: "no-store" });
+  if (!response.ok) throw new Error(`vercel geo status ${response.status}`);
+  const data = (await response.json()) as {
+    ip?: string;
+    country_code?: string;
+    country_name?: string;
+    region_name?: string;
+    city?: string;
+  };
+  return {
+    ip: normalizeGeo(data.ip),
+    countryCode: normalizeGeo(data.country_code),
+    countryName: normalizeGeo(data.country_name),
+    regionName: pickBestRegion([data.region_name, data.city]),
+  };
+}
+
 async function fetchGeoFromIpapi(): Promise<GeoInfo> {
   const response = await fetch("https://ipapi.co/json/");
   if (!response.ok) throw new Error(`ipapi status ${response.status}`);
@@ -82,7 +106,7 @@ async function fetchGeoFromIpapi(): Promise<GeoInfo> {
     ip: normalizeGeo(data.ip),
     countryCode: normalizeGeo(data.country_code),
     countryName: normalizeGeo(data.country_name),
-    regionName: pickBestRegion([data.region, data.region_code, data.city]),
+    regionName: pickBestRegion([data.city, data.region, data.region_code]),
   };
 }
 
@@ -103,7 +127,7 @@ async function fetchGeoFromIpwhois(): Promise<GeoInfo> {
     ip: normalizeGeo(data.ip),
     countryCode: normalizeGeo(data.country_code),
     countryName: normalizeGeo(data.country),
-    regionName: pickBestRegion([data.region, data.region_code, data.city]),
+    regionName: pickBestRegion([data.city, data.region, data.region_code]),
   };
 }
 
@@ -138,7 +162,14 @@ async function getGeoInfo(): Promise<GeoInfo> {
       regionName: cachedRegionName || null,
     };
   }
-  const providers: Array<() => Promise<GeoInfo>> = [fetchGeoFromIpapi, fetchGeoFromIpwhois];
+  // Redosled: prvo Vercel edge (same-origin, ne moze biti blokiran),
+  // pa eksterni provideri kao fallback ako iz nekog razloga /api/geo
+  // nije dostupan (npr. lokalni dev bez Vercel runtime-a).
+  const providers: Array<() => Promise<GeoInfo>> = [
+    fetchGeoFromVercelEdge,
+    fetchGeoFromIpapi,
+    fetchGeoFromIpwhois,
+  ];
   let geo: GeoInfo = { ip: null, countryCode: null, countryName: null, regionName: null };
   for (const provider of providers) {
     try {
