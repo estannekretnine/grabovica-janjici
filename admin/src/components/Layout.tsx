@@ -4,14 +4,17 @@ import { useState } from "react";
 type Props = {
   email: string;
   onSignOut: () => void;
+  stsstatus?: string | null;
 };
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `sidebar-link${isActive ? " active" : ""}`;
 }
 
-export function Layout({ email, onSignOut }: Props) {
+export function Layout({ email, onSignOut, stsstatus }: Props) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const role = (stsstatus ?? "").trim().toLowerCase();
+  const isAgent = role === "agent";
 
   function closeSidebar() {
     setSidebarOpen(false);
@@ -40,9 +43,11 @@ export function Layout({ email, onSignOut }: Props) {
         <nav className="sidebar-nav" aria-label="Glavna navigacija">
           <div className="sidebar-group">
             <div className="sidebar-label">Admin</div>
-            <NavLink to="/korisnici" className={navClass} onClick={closeSidebar}>
-              Korisnici
-            </NavLink>
+            {isAgent ? null : (
+              <NavLink to="/korisnici" className={navClass} onClick={closeSidebar}>
+                Korisnici
+              </NavLink>
+            )}
             <NavLink to="/skolska-sprema" className={navClass} onClick={closeSidebar}>
               Školska sprema
             </NavLink>
@@ -84,15 +89,19 @@ export function Layout({ email, onSignOut }: Props) {
             <NavLink to="/relationships" className={navClass} onClick={closeSidebar}>
               Veze
             </NavLink>
-            <NavLink to="/trees" className={navClass} onClick={closeSidebar}>
-              Stabla
-            </NavLink>
-            <NavLink to="/stablo-1" className={navClass} onClick={closeSidebar}>
-              Stablo 1
-            </NavLink>
-            <NavLink to="/stablo-2" className={navClass} onClick={closeSidebar}>
-              Stablo 2
-            </NavLink>
+            {isAgent ? null : (
+              <>
+                <NavLink to="/trees" className={navClass} onClick={closeSidebar}>
+                  Stabla
+                </NavLink>
+                <NavLink to="/stablo-1" className={navClass} onClick={closeSidebar}>
+                  Stablo 1
+                </NavLink>
+                <NavLink to="/stablo-2" className={navClass} onClick={closeSidebar}>
+                  Stablo 2
+                </NavLink>
+              </>
+            )}
           </div>
         </nav>
 

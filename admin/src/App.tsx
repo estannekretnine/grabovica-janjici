@@ -67,6 +67,8 @@ export default function App() {
     session?.user.email ||
     session?.user.id ||
     "";
+  const role = (korisnik?.stsstatus ?? "").trim().toLowerCase();
+  const isAgent = role === "agent";
 
   const adminSignOut = () => {
     clearKorisnikFromStorage();
@@ -94,10 +96,11 @@ export default function App() {
             <Layout
               email={headerLabel}
               onSignOut={adminSignOut}
+              stsstatus={korisnik?.stsstatus ?? null}
             />
           }
         >
-          <Route path="/korisnici" element={<KorisniciPage />} />
+          {isAgent ? null : <Route path="/korisnici" element={<KorisniciPage />} />}
           <Route path="/skolska-sprema" element={<SkolskaSpremaPage />} />
           <Route path="/zanimanja" element={<ZanimanjePage />} />
           <Route path="/fakulteti" element={<FakultetPage />} />
@@ -107,9 +110,13 @@ export default function App() {
           <Route path="/countries" element={<DrzavePage />} />
           <Route path="/municipalities" element={<OpstinePage />} />
           <Route path="/locations" element={<LokacijaPage />} />
-          <Route path="/trees" element={<TreesPage />} />
-          <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
-          <Route path="/stablo-2" element={<Stablo2Page />} />
+          {isAgent ? null : (
+            <>
+              <Route path="/trees" element={<TreesPage />} />
+              <Route path="/stablo-1" element={<TreesPage variant="stablo1" />} />
+              <Route path="/stablo-2" element={<Stablo2Page />} />
+            </>
+          )}
           <Route path="/persons" element={<PersonsPage />} />
           <Route path="/relationships" element={<RelationshipsPage />} />
         </Route>
