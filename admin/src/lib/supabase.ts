@@ -39,10 +39,25 @@ export const isSupabaseConfigured = supabase !== null;
 
 /**
  * Poseban klijent samo za javno (anonimno) pracenje sajta.
- * Ne deli auth sesiju sa glavnim klijentom (`persistSession: false`),
- * pa istek JWT-a iz admin login-a ne moze da vrati 401 na heartbeat update.
- * Uvek koristi anon API key.
+ *
+ * Garantovano izolovan od admin auth sesije:
+ *  - persistSession: false  → ne pise u storage
+ *  - autoRefreshToken: false
+ *  - distinct storageKey    → ne deli kljuc sa glavnim klijentom
+ *  - in-memory storage stub → ne cita iz localStorage uopste,
+ *    pa istekli JWT iz admin login-a NIKAD ne dospeva u requeste
+ *    (ranije je uzrokovalo 401 na heartbeat/update).
  */
+const noopAuthStorage = {
+  getItem: () => null,
+  setItem: () => {
+    /* no-op */
+  },
+  removeItem: () => {
+    /* no-op */
+  },
+};
+
 function createTrackingClient(): SupabaseClient<Database> | null {
   if (!url || !anon) return null;
   try {
@@ -51,6 +66,8 @@ function createTrackingClient(): SupabaseClient<Database> | null {
         persistSession: false,
         autoRefreshToken: false,
         detectSessionInUrl: false,
+        storageKey: "sb-grabovica-tracking-anon",
+        storage: noopAuthStorage,
       },
     });
   } catch {
