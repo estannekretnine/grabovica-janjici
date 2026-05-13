@@ -15,6 +15,7 @@ type OpstinaRow = Database["public"]["Tables"]["opstina"]["Row"];
 type LokacijaRow = Database["public"]["Tables"]["lokacija"]["Row"];
 type SkolskaSpremaRow = Database["public"]["Tables"]["skolskasprema"]["Row"];
 type ZanimanjeRow = Database["public"]["Tables"]["zanimanje"]["Row"];
+type FakultetRow = Database["public"]["Tables"]["fakultet"]["Row"];
 type PhotoItem = { id: string; storagePath: string; previewUrl: string | null; file: File | null };
 
 const emptyForm: PersonInsert = {
@@ -42,6 +43,7 @@ const emptyForm: PersonInsert = {
   mob2: null,
   karijera: null,
   skolskaspremaid: null,
+  fakultetid: null,
   zanimanja: [],
 };
 
@@ -142,6 +144,7 @@ export function PersonsPage() {
   const [lokacije, setLokacije] = useState<LokacijaRow[]>([]);
   const [skolskeSpreme, setSkolskeSpreme] = useState<SkolskaSpremaRow[]>([]);
   const [zanimanja, setZanimanja] = useState<ZanimanjeRow[]>([]);
+  const [fakulteti, setFakulteti] = useState<FakultetRow[]>([]);
   const [treeId, setTreeId] = useState(DEFAULT_TREE_ID);
   const [persons, setPersons] = useState<PersonRow[]>([]);
   const [search, setSearch] = useState("");
@@ -165,20 +168,22 @@ export function PersonsPage() {
 
   const loadLocations = useCallback(async () => {
     if (!supabase) return;
-    const [drRes, opRes, loRes, ssRes, zaRes] = await Promise.all([
+    const [drRes, opRes, loRes, ssRes, zaRes, faRes] = await Promise.all([
       supabase.from("drzava").select("*").order("opis", { ascending: true }),
       supabase.from("opstina").select("*").order("opis", { ascending: true }),
       supabase.from("lokacija").select("*").order("opis", { ascending: true }),
       supabase.from("skolskasprema").select("*").order("opis", { ascending: true }),
       supabase.from("zanimanje").select("*").order("opis", { ascending: true }),
+      supabase.from("fakultet").select("*").order("naziv", { ascending: true }),
     ]);
-    if (drRes.error || opRes.error || loRes.error || ssRes.error || zaRes.error) {
+    if (drRes.error || opRes.error || loRes.error || ssRes.error || zaRes.error || faRes.error) {
       setError(
         drRes.error?.message ??
           opRes.error?.message ??
           loRes.error?.message ??
           ssRes.error?.message ??
           zaRes.error?.message ??
+          faRes.error?.message ??
           null
       );
       return;
@@ -188,6 +193,7 @@ export function PersonsPage() {
     setLokacije(loRes.data ?? []);
     setSkolskeSpreme(ssRes.data ?? []);
     setZanimanja(zaRes.data ?? []);
+    setFakulteti(faRes.data ?? []);
   }, []);
 
   const loadPersons = useCallback(async (tid: string) => {
@@ -316,6 +322,7 @@ export function PersonsPage() {
       mob2: p.mob2,
       karijera: p.karijera,
       skolskaspremaid: p.skolskaspremaid,
+      fakultetid: p.fakultetid ?? null,
       zanimanja: normalizeZanimanja(p.zanimanja),
     });
     const parsed = parsePhotoItems(p.photo_storage_path);
@@ -857,6 +864,26 @@ export function PersonsPage() {
                   {skolskeSpreme.map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.opis ?? `id ${s.id}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Fakultet
+                <select
+                  value={form.fakultetid != null ? String(form.fakultetid) : ""}
+                  onChange={(e) =>
+                    setForm((f) => ({
+                      ...f,
+                      fakultetid: parseNullableId(e.target.value),
+                    }))
+                  }
+                >
+                  <option value="">— Bez vrednosti —</option>
+                  {fakulteti.map((fk) => (
+                    <option key={fk.id} value={fk.id}>
+                      {(fk.naziv ?? "").trim() || `id ${fk.id}`}
+                      {(fk.grad ?? "").trim() ? ` — ${(fk.grad ?? "").trim()}` : ""}
                     </option>
                   ))}
                 </select>

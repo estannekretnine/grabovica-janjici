@@ -68,6 +68,7 @@ type GenealogyTables = {
       mob2: string | null;
       karijera: string | null;
       skolskaspremaid: number | null;
+      fakultetid: number | null;
       zanimanja: ZanimanjeEntry[];
     };
     Insert: {
@@ -98,6 +99,7 @@ type GenealogyTables = {
       mob2?: string | null;
       karijera?: string | null;
       skolskaspremaid?: number | null;
+      fakultetid?: number | null;
       zanimanja?: ZanimanjeEntry[];
     };
     Update: {
@@ -128,6 +130,7 @@ type GenealogyTables = {
       mob2?: string | null;
       karijera?: string | null;
       skolskaspremaid?: number | null;
+      fakultetid?: number | null;
       zanimanja?: ZanimanjeEntry[];
     };
   };
