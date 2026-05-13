@@ -13,6 +13,7 @@ import { LokacijaPage } from "./pages/LokacijaPage";
 import { KorisniciPage } from "./pages/KorisniciPage";
 import { PorukeSajtaPage } from "./pages/PorukeSajtaPage";
 import { StatistikaSajtaPage } from "./pages/StatistikaSajtaPage";
+import { StatistikaClanovaPage } from "./pages/StatistikaClanovaPage";
 import { Stablo2Page } from "./pages/Stablo2Page";
 import { SkolskaSpremaPage } from "./pages/SkolskaSpremaPage";
 import { ZanimanjePage } from "./pages/ZanimanjePage";
@@ -102,6 +103,7 @@ export default function App() {
           <Route path="/fakulteti" element={<FakultetPage />} />
           <Route path="/poruke-sajta" element={<PorukeSajtaPage />} />
           <Route path="/statistika-sajta" element={<StatistikaSajtaPage />} />
+          <Route path="/statistika-clanova" element={<StatistikaClanovaPage />} />
           <Route path="/countries" element={<DrzavePage />} />
           <Route path="/municipalities" element={<OpstinePage />} />
           <Route path="/locations" element={<LokacijaPage />} />

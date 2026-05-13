@@ -1291,3 +1291,60 @@ th {
   }
 }
 
+/* Statistika članova — štampa / PDF (browser „Sačuvaj kao PDF“) */
+.print-only {
+  display: none;
+}
+
+.stat-clanova-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.stat-clanova-table th,
+.stat-clanova-table td {
+  padding: 0.35rem 0.5rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+
+  .print-only {
+    display: block !important;
+  }
+
+  .app-shell .sidebar,
+  .app-shell .sidebar-backdrop,
+  .app-shell .mobile-topbar {
+    display: none !important;
+  }
+
+  .app-shell {
+    display: block;
+    min-height: auto;
+  }
+
+  .app-main-wrap {
+    margin: 0;
+    padding: 0;
+  }
+
+  .app-main {
+    padding: 0.75rem;
+    max-width: none;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .stat-clanova-print.card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
+}
+
