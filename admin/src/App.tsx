@@ -16,6 +16,7 @@ import { StatistikaSajtaPage } from "./pages/StatistikaSajtaPage";
 import { Stablo2Page } from "./pages/Stablo2Page";
 import { SkolskaSpremaPage } from "./pages/SkolskaSpremaPage";
 import { ZanimanjePage } from "./pages/ZanimanjePage";
+import { FakultetPage } from "./pages/FakultetPage";
 import { PublicShell } from "./public/PublicLayout";
 import { PublicHome } from "./public/PublicHome";
 import { PublicStablo } from "./public/PublicStablo";
@@ -98,6 +99,7 @@ export default function App() {
           <Route path="/korisnici" element={<KorisniciPage />} />
           <Route path="/skolska-sprema" element={<SkolskaSpremaPage />} />
           <Route path="/zanimanja" element={<ZanimanjePage />} />
+          <Route path="/fakulteti" element={<FakultetPage />} />
           <Route path="/poruke-sajta" element={<PorukeSajtaPage />} />
           <Route path="/statistika-sajta" element={<StatistikaSajtaPage />} />
           <Route path="/countries" element={<DrzavePage />} />

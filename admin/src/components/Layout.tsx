@@ -49,6 +49,9 @@ export function Layout({ email, onSignOut }: Props) {
             <NavLink to="/zanimanja" className={navClass} onClick={closeSidebar}>
               Zanimanja
             </NavLink>
+            <NavLink to="/fakulteti" className={navClass} onClick={closeSidebar}>
+              Fakulteti
+            </NavLink>
             <NavLink to="/poruke-sajta" className={navClass} onClick={closeSidebar}>
               Poruke sa sajta
             </NavLink>

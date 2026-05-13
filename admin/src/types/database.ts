@@ -549,6 +549,23 @@ export type Database = {
           opis?: string | null;
         };
       };
+      fakultet: {
+        Row: {
+          id: number;
+          naziv: string;
+          grad: string | null;
+        };
+        Insert: {
+          id?: number;
+          naziv?: string;
+          grad?: string | null;
+        };
+        Update: {
+          id?: number;
+          naziv?: string;
+          grad?: string | null;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: {
