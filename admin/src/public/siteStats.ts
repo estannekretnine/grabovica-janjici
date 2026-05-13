@@ -17,8 +17,8 @@ const SESSION_PAGES_COUNT_KEY = "gr_site_session_pages_count";
 const LAST_PAGE_KEY = "gr_site_last_page";
 const LAST_PAGE_AT_KEY = "gr_site_last_page_at";
 // v2 sufiks invalidira keseve iz prethodne verzije gde su mnogi posetioci
-// imali NULL geo zbog ad-blokiranja eksternih providera. Sada se prvo
-// koristi same-origin /api/geo endpoint.
+// imali NULL geo zbog ad-blokiranja eksternih providera. Sada se koristi
+// isključivo same-origin /api/geo (Vercel edge headere).
 const IP_STORAGE_KEY = "gr_site_ip_v2";
 const COUNTRY_CODE_STORAGE_KEY = "gr_site_country_code_v2";
 const COUNTRY_NAME_STORAGE_KEY = "gr_site_country_name_v2";
@@ -28,10 +28,32 @@ const GEO_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const HEARTBEAT_MS = 30000;
 const STATS_REFRESH_MS = 5000;
 const SESSION_STALE_MS = 5 * 60 * 1000;
+/** Koliko dugo čekamo /api/geo pre prvog INSERT-a sesije (same-origin). */
+const FIRST_INSERT_GEO_WAIT_MS = 1500;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
 
 function logTrackError(step: string, error: unknown) {
   // Debug only: pomaže da brzo vidimo zašto se insert/update ne upisuje.
-  console.error(`[site-tracking] ${step} failed`, error);
+  const e = error as {
+    message?: string;
+    code?: string;
+    details?: string;
+    hint?: string;
+    status?: number;
+  } | null;
+  console.error(`[site-tracking] ${step} failed`, {
+    message: e?.message,
+    code: e?.code,
+    details: e?.details,
+    hint: e?.hint,
+    status: e?.status,
+    raw: error,
+  });
 }
 
 function isMissingSessionColumnError(error: unknown) {
@@ -96,57 +118,6 @@ async function fetchGeoFromVercelEdge(): Promise<GeoInfo> {
   };
 }
 
-async function fetchGeoFromIpapi(): Promise<GeoInfo> {
-  const response = await fetch("https://ipapi.co/json/");
-  if (!response.ok) throw new Error(`ipapi status ${response.status}`);
-  const data = (await response.json()) as {
-    ip?: string;
-    country_code?: string;
-    country_name?: string;
-    region?: string;
-    region_code?: string;
-    city?: string;
-  };
-  return {
-    ip: normalizeGeo(data.ip),
-    countryCode: normalizeGeo(data.country_code),
-    countryName: normalizeGeo(data.country_name),
-    regionName: pickBestRegion([data.city, data.region, data.region_code]),
-  };
-}
-
-async function fetchGeoFromIpwhois(): Promise<GeoInfo> {
-  const response = await fetch("https://ipwho.is/");
-  if (!response.ok) throw new Error(`ipwho status ${response.status}`);
-  const data = (await response.json()) as {
-    success?: boolean;
-    ip?: string;
-    country_code?: string;
-    country?: string;
-    region?: string;
-    region_code?: string;
-    city?: string;
-  };
-  if (data.success === false) throw new Error("ipwho unsuccessful");
-  return {
-    ip: normalizeGeo(data.ip),
-    countryCode: normalizeGeo(data.country_code),
-    countryName: normalizeGeo(data.country),
-    regionName: pickBestRegion([data.city, data.region, data.region_code]),
-  };
-}
-
-async function fetchIpOnly(): Promise<string | null> {
-  try {
-    const ipRes = await fetch("https://api.ipify.org?format=json");
-    if (!ipRes.ok) return null;
-    const ipData = (await ipRes.json()) as { ip?: string };
-    return normalizeGeo(ipData.ip);
-  } catch {
-    return null;
-  }
-}
-
 async function getGeoInfo(): Promise<GeoInfo> {
   const now = Date.now();
   const cachedAtRaw = localStorage.getItem(GEO_CACHE_AT_KEY);
@@ -167,32 +138,11 @@ async function getGeoInfo(): Promise<GeoInfo> {
       regionName: cachedRegionName || null,
     };
   }
-  // Redosled: prvo Vercel edge (same-origin, ne moze biti blokiran),
-  // pa eksterni provideri kao fallback ako iz nekog razloga /api/geo
-  // nije dostupan (npr. lokalni dev bez Vercel runtime-a).
-  const providers: Array<() => Promise<GeoInfo>> = [
-    fetchGeoFromVercelEdge,
-    fetchGeoFromIpapi,
-    fetchGeoFromIpwhois,
-  ];
   let geo: GeoInfo = { ip: null, countryCode: null, countryName: null, regionName: null };
-  for (const provider of providers) {
-    try {
-      const candidate = await provider();
-      geo = {
-        ip: geo.ip ?? candidate.ip,
-        countryCode: geo.countryCode ?? candidate.countryCode,
-        countryName: geo.countryName ?? candidate.countryName,
-        regionName: geo.regionName ?? candidate.regionName,
-      };
-      if (geo.ip && geo.countryCode && geo.countryName && geo.regionName) break;
-    } catch {
-      // probaj sledeći provider
-    }
-  }
-
-  if (!geo.ip) {
-    geo.ip = await fetchIpOnly();
+  try {
+    geo = await fetchGeoFromVercelEdge();
+  } catch {
+    // npr. lokalni dev bez Vercel runtime-a ili privremeni mrežni problem
   }
 
   if (geo.ip) localStorage.setItem(IP_STORAGE_KEY, geo.ip);
@@ -203,6 +153,16 @@ async function getGeoInfo(): Promise<GeoInfo> {
     localStorage.setItem(GEO_CACHE_AT_KEY, `${Date.now()}`);
   }
   return geo;
+}
+
+/** Jedan zajednički fetch geo za sve instance hook-a (INSERT čeka do FIRST_INSERT_GEO_WAIT_MS). */
+let geoReadyPromise: Promise<GeoInfo> | null = null;
+
+function ensureGeoFetchStarted(): Promise<GeoInfo> {
+  if (!geoReadyPromise) {
+    geoReadyPromise = getGeoInfo();
+  }
+  return geoReadyPromise;
 }
 
 function getDurationSeconds(fromMs: number | null) {
@@ -242,7 +202,7 @@ export function useSiteTracking(pathname: string) {
   };
 
   useEffect(() => {
-    void getGeoInfo().then((geo) => {
+    void ensureGeoFetchStarted().then((geo) => {
       ipRef.current = geo.ip;
       countryCodeRef.current = geo.countryCode;
       countryNameRef.current = geo.countryName;
@@ -275,6 +235,16 @@ export function useSiteTracking(pathname: string) {
         }
       }
       if (!nextSessionId) {
+        const raced = await Promise.race([
+          ensureGeoFetchStarted(),
+          sleep(FIRST_INSERT_GEO_WAIT_MS).then(() => "timeout" as const),
+        ]);
+        if (raced !== "timeout") {
+          ipRef.current = raced.ip;
+          countryCodeRef.current = raced.countryCode;
+          countryNameRef.current = raced.countryName;
+          regionNameRef.current = raced.regionName;
+        }
         const generatedSessionId =
           typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}`;
         const payload: SiteSessionInsert = {
