@@ -37,5 +37,34 @@ export const supabase = createSafeClient();
 /** true samo ako postoji ispravan Supabase klijent. */
 export const isSupabaseConfigured = supabase !== null;
 
+/**
+ * Poseban klijent samo za javno (anonimno) pracenje sajta.
+ * Ne deli auth sesiju sa glavnim klijentom (`persistSession: false`),
+ * pa istek JWT-a iz admin login-a ne moze da vrati 401 na heartbeat update.
+ * Uvek koristi anon API key.
+ */
+function createTrackingClient(): SupabaseClient<Database> | null {
+  if (!url || !anon) return null;
+  try {
+    return createClient<Database>(url, anon, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+      },
+    });
+  } catch {
+    return null;
+  }
+}
+
+const trackingClient = createTrackingClient();
+
 /** Šema `audit` — samo kada je Supabase klijent aktivan. */
 export const audit = supabase !== null ? supabase.schema("audit") : null;
+
+/** Audit klijent za javno tracking (bez auth perzistencije). */
+export const auditTracking = trackingClient !== null ? trackingClient.schema("audit") : null;
+
+/** Public klijent za javno tracking (npr. RPC get_site_stats). */
+export const publicTracking = trackingClient;

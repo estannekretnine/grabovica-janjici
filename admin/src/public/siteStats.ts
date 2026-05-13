@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { audit, supabase } from "../lib/supabase";
+import { auditTracking, publicTracking } from "../lib/supabase";
 import type { Database } from "../types/database";
+
+// Tracking klijent (bez auth perzistencije) — nezavisan od admin login sesije,
+// da istek JWT-a iz admin-a ne uzrokuje 401 na heartbeat/update.
+const audit = auditTracking;
+const supabase = publicTracking;
 
 type SiteSessionInsert = Database["audit"]["Tables"]["gr_site_sessions"]["Insert"];
 type SitePageViewInsert = Database["audit"]["Tables"]["gr_site_page_views"]["Insert"];
