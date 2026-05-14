@@ -143,7 +143,10 @@ export function StatistikaSajtaPage() {
   const countries = useMemo<CountryStat[]>(() => {
     const byCountry = new Map<string, { visits: number; visitors: Set<string> }>();
     for (const session of sessions) {
-      const country = session.country_name?.trim() || "Nepoznato";
+      const country =
+        session.country_name?.trim() ||
+        session.country_code?.trim() ||
+        "Nepoznato";
       const entry = byCountry.get(country) ?? { visits: 0, visitors: new Set<string>() };
       entry.visits += 1;
       entry.visitors.add(session.visitor_id);
@@ -237,7 +240,7 @@ export function StatistikaSajtaPage() {
                   <td>{formatDate(row.session.started_at)}</td>
                   <td>{formatDate(row.session.last_seen)}</td>
                   <td>{row.session.ip_address ?? "—"}</td>
-                  <td>{row.session.country_name ?? "—"}</td>
+                  <td>{row.session.country_name?.trim() || row.session.country_code?.trim() || "—"}</td>
                   <td>{row.session.region_name ?? "—"}</td>
                   <td>{row.session.current_path}</td>
                   <td className="site-stats-paths">{row.pages.length > 0 ? row.pages.join(" -> ") : "—"}</td>
