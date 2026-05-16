@@ -123,7 +123,7 @@ export function PublicHome() {
                   src={item.src}
                   alt=""
                   className="public-home-heritage-img"
-                  loading={i === 0 ? "eager" : "lazy"}
+                  loading="lazy"
                   decoding="async"
                   width={1000}
                   height={680}
