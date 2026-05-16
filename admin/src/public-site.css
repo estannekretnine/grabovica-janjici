@@ -1173,35 +1173,21 @@
   border-bottom: 1px solid rgba(148, 163, 184, 0.26);
 }
 
-/* Početna — velika hero fotografija */
-.public-section.public-home-hero {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 0.5rem 1rem 0.25rem;
+/* Početna — prva slika puna širina (hero), ostale u gridu ispod */
+.public-home-heritage-item:first-child {
+  grid-column: 1 / -1;
 }
 
-.public-home-hero-item {
-  width: 100%;
-}
-
-.public-home-hero-item .public-home-heritage-img-wrap {
+.public-home-heritage-item:first-child .public-home-heritage-img-wrap {
   aspect-ratio: 21 / 9;
   max-height: min(52vh, 420px);
 }
 
 @media (max-width: 640px) {
-  .public-home-hero-item .public-home-heritage-img-wrap {
+  .public-home-heritage-item:first-child .public-home-heritage-img-wrap {
     aspect-ratio: 16 / 10;
     max-height: none;
   }
-}
-
-/* Knjiga — flipbook između hero i galerije */
-.public-section.public-home-knjiga {
-  max-width: 1100px;
-  margin: 0 auto;
-  padding: 1.5rem 1rem 2.5rem;
-  border-top: 1px solid var(--pub-border);
 }
 
 .book-flip {
@@ -1326,6 +1312,9 @@
   margin-top: -0.5rem;
   padding-top: 0.65rem;
   padding-bottom: 2rem;
+  max-width: 1200px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .public-home-heritage-grid {
