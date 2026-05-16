@@ -1311,11 +1311,107 @@
 }
 
 .public-section.public-home-knjiga {
-  max-width: 1100px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 1.25rem 1rem 1.5rem;
-  border-top: 1px solid var(--pub-border);
-  border-bottom: 1px solid var(--pub-border);
+  padding: 1rem 1rem 1.25rem;
+  display: flex;
+  justify-content: center;
+}
+
+.public-knjiga-cover-btn {
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.65rem;
+  border-radius: 12px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.public-knjiga-cover-btn:hover,
+.public-knjiga-cover-btn:focus-visible {
+  transform: translateY(-2px);
+  outline: none;
+}
+
+.public-knjiga-cover-btn:hover .public-knjiga-cover-img,
+.public-knjiga-cover-btn:focus-visible .public-knjiga-cover-img {
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.22);
+  border-color: rgba(201, 162, 39, 0.55);
+}
+
+.public-knjiga-cover-img {
+  display: block;
+  width: min(220px, 55vw);
+  height: auto;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--pub-border);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+.public-knjiga-cover-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--pub-accent, #9a7b2a);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.public-pdf-fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  background: #1a1a1a;
+}
+
+.public-pdf-fullscreen-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(0, 0, 0, 0.85);
+  color: #f5f5f5;
+  flex-shrink: 0;
+}
+
+.public-pdf-fullscreen-title {
+  font-size: 0.85rem;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.public-pdf-fullscreen-close {
+  flex-shrink: 0;
+  padding: 0.4rem 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.public-pdf-fullscreen-close:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.public-pdf-fullscreen-frame {
+  flex: 1;
+  width: 100%;
+  border: none;
+  background: #525252;
 }
 
 .public-home-heritage {

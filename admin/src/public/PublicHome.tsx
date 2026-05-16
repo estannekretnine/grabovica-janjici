@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PUBLIC_HERITAGE_IMAGES } from "./publicMedia";
 import { WeatherWidget } from "./WeatherWidget";
-import { BookFlipbook } from "./BookFlipbook";
+import { BookKnjigaCover } from "./BookKnjigaCover";
 
 function HomeLightbox({
   index,
@@ -157,9 +157,7 @@ export function PublicHome() {
         </section>
       ) : null}
 
-      <section className="public-section public-home-knjiga" aria-label="Knjiga Grabovica">
-        <BookFlipbook />
-      </section>
+      <BookKnjigaCover />
 
       {galleryImages.length > 0 ? (
         <section className="public-section public-home-heritage" aria-label="Galerija fotografija">
