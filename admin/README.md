@@ -46,4 +46,4 @@ Ulazne JPG fotografije stavite u `knjigagrabovica/` (podfolderi `korica/`, `do 1
 npm run build:knjiga
 ```
 
-Generiše hibridni PDF (`public/knjiga/grabovica.pdf` — slika + nevidljivi OCR sloj za pretragu) i WebP stranice za flipbook. Tessdata (`srp`, `srp_latn`) i font Noto Serif idu u `admin/.tmp/` (ne commit-uje se).
+Generiše **tekstualni PDF** (opcija A): stranice sa sadržajem = vektor tekst na beloj podlozi (bez JPG senki/rukopisa); korice = JPG. Izlaz: `public/knjiga/grabovica.pdf`. OCR tekstovi za pregled: `admin/.tmp/knjiga/ocr-*.txt`. Tessdata i font u `admin/.tmp/` (ne commit-uje se).

@@ -1,7 +1,8 @@
 {
   "title": "Grabovica u Drobnjaku i porodice u njoj",
+  "mode": "text-only",
   "total": 7,
-  "generatedAt": "2026-05-16T21:32:36.203Z",
+  "generatedAt": "2026-05-16T21:57:14.485Z",
   "pdfUrl": "/knjiga/grabovica.pdf",
   "pages": [
     {
@@ -11,7 +12,6 @@
       "w": 4000,
       "h": 3000,
       "words": 0,
-      "ocrWords": 0,
       "conf": 0
     },
     {
@@ -21,7 +21,6 @@
       "w": 4000,
       "h": 3000,
       "words": 0,
-      "ocrWords": 0,
       "conf": 0
     },
     {
@@ -31,48 +30,43 @@
       "w": 4000,
       "h": 3000,
       "words": 0,
-      "ocrWords": 0,
       "conf": 0
     },
     {
       "n": 4,
-      "type": "hybrid",
+      "type": "text",
       "label": "Str. 5 (UVOD)",
       "w": 4000,
       "h": 3000,
-      "words": 35,
-      "ocrWords": 35,
-      "conf": 66
+      "words": 333,
+      "conf": 59
     },
     {
       "n": 5,
-      "type": "hybrid",
+      "type": "text",
       "label": "Str. 6–7",
       "w": 4000,
       "h": 3000,
-      "words": 39,
-      "ocrWords": 39,
-      "conf": 61
+      "words": 433,
+      "conf": 65
     },
     {
       "n": 6,
-      "type": "hybrid",
+      "type": "text",
       "label": "Str. 8–9",
       "w": 4000,
       "h": 3000,
-      "words": 50,
-      "ocrWords": 50,
-      "conf": 67
+      "words": 663,
+      "conf": 70
     },
     {
       "n": 7,
-      "type": "hybrid",
+      "type": "text",
       "label": "Str. 10–11",
       "w": 4000,
       "h": 3000,
-      "words": 43,
-      "ocrWords": 43,
-      "conf": 61
+      "words": 622,
+      "conf": 64
     }
   ]
 }
