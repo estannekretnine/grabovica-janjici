@@ -1173,6 +1173,151 @@
   border-bottom: 1px solid rgba(148, 163, 184, 0.26);
 }
 
+/* Početna — velika hero fotografija */
+.public-section.public-home-hero {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 0.25rem;
+}
+
+.public-home-hero-item {
+  width: 100%;
+}
+
+.public-home-hero-item .public-home-heritage-img-wrap {
+  aspect-ratio: 21 / 9;
+  max-height: min(52vh, 420px);
+}
+
+@media (max-width: 640px) {
+  .public-home-hero-item .public-home-heritage-img-wrap {
+    aspect-ratio: 16 / 10;
+    max-height: none;
+  }
+}
+
+/* Knjiga — flipbook između hero i galerije */
+.public-section.public-home-knjiga {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem 2.5rem;
+  border-top: 1px solid var(--pub-border);
+}
+
+.book-flip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.book-flip--fullscreen {
+  background: var(--pub-bg, #0f1410);
+  padding: 1.5rem;
+  justify-content: center;
+  min-height: 100vh;
+}
+
+.book-flip-header {
+  text-align: center;
+  width: 100%;
+}
+
+.book-flip-title {
+  margin: 0 0 0.35rem;
+  font-size: clamp(1.15rem, 2.5vw, 1.45rem);
+  font-weight: 600;
+  color: var(--pub-text);
+}
+
+.book-flip-sub {
+  margin: 0;
+  font-size: 0.9rem;
+}
+
+.book-flip-stage {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.22));
+}
+
+.book-flip-book {
+  margin: 0 auto;
+}
+
+.book-flip-page {
+  background: #f8f6f0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.book-flip-page-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.book-flip-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem 0.75rem;
+}
+
+.book-flip-btn {
+  min-width: 2.5rem;
+  height: 2.5rem;
+  padding: 0 0.65rem;
+  border: 1px solid var(--pub-border);
+  border-radius: 8px;
+  background: var(--pub-surface);
+  color: var(--pub-text);
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.book-flip-btn:hover,
+.book-flip-btn:focus-visible {
+  border-color: rgba(201, 162, 39, 0.55);
+  outline: none;
+}
+
+.book-flip-btn--ghost {
+  font-size: 0.85rem;
+  min-width: auto;
+}
+
+.book-flip-indicator {
+  font-size: 0.9rem;
+  color: var(--pub-muted);
+  min-width: 4rem;
+  text-align: center;
+}
+
+.book-flip-link {
+  font-size: 0.9rem;
+  color: var(--pub-accent, #b8860b);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.book-flip-link:hover {
+  opacity: 0.85;
+}
+
+.book-flip--loading,
+.book-flip--error {
+  padding: 2rem;
+  text-align: center;
+}
+
 .public-home-heritage {
   max-width: 1200px;
 }

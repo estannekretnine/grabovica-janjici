@@ -37,3 +37,13 @@ Koristite **Root Directory** = `admin` pri importu Git repozitorijuma. Varijable
 - Nova osoba u podrazumevanom stablu koristi `tree_id` iz baze (default u migraciji) ako ne menjate stablo u padajućoj listi.
 - Tabele su u šemi **`audit`** sa prefiksom **`gr_`** (npr. `audit.gr_persons`); u kodu se koristi `audit` klijent iz [`src/lib/supabase.ts`](src/lib/supabase.ts).
 - **Prijava:** korisnici su u tabeli **`public.korisnici`**; funkcija **`login_korisnik`** (migracija u `supabase/migrations`). Posle uspešnog RPC-a otvara se anonimna Supabase sesija — uključite **Authentication → Providers → Anonymous**.
+
+## Knjiga (početna strana)
+
+Ulazne JPG fotografije stavite u `knjigagrabovica/` (podfolderi `korica/`, `do 11 strane/`, itd.). Redosled stranica definiše se u [`scripts/build-knjiga.mjs`](scripts/build-knjiga.mjs) (`ORDER`).
+
+```bash
+npm run build:knjiga
+```
+
+Generiše hibridni PDF (`public/knjiga/grabovica.pdf` — slika + nevidljivi OCR sloj za pretragu) i WebP stranice za flipbook. Tessdata (`srp`, `srp_latn`) i font Noto Serif idu u `admin/.tmp/` (ne commit-uje se).

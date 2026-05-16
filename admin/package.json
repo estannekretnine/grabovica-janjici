@@ -8,19 +8,26 @@
     "build": "vite build",
     "preview": "vite preview",
     "build:heritage": "node scripts/build-heritage.mjs",
-    "build:homefoto": "node scripts/build-homefoto-heritage.mjs"
+    "build:homefoto": "node scripts/build-homefoto-heritage.mjs",
+    "build:knjiga": "node scripts/build-knjiga.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-pageflip": "^2.0.3",
     "react-router-dom": "^7.5.0"
   },
   "devDependencies": {
+    "@pdf-lib/fontkit": "^1.1.1",
     "@types/react": "^19.0.10",
     "@types/react-dom": "^19.0.4",
     "@vitejs/plugin-react": "^4.3.4",
+    "adm-zip": "^0.5.17",
+    "exif-parser": "^0.1.12",
+    "pdf-lib": "^1.17.1",
     "sharp": "^0.34.5",
+    "tesseract.js": "^7.0.0",
     "typescript": "~5.7.2",
     "vite": "^6.2.0"
   }

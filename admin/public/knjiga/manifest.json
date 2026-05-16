@@ -1,0 +1,78 @@
+{
+  "title": "Grabovica u Drobnjaku i porodice u njoj",
+  "total": 7,
+  "generatedAt": "2026-05-16T21:32:36.203Z",
+  "pdfUrl": "/knjiga/grabovica.pdf",
+  "pages": [
+    {
+      "n": 1,
+      "type": "image",
+      "label": "Korica",
+      "w": 4000,
+      "h": 3000,
+      "words": 0,
+      "ocrWords": 0,
+      "conf": 0
+    },
+    {
+      "n": 2,
+      "type": "image",
+      "label": "Korica posle",
+      "w": 4000,
+      "h": 3000,
+      "words": 0,
+      "ocrWords": 0,
+      "conf": 0
+    },
+    {
+      "n": 3,
+      "type": "image",
+      "label": "Korica poslee",
+      "w": 4000,
+      "h": 3000,
+      "words": 0,
+      "ocrWords": 0,
+      "conf": 0
+    },
+    {
+      "n": 4,
+      "type": "hybrid",
+      "label": "Str. 5 (UVOD)",
+      "w": 4000,
+      "h": 3000,
+      "words": 35,
+      "ocrWords": 35,
+      "conf": 66
+    },
+    {
+      "n": 5,
+      "type": "hybrid",
+      "label": "Str. 6–7",
+      "w": 4000,
+      "h": 3000,
+      "words": 39,
+      "ocrWords": 39,
+      "conf": 61
+    },
+    {
+      "n": 6,
+      "type": "hybrid",
+      "label": "Str. 8–9",
+      "w": 4000,
+      "h": 3000,
+      "words": 50,
+      "ocrWords": 50,
+      "conf": 67
+    },
+    {
+      "n": 7,
+      "type": "hybrid",
+      "label": "Str. 10–11",
+      "w": 4000,
+      "h": 3000,
+      "words": 43,
+      "ocrWords": 43,
+      "conf": 61
+    }
+  ]
+}

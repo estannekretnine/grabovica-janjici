@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { PUBLIC_HERITAGE_IMAGES } from "./publicMedia";
 import { WeatherWidget } from "./WeatherWidget";
+import { BookFlipbook } from "./BookFlipbook";
 
 function HomeLightbox({
   index,
@@ -75,8 +76,44 @@ function HomeLightbox({
   );
 }
 
+function HeritageTile({
+  item,
+  index,
+  onOpen,
+  className,
+}: {
+  item: (typeof PUBLIC_HERITAGE_IMAGES)[number];
+  index: number;
+  onOpen: (i: number) => void;
+  className?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`public-home-heritage-item${className ? ` ${className}` : ""}`}
+      onClick={() => onOpen(index)}
+      aria-label={item.alt}
+    >
+      <div className="public-home-heritage-img-wrap">
+        <img
+          src={item.src}
+          alt=""
+          className="public-home-heritage-img"
+          loading={index === 0 ? "eager" : "lazy"}
+          decoding="async"
+          width={1000}
+          height={680}
+        />
+      </div>
+    </button>
+  );
+}
+
 export function PublicHome() {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const heroImage = PUBLIC_HERITAGE_IMAGES[0];
+  const galleryImages = PUBLIC_HERITAGE_IMAGES.slice(1);
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
 
@@ -108,31 +145,27 @@ export function PublicHome() {
   return (
     <div className="public-page">
       <div className="public-home-transition" aria-hidden="true" />
-      <section className="public-section public-home-heritage">
-        <div className="public-home-heritage-grid">
-          {PUBLIC_HERITAGE_IMAGES.map((item, i) => (
-            <button
-              key={item.src}
-              type="button"
-              className="public-home-heritage-item"
-              onClick={() => setLightboxIndex(i)}
-              aria-label={item.alt}
-            >
-              <div className="public-home-heritage-img-wrap">
-                <img
-                  src={item.src}
-                  alt=""
-                  className="public-home-heritage-img"
-                  loading="lazy"
-                  decoding="async"
-                  width={1000}
-                  height={680}
-                />
-              </div>
-            </button>
-          ))}
-        </div>
+
+      {heroImage ? (
+        <section className="public-section public-home-hero" aria-label="Glavna fotografija">
+          <HeritageTile item={heroImage} index={0} onOpen={setLightboxIndex} className="public-home-hero-item" />
+        </section>
+      ) : null}
+
+      {galleryImages.length > 0 ? (
+        <section className="public-section public-home-heritage" aria-label="Galerija fotografija">
+          <div className="public-home-heritage-grid">
+            {galleryImages.map((item, i) => (
+              <HeritageTile key={item.src} item={item} index={i + 1} onOpen={setLightboxIndex} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      <section className="public-section public-home-knjiga" aria-label="Knjiga Grabovica">
+        <BookFlipbook />
       </section>
+
       <WeatherWidget />
       {lightboxIndex !== null ? (
         <HomeLightbox index={lightboxIndex} onClose={closeLightbox} onPrev={goPrev} onNext={goNext} />

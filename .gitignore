@@ -8,6 +8,10 @@ node_modules/
 admin/dist/
 *.tsbuildinfo
 
+# Knjiga build cache (raw zipovi + tessdata + fontovi); izlazi su u admin/public/knjiga/
+admin/.tmp/
+/knjigagrabovica/
+
 # Env (secrets)
 .env
 .env.local
