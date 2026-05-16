@@ -46,4 +46,4 @@ Ulazne JPG fotografije stavite u `knjigagrabovica/` (podfolderi `korica/`, `do 1
 npm run build:knjiga
 ```
 
-Generiše **tekstualni PDF** (opcija A): stranice sa sadržajem = vektor tekst na beloj podlozi (bez JPG senki/rukopisa); korice = JPG. Izlaz: `public/knjiga/grabovica.pdf`. OCR tekstovi za pregled: `admin/.tmp/knjiga/ocr-*.txt`. Tessdata i font u `admin/.tmp/` (ne commit-uje se).
+Generiše **sken PDF** (`grabovica-sken.pdf`): obradjene JPG stranice (normalize, oštrina, trim) — vizuelno kao knjiga, bez OCR teksta. Isti fajl se kopira u `grabovica.pdf`. Pregled obrade: `admin/.tmp/knjiga/preview-*.jpg`.
