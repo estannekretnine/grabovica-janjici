@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 const PDF_URL = "/knjiga/grabovica-sken.pdf";
 const COVER_SRC = "/knjiga/pages/p001.webp";
 
-export function BookKnjigaCover() {
+export function BookKnjigaCover({ embedded = false }: { embedded?: boolean }) {
   const [open, setOpen] = useState(false);
 
   const close = useCallback(() => setOpen(false), []);
@@ -22,27 +22,37 @@ export function BookKnjigaCover() {
     };
   }, [open, close]);
 
+  const cover = (
+    <button
+      type="button"
+      className="public-knjiga-cover-btn"
+      onClick={() => setOpen(true)}
+      aria-label="Otvori knjigu — pun ekran PDF"
+    >
+      <img
+        src={COVER_SRC}
+        alt=""
+        className="public-knjiga-cover-img"
+        width={360}
+        height={480}
+        loading="lazy"
+        decoding="async"
+      />
+      <span className="public-knjiga-cover-label">Čitaj knjigu</span>
+    </button>
+  );
+
   return (
     <>
-      <section className="public-section public-home-knjiga" aria-label="Knjiga Grabovica">
-        <button
-          type="button"
-          className="public-knjiga-cover-btn"
-          onClick={() => setOpen(true)}
-          aria-label="Otvori knjigu — pun ekran PDF"
-        >
-          <img
-            src={COVER_SRC}
-            alt=""
-            className="public-knjiga-cover-img"
-            width={360}
-            height={480}
-            loading="lazy"
-            decoding="async"
-          />
-          <span className="public-knjiga-cover-label">Čitaj knjigu</span>
-        </button>
-      </section>
+      {embedded ? (
+        <div className="public-home-knjiga-slot" aria-label="Knjiga Grabovica">
+          {cover}
+        </div>
+      ) : (
+        <section className="public-section public-home-knjiga" aria-label="Knjiga Grabovica">
+          {cover}
+        </section>
+      )}
 
       {open ? (
         <div className="public-pdf-fullscreen" role="dialog" aria-modal="true" aria-label="Knjiga PDF">

@@ -146,28 +146,24 @@ export function PublicHome() {
     <div className="public-page">
       <div className="public-home-transition" aria-hidden="true" />
 
-      {heroImage ? (
-        <section className="public-section public-home-hero" aria-label="Glavna fotografija">
-          <HeritageTile
-            item={heroImage}
-            index={0}
-            onOpen={setLightboxIndex}
-            className="public-home-hero-item"
-          />
-        </section>
-      ) : null}
+      <section className="public-section public-home-heritage" aria-label="Fotografije i knjiga">
+        <div className="public-home-heritage-grid">
+          {heroImage ? (
+            <HeritageTile
+              item={heroImage}
+              index={0}
+              onOpen={setLightboxIndex}
+              className="public-home-heritage-item--hero"
+            />
+          ) : null}
 
-      <BookKnjigaCover />
+          <BookKnjigaCover embedded />
 
-      {galleryImages.length > 0 ? (
-        <section className="public-section public-home-heritage" aria-label="Galerija fotografija">
-          <div className="public-home-heritage-grid">
-            {galleryImages.map((item, i) => (
-              <HeritageTile key={item.src} item={item} index={i + 1} onOpen={setLightboxIndex} />
-            ))}
-          </div>
-        </section>
-      ) : null}
+          {galleryImages.map((item, i) => (
+            <HeritageTile key={item.src} item={item} index={i + 1} onOpen={setLightboxIndex} />
+          ))}
+        </div>
+      </section>
 
       <WeatherWidget />
       {lightboxIndex !== null ? (
