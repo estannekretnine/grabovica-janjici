@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
-import { KnjigaPdfModal } from "./KnjigaPdfModal";
 import { PublicThemeProvider } from "./PublicThemeContext";
 import { useSiteTracking } from "./siteStats";
 
@@ -10,7 +9,6 @@ function navClass({ isActive }: { isActive: boolean }) {
 
 function PublicLayoutInner() {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [knjigaOpen, setKnjigaOpen] = useState(false);
   const location = useLocation();
   const { totalVisits, currentlyOnline } = useSiteTracking(location.pathname);
   const isPublicHome = location.pathname === "/" || location.pathname === "";
@@ -68,16 +66,15 @@ function PublicLayoutInner() {
               <NavLink to="/" end className={navClass}>
                 Početna
               </NavLink>
-              <button
-                type="button"
-                className="public-nav-link public-nav-link--button"
-                onClick={() => {
-                  setKnjigaOpen(true);
-                  setMenuOpen(false);
-                }}
+              <a
+                href="/knjiga/grabovica-sken.pdf"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="public-nav-link"
+                onClick={() => setMenuOpen(false)}
               >
-                Grabovica u Drobnjaku
-              </button>
+                Knjiga
+              </a>
               <NavLink to="/stablo" className={navClass}>
                 Stablo
               </NavLink>
@@ -110,8 +107,6 @@ function PublicLayoutInner() {
       ) : null}
 
       <Outlet />
-
-      <KnjigaPdfModal open={knjigaOpen} onClose={() => setKnjigaOpen(false)} />
 
       <footer className="public-footer">
         <div className="public-footer-inner public-footer-inner--three">
