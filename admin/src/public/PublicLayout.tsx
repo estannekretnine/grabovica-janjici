@@ -66,15 +66,9 @@ function PublicLayoutInner() {
               <NavLink to="/" end className={navClass}>
                 Početna
               </NavLink>
-              <a
-                href="/knjiga/grabovica-sken.pdf"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="public-nav-link"
-                onClick={() => setMenuOpen(false)}
-              >
+              <NavLink to="/knjiga" className={navClass}>
                 Knjiga
-              </a>
+              </NavLink>
               <NavLink to="/stablo" className={navClass}>
                 Stablo
               </NavLink>

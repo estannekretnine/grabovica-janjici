@@ -15,7 +15,6 @@
     "@supabase/supabase-js": "^2.49.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "react-pageflip": "^2.0.3",
     "react-router-dom": "^7.5.0"
   },
   "devDependencies": {
