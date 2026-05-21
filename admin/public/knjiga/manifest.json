@@ -1,59 +1,6 @@
 {
   "title": "Grabovica u Drobnjaku i porodice u njoj",
-  "mode": "scan",
-  "total": 7,
-  "generatedAt": "2026-05-16T22:14:01.858Z",
-  "pdfUrl": "/knjiga/grabovica-sken.pdf",
-  "pdfUrlLegacy": "/knjiga/grabovica.pdf",
-  "pages": [
-    {
-      "n": 1,
-      "type": "scan",
-      "label": "Korica",
-      "w": 1800,
-      "h": 2400
-    },
-    {
-      "n": 2,
-      "type": "scan",
-      "label": "Korica posle",
-      "w": 2400,
-      "h": 1800
-    },
-    {
-      "n": 3,
-      "type": "scan",
-      "label": "Korica poslee",
-      "w": 2400,
-      "h": 1800
-    },
-    {
-      "n": 4,
-      "type": "scan",
-      "label": "Str. 5 (UVOD)",
-      "w": 2397,
-      "h": 1800
-    },
-    {
-      "n": 5,
-      "type": "scan",
-      "label": "Str. 6–7",
-      "w": 2400,
-      "h": 1800
-    },
-    {
-      "n": 6,
-      "type": "scan",
-      "label": "Str. 8–9",
-      "w": 2400,
-      "h": 1800
-    },
-    {
-      "n": 7,
-      "type": "scan",
-      "label": "Str. 10–11",
-      "w": 2400,
-      "h": 1800
-    }
-  ]
+  "pdfUrl": "/knjiga/grabovica.pdf",
+  "coverFront": "/knjiga/korica-prednja.jpg",
+  "coverBack": "/knjiga/korica-zadnja.jpg"
 }

@@ -1,18 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { type KnjigaManifest, knjigaPageSrc } from "./knjigaTypes";
-
-function prefetchPage(n: number) {
-  const img = new Image();
-  img.src = knjigaPageSrc(n);
-}
+import { type KnjigaManifest } from "./knjigaTypes";
 
 export function KnjigaViewer() {
   const wrapRef = useRef<HTMLDivElement>(null);
   const [manifest, setManifest] = useState<KnjigaManifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [pageIndex, setPageIndex] = useState(0);
   const [fullscreen, setFullscreen] = useState(false);
-  const [imgLoading, setImgLoading] = useState(true);
+  const [opened, setOpened] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -34,29 +28,6 @@ export function KnjigaViewer() {
     };
   }, []);
 
-  const total = manifest?.total ?? 0;
-  const currentPage = manifest?.pages[pageIndex];
-
-  useEffect(() => {
-    if (!currentPage) return;
-    setImgLoading(true);
-    prefetchPage(currentPage.n);
-    if (pageIndex > 0 && manifest?.pages[pageIndex - 1]) {
-      prefetchPage(manifest.pages[pageIndex - 1].n);
-    }
-    if (pageIndex < total - 1 && manifest?.pages[pageIndex + 1]) {
-      prefetchPage(manifest.pages[pageIndex + 1].n);
-    }
-  }, [currentPage, pageIndex, total, manifest]);
-
-  const goPrev = useCallback(() => {
-    setPageIndex((i) => Math.max(0, i - 1));
-  }, []);
-
-  const goNext = useCallback(() => {
-    setPageIndex((i) => Math.min(total - 1, i + 1));
-  }, [total]);
-
   const toggleFullscreen = useCallback(() => {
     if (!wrapRef.current) return;
     if (!document.fullscreenElement) void wrapRef.current.requestFullscreen();
@@ -68,19 +39,6 @@ export function KnjigaViewer() {
     document.addEventListener("fullscreenchange", onFs);
     return () => document.removeEventListener("fullscreenchange", onFs);
   }, []);
-
-  useEffect(() => {
-    if (!manifest) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowRight") goNext();
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "Escape" && document.fullscreenElement) {
-        void document.exitFullscreen();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [manifest, goNext, goPrev]);
 
   if (loadError) {
     return (
@@ -98,8 +56,7 @@ export function KnjigaViewer() {
     );
   }
 
-  const pageLabel = currentPage?.label;
-  const pagesWord = total === 1 ? "strana" : total < 5 ? "strane" : "strana";
+  const { title, pdfUrl, coverFront, coverBack } = manifest;
 
   return (
     <div
@@ -107,76 +64,31 @@ export function KnjigaViewer() {
       className={`knjiga-viewer${fullscreen ? " knjiga-viewer--fullscreen" : ""}`}
     >
       <header className="knjiga-viewer__header">
-        <h1 className="knjiga-viewer__title">{manifest.title}</h1>
-        <span className="knjiga-viewer__meta">
-          {total} {pagesWord}
-        </span>
-      </header>
-
-      <div className="knjiga-viewer__stage">
-        <button
-          type="button"
-          className="knjiga-viewer__nav knjiga-viewer__nav--prev"
-          onClick={goPrev}
-          disabled={pageIndex <= 0}
-          aria-label="Prethodna strana"
-        >
-          ‹
-        </button>
-
-        <div className="knjiga-viewer__page">
-          {imgLoading ? <div className="knjiga-viewer__page-loading" aria-hidden="true" /> : null}
-          {currentPage ? (
-            <img
-              key={currentPage.n}
-              src={knjigaPageSrc(currentPage.n)}
-              alt={pageLabel ?? `Strana ${pageIndex + 1}`}
-              className="knjiga-viewer__img"
-              decoding="async"
-              onLoad={() => setImgLoading(false)}
-              onError={() => setImgLoading(false)}
-            />
-          ) : null}
-        </div>
-
-        <button
-          type="button"
-          className="knjiga-viewer__nav knjiga-viewer__nav--next"
-          onClick={goNext}
-          disabled={pageIndex >= total - 1}
-          aria-label="Sledeća strana"
-        >
-          ›
-        </button>
-      </div>
-
-      <footer className="knjiga-viewer__footer">
-        <span className="knjiga-viewer__counter">
-          {pageIndex + 1} / {total}
-        </span>
-        <input
-          type="range"
-          className="knjiga-viewer__slider"
-          min={1}
-          max={total}
-          value={pageIndex + 1}
-          onChange={(e) => setPageIndex(Number(e.target.value) - 1)}
-          aria-label="Strana knjige"
-        />
-        <div className="knjiga-viewer__footer-actions">
+        <h1 className="knjiga-viewer__title">{title}</h1>
+        <div className="knjiga-viewer__header-actions">
           <a
-            href={manifest.pdfUrl}
+            href={pdfUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="knjiga-viewer__pdf-link"
+            title="Otvori PDF u novom prozoru"
           >
-            PDF
+            Otvori PDF
+          </a>
+          <a
+            href={pdfUrl}
+            download
+            className="knjiga-viewer__pdf-link"
+            title="Preuzmi PDF"
+          >
+            Preuzmi
           </a>
           <button
             type="button"
             className="knjiga-viewer__fullscreen"
             onClick={toggleFullscreen}
             aria-label={fullscreen ? "Izađi iz celog ekrana" : "Ceo ekran"}
+            title={fullscreen ? "Izađi iz celog ekrana" : "Ceo ekran"}
           >
             {fullscreen ? (
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -189,7 +101,78 @@ export function KnjigaViewer() {
             )}
           </button>
         </div>
-      </footer>
+      </header>
+
+      <div className="knjiga-viewer__stage">
+        {opened ? (
+          <iframe
+            title={title}
+            src={`${pdfUrl}#view=FitH`}
+            className="knjiga-viewer__pdf"
+            loading="lazy"
+          />
+        ) : (
+          <div className="knjiga-viewer__intro">
+            {coverFront ? (
+              <img
+                src={coverFront}
+                alt="Prednja korica knjige"
+                className="knjiga-viewer__cover knjiga-viewer__cover--front"
+                loading="lazy"
+              />
+            ) : null}
+            <div className="knjiga-viewer__intro-info">
+              <p className="knjiga-viewer__intro-title">{title}</p>
+              <p className="knjiga-viewer__intro-text">
+                Kliknite na dugme ispod da otvorite knjigu i pregledate sve strane.
+              </p>
+              <button
+                type="button"
+                className="knjiga-viewer__open-btn"
+                onClick={() => setOpened(true)}
+              >
+                Otvori knjigu
+              </button>
+            </div>
+            {coverBack ? (
+              <img
+                src={coverBack}
+                alt="Zadnja korica knjige"
+                className="knjiga-viewer__cover knjiga-viewer__cover--back"
+                loading="lazy"
+              />
+            ) : null}
+          </div>
+        )}
+      </div>
+
+      {opened && (coverFront || coverBack) ? (
+        <footer className="knjiga-viewer__footer">
+          {coverFront ? (
+            <img
+              src={coverFront}
+              alt="Prednja korica"
+              className="knjiga-viewer__cover-thumb"
+              loading="lazy"
+            />
+          ) : null}
+          {coverBack ? (
+            <img
+              src={coverBack}
+              alt="Zadnja korica"
+              className="knjiga-viewer__cover-thumb"
+              loading="lazy"
+            />
+          ) : null}
+          <button
+            type="button"
+            className="knjiga-viewer__open-btn knjiga-viewer__open-btn--secondary"
+            onClick={() => setOpened(false)}
+          >
+            Sakrij PDF
+          </button>
+        </footer>
+      ) : null}
     </div>
   );
 }
