@@ -1252,27 +1252,13 @@
   background: #2a2a2a;
 }
 
-.knjiga-viewer__pdf {
-  flex: 1;
-  width: 100%;
-  height: 100%;
-  min-height: 0;
-  border: 0;
-  background: #fff;
-  display: block;
-}
-
-.knjiga-viewer--fullscreen .knjiga-viewer__pdf {
-  height: 100%;
-}
-
 .knjiga-viewer__spread {
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  padding: 16px 16px;
+  gap: 12px;
+  padding: 12px;
   max-width: calc(100% - 6rem);
   min-width: 0;
   height: 100%;
@@ -1283,34 +1269,55 @@
   gap: 0;
 }
 
-.knjiga-viewer__canvas {
-  display: block;
-  background: #fff;
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
-  max-width: 100%;
-  max-height: 100%;
-}
-
-.knjiga-viewer__page-loading-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(26, 26, 26, 0.45);
-  color: #f0f0f0;
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  pointer-events: none;
-}
-
-.knjiga-viewer__pdf-error {
+.knjiga-viewer__page-slot {
+  position: relative;
   flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 2rem;
-  color: #f0f0f0;
+  max-width: 50%;
+  height: 100%;
+  min-width: 0;
+}
+
+.knjiga-viewer__spread--single .knjiga-viewer__page-slot {
+  max-width: 100%;
+}
+
+.knjiga-viewer__img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.knjiga-viewer__page-loading {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 0%,
+    rgba(255, 255, 255, 0.1) 50%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  background-size: 200% 100%;
+  animation: knjiga-shimmer 1.2s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes knjiga-shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+  100% {
+    background-position: -100% 0;
+  }
 }
 
 .knjiga-viewer__nav {

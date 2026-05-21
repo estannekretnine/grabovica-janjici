@@ -1,23 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import type { PDFDocumentProxy } from "pdfjs-dist";
-import { type KnjigaManifest } from "./knjigaTypes";
-
-type PdfJs = typeof import("pdfjs-dist");
-let pdfjsPromise: Promise<PdfJs> | null = null;
-
-function loadPdfjs(): Promise<PdfJs> {
-  if (!pdfjsPromise) {
-    pdfjsPromise = (async () => {
-      const [mod, workerMod] = await Promise.all([
-        import("pdfjs-dist"),
-        import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
-      ]);
-      mod.GlobalWorkerOptions.workerSrc = workerMod.default;
-      return mod;
-    })();
-  }
-  return pdfjsPromise;
-}
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type KnjigaManifest, knjigaPageSrc } from "./knjigaTypes";
 
 function useIsMobile(): boolean {
   const [isMobile, setIsMobile] = useState(() =>
@@ -34,29 +16,23 @@ function useIsMobile(): boolean {
   return isMobile;
 }
 
+function prefetchImage(src: string) {
+  const img = new Image();
+  img.src = src;
+}
+
 export function KnjigaViewer() {
   const wrapRef = useRef<HTMLDivElement>(null);
-  const stageRef = useRef<HTMLDivElement>(null);
-  const leftCanvasRef = useRef<HTMLCanvasElement>(null);
-  const rightCanvasRef = useRef<HTMLCanvasElement>(null);
-
   const [manifest, setManifest] = useState<KnjigaManifest | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [fullscreen, setFullscreen] = useState(false);
   const [opened, setOpened] = useState(false);
-
-  const [pdf, setPdf] = useState<PDFDocumentProxy | null>(null);
-  const [pdfError, setPdfError] = useState<string | null>(null);
-  const [totalPages, setTotalPages] = useState(0);
   const [spreadIndex, setSpreadIndex] = useState(0);
-  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
-  const [rendering, setRendering] = useState(false);
+  const [leftLoading, setLeftLoading] = useState(true);
+  const [rightLoading, setRightLoading] = useState(true);
 
   const isMobile = useIsMobile();
   const pagesPerSpread = isMobile ? 1 : 2;
-  const totalSpreads = Math.max(1, Math.ceil(totalPages / pagesPerSpread));
-  const leftPageNum = spreadIndex * pagesPerSpread + 1;
-  const rightPageNum = pagesPerSpread === 2 ? leftPageNum + 1 : 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -80,119 +56,40 @@ export function KnjigaViewer() {
     };
   }, []);
 
-  useEffect(() => {
-    if (!opened || !manifest) return;
-    if (pdf) return;
-    let cancelled = false;
-    let taskRef: { destroy: () => Promise<void> } | null = null;
-    void (async () => {
-      try {
-        const pdfjs = await loadPdfjs();
-        if (cancelled) return;
-        const task = pdfjs.getDocument({
-          url: manifest.pdfUrl,
-          disableAutoFetch: true,
-          disableStream: false,
-        });
-        taskRef = task;
-        const doc = await task.promise;
-        if (cancelled) {
-          void doc.destroy();
-          return;
-        }
-        setPdf(doc);
-        setTotalPages(doc.numPages);
-      } catch (e: unknown) {
-        if (!cancelled) {
-          setPdfError(
-            e instanceof Error ? e.message : "Greška učitavanja PDF-a",
-          );
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-      if (taskRef) void taskRef.destroy();
-    };
-  }, [opened, manifest, pdf]);
+  const total = manifest?.total ?? 0;
+  const totalSpreads = Math.max(1, Math.ceil(total / pagesPerSpread));
+  const leftPageNum = spreadIndex * pagesPerSpread + 1;
+  const rightPageNum = pagesPerSpread === 2 ? leftPageNum + 1 : 0;
 
-  useEffect(() => {
-    if (!stageRef.current) return;
-    const el = stageRef.current;
-    const ro = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        setStageSize({ width, height });
-      }
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [opened]);
-
-  const renderPageOnCanvas = useCallback(
-    async (
-      pageNum: number,
-      canvas: HTMLCanvasElement | null,
-      availableW: number,
-      availableH: number,
-    ) => {
-      if (!canvas) return;
-      const ctx = canvas.getContext("2d");
-      if (!pdf || pageNum < 1 || pageNum > pdf.numPages || availableW <= 0 || availableH <= 0) {
-        canvas.width = 0;
-        canvas.height = 0;
-        canvas.style.width = "0";
-        canvas.style.height = "0";
-        return;
-      }
-      const page = await pdf.getPage(pageNum);
-      const base = page.getViewport({ scale: 1 });
-      const scale = Math.min(availableW / base.width, availableH / base.height);
-      if (!Number.isFinite(scale) || scale <= 0) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
-      const viewport = page.getViewport({ scale: scale * dpr });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-      canvas.style.width = `${viewport.width / dpr}px`;
-      canvas.style.height = `${viewport.height / dpr}px`;
-      if (!ctx) return;
-      await page.render({
-        canvasContext: ctx,
-        viewport,
-        canvas,
-      }).promise;
-    },
-    [pdf],
+  const leftSrc = useMemo(
+    () => (leftPageNum >= 1 && leftPageNum <= total ? knjigaPageSrc(leftPageNum) : null),
+    [leftPageNum, total],
+  );
+  const rightSrc = useMemo(
+    () =>
+      pagesPerSpread === 2 && rightPageNum >= 1 && rightPageNum <= total
+        ? knjigaPageSrc(rightPageNum)
+        : null,
+    [pagesPerSpread, rightPageNum, total],
   );
 
   useEffect(() => {
-    if (!pdf || stageSize.width <= 0 || stageSize.height <= 0) return;
-    let cancelled = false;
-    setRendering(true);
-    const gap = pagesPerSpread === 2 ? 16 : 0;
-    const padding = 16;
-    const availableW = Math.max(0, (stageSize.width - gap - padding * 2) / pagesPerSpread);
-    const availableH = Math.max(0, stageSize.height - padding * 2);
-    void (async () => {
-      try {
-        await renderPageOnCanvas(leftPageNum, leftCanvasRef.current, availableW, availableH);
-        if (cancelled) return;
-        if (pagesPerSpread === 2) {
-          await renderPageOnCanvas(rightPageNum, rightCanvasRef.current, availableW, availableH);
-        } else if (rightCanvasRef.current) {
-          rightCanvasRef.current.width = 0;
-          rightCanvasRef.current.height = 0;
-        }
-      } catch {
-        // ignore render aborts
-      } finally {
-        if (!cancelled) setRendering(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [pdf, leftPageNum, rightPageNum, pagesPerSpread, stageSize, renderPageOnCanvas]);
+    if (!opened || total === 0) return;
+    const prefetchNums = [
+      leftPageNum + pagesPerSpread,
+      leftPageNum + pagesPerSpread + 1,
+      leftPageNum - 1,
+      leftPageNum - 2,
+    ];
+    for (const n of prefetchNums) {
+      if (n >= 1 && n <= total) prefetchImage(knjigaPageSrc(n));
+    }
+  }, [opened, leftPageNum, pagesPerSpread, total]);
+
+  useEffect(() => {
+    setLeftLoading(true);
+    setRightLoading(true);
+  }, [leftPageNum, rightPageNum, pagesPerSpread]);
 
   const goPrev = useCallback(() => {
     setSpreadIndex((i) => Math.max(0, i - 1));
@@ -255,9 +152,9 @@ export function KnjigaViewer() {
   const { title, coverFront, coverBack } = manifest;
 
   const pageLabel =
-    pagesPerSpread === 2 && rightPageNum <= totalPages
-      ? `${leftPageNum}–${rightPageNum} / ${totalPages}`
-      : `${leftPageNum} / ${totalPages}`;
+    pagesPerSpread === 2 && rightPageNum <= total
+      ? `${leftPageNum}–${rightPageNum} / ${total}`
+      : `${leftPageNum} / ${total}`;
 
   return (
     <div
@@ -272,7 +169,7 @@ export function KnjigaViewer() {
         <div className="knjiga-viewer__header-actions">
           {opened ? (
             <span className="knjiga-viewer__counter" aria-live="polite">
-              {totalPages > 0 ? pageLabel : "…"}
+              {pageLabel}
             </span>
           ) : null}
           {opened ? (
@@ -308,56 +205,64 @@ export function KnjigaViewer() {
         </div>
       </header>
 
-      <div className="knjiga-viewer__stage" ref={stageRef}>
+      <div className="knjiga-viewer__stage">
         {opened ? (
-          pdfError ? (
-            <div className="knjiga-viewer__pdf-error">
-              <p className="muted">Greška: {pdfError}</p>
-            </div>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="knjiga-viewer__nav knjiga-viewer__nav--prev"
-                onClick={goPrev}
-                disabled={spreadIndex <= 0}
-                aria-label="Prethodne strane"
-              >
-                ‹
-              </button>
+          <>
+            <button
+              type="button"
+              className="knjiga-viewer__nav knjiga-viewer__nav--prev"
+              onClick={goPrev}
+              disabled={spreadIndex <= 0}
+              aria-label="Prethodne strane"
+            >
+              ‹
+            </button>
 
-              <div className={`knjiga-viewer__spread${pagesPerSpread === 1 ? " knjiga-viewer__spread--single" : ""}`}>
-                <canvas
-                  ref={leftCanvasRef}
-                  className="knjiga-viewer__canvas"
-                  aria-label={`Strana ${leftPageNum}`}
-                />
-                {pagesPerSpread === 2 ? (
-                  <canvas
-                    ref={rightCanvasRef}
-                    className="knjiga-viewer__canvas"
-                    aria-label={`Strana ${rightPageNum}`}
-                    style={{ visibility: rightPageNum > totalPages && totalPages > 0 ? "hidden" : undefined }}
+            <div className={`knjiga-viewer__spread${pagesPerSpread === 1 ? " knjiga-viewer__spread--single" : ""}`}>
+              {leftSrc ? (
+                <div className="knjiga-viewer__page-slot">
+                  {leftLoading ? (
+                    <div className="knjiga-viewer__page-loading" aria-hidden="true" />
+                  ) : null}
+                  <img
+                    key={leftPageNum}
+                    src={leftSrc}
+                    alt={`Strana ${leftPageNum}`}
+                    className="knjiga-viewer__img"
+                    draggable={false}
+                    onLoad={() => setLeftLoading(false)}
+                    onError={() => setLeftLoading(false)}
                   />
-                ) : null}
-                {!pdf || rendering ? (
-                  <div className="knjiga-viewer__page-loading-overlay" aria-hidden="true">
-                    <span>Učitavanje…</span>
-                  </div>
-                ) : null}
-              </div>
+                </div>
+              ) : null}
+              {pagesPerSpread === 2 && rightSrc ? (
+                <div className="knjiga-viewer__page-slot">
+                  {rightLoading ? (
+                    <div className="knjiga-viewer__page-loading" aria-hidden="true" />
+                  ) : null}
+                  <img
+                    key={rightPageNum}
+                    src={rightSrc}
+                    alt={`Strana ${rightPageNum}`}
+                    className="knjiga-viewer__img"
+                    draggable={false}
+                    onLoad={() => setRightLoading(false)}
+                    onError={() => setRightLoading(false)}
+                  />
+                </div>
+              ) : null}
+            </div>
 
-              <button
-                type="button"
-                className="knjiga-viewer__nav knjiga-viewer__nav--next"
-                onClick={goNext}
-                disabled={spreadIndex >= totalSpreads - 1}
-                aria-label="Sledeće strane"
-              >
-                ›
-              </button>
-            </>
-          )
+            <button
+              type="button"
+              className="knjiga-viewer__nav knjiga-viewer__nav--next"
+              onClick={goNext}
+              disabled={spreadIndex >= totalSpreads - 1}
+              aria-label="Sledeće strane"
+            >
+              ›
+            </button>
+          </>
         ) : (
           <div className="knjiga-viewer__intro">
             {coverFront ? (
