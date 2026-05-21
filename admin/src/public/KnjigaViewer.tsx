@@ -66,6 +66,16 @@ export function KnjigaViewer() {
       <header className="knjiga-viewer__header">
         <h1 className="knjiga-viewer__title">{title}</h1>
         <div className="knjiga-viewer__header-actions">
+          {opened ? (
+            <button
+              type="button"
+              className="knjiga-viewer__pdf-link"
+              onClick={() => setOpened(false)}
+              title="Zatvori knjigu"
+            >
+              Zatvori
+            </button>
+          ) : null}
           <a
             href={pdfUrl}
             target="_blank"
@@ -107,7 +117,7 @@ export function KnjigaViewer() {
         {opened ? (
           <iframe
             title={title}
-            src={`${pdfUrl}#view=FitH`}
+            src={`${pdfUrl}#view=Fit&pagemode=none&toolbar=1`}
             className="knjiga-viewer__pdf"
             loading="lazy"
           />
@@ -146,33 +156,6 @@ export function KnjigaViewer() {
         )}
       </div>
 
-      {opened && (coverFront || coverBack) ? (
-        <footer className="knjiga-viewer__footer">
-          {coverFront ? (
-            <img
-              src={coverFront}
-              alt="Prednja korica"
-              className="knjiga-viewer__cover-thumb"
-              loading="lazy"
-            />
-          ) : null}
-          {coverBack ? (
-            <img
-              src={coverBack}
-              alt="Zadnja korica"
-              className="knjiga-viewer__cover-thumb"
-              loading="lazy"
-            />
-          ) : null}
-          <button
-            type="button"
-            className="knjiga-viewer__open-btn knjiga-viewer__open-btn--secondary"
-            onClick={() => setOpened(false)}
-          >
-            Sakrij PDF
-          </button>
-        </footer>
-      ) : null}
     </div>
   );
 }
