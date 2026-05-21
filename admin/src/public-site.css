@@ -1266,6 +1266,101 @@
   height: 100%;
 }
 
+.knjiga-viewer__spread {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 16px 16px;
+  max-width: calc(100% - 6rem);
+  min-width: 0;
+  height: 100%;
+  position: relative;
+}
+
+.knjiga-viewer__spread--single {
+  gap: 0;
+}
+
+.knjiga-viewer__canvas {
+  display: block;
+  background: #fff;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.35);
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.knjiga-viewer__page-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 26, 26, 0.45);
+  color: #f0f0f0;
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+
+.knjiga-viewer__pdf-error {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  color: #f0f0f0;
+}
+
+.knjiga-viewer__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 3;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 1.75rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.knjiga-viewer__nav:hover:not(:disabled),
+.knjiga-viewer__nav:focus-visible:not(:disabled) {
+  background: rgba(0, 0, 0, 0.78);
+  outline: none;
+}
+
+.knjiga-viewer__nav:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.knjiga-viewer__nav--prev {
+  left: 0.5rem;
+}
+
+.knjiga-viewer__nav--next {
+  right: 0.5rem;
+}
+
+.knjiga-viewer__counter {
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+  color: #d4d4d4;
+  padding: 0.4rem 0.55rem;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.06);
+  min-width: 4rem;
+  text-align: center;
+}
+
 .knjiga-viewer__intro {
   display: grid;
   grid-template-columns: 1fr minmax(240px, 1.2fr) 1fr;
@@ -1446,6 +1541,31 @@
 
   .knjiga-viewer__cover--back {
     display: none;
+  }
+
+  .knjiga-viewer__spread {
+    max-width: calc(100% - 4.5rem);
+    padding: 8px 4px;
+  }
+
+  .knjiga-viewer__nav {
+    width: 2.25rem;
+    height: 2.25rem;
+    font-size: 1.4rem;
+  }
+
+  .knjiga-viewer__nav--prev {
+    left: 0.25rem;
+  }
+
+  .knjiga-viewer__nav--next {
+    right: 0.25rem;
+  }
+
+  .knjiga-viewer__counter {
+    font-size: 0.7rem;
+    min-width: 3.2rem;
+    padding: 0.3rem 0.4rem;
   }
 
   .knjiga-viewer__footer {
