@@ -76,23 +76,6 @@ export function KnjigaViewer() {
               Zatvori
             </button>
           ) : null}
-          <a
-            href={pdfUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="knjiga-viewer__pdf-link"
-            title="Otvori PDF u novom prozoru"
-          >
-            Otvori PDF
-          </a>
-          <a
-            href={pdfUrl}
-            download
-            className="knjiga-viewer__pdf-link"
-            title="Preuzmi PDF"
-          >
-            Preuzmi
-          </a>
           <button
             type="button"
             className="knjiga-viewer__fullscreen"
@@ -117,9 +100,10 @@ export function KnjigaViewer() {
         {opened ? (
           <iframe
             title={title}
-            src={`${pdfUrl}#view=Fit&pagemode=none&toolbar=1`}
+            src={`${pdfUrl}#toolbar=0&navpanes=0&scrollbar=0&statusbar=0&messages=0&view=Fit&pagemode=none`}
             className="knjiga-viewer__pdf"
             loading="lazy"
+            onContextMenu={(e) => e.preventDefault()}
           />
         ) : (
           <div className="knjiga-viewer__intro">
