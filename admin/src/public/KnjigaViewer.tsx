@@ -1,21 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { type KnjigaManifest, knjigaPageSrc } from "./knjigaTypes";
 
-function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(() =>
-    typeof window !== "undefined"
-      ? window.matchMedia("(max-width: 720px)").matches
-      : false,
-  );
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 720px)");
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
-  }, []);
-  return isMobile;
-}
-
 function prefetchImage(src: string) {
   const img = new Image();
   img.src = src;
@@ -28,11 +13,7 @@ export function KnjigaViewer() {
   const [fullscreen, setFullscreen] = useState(false);
   const [opened, setOpened] = useState(false);
   const [spreadIndex, setSpreadIndex] = useState(0);
-  const [leftLoading, setLeftLoading] = useState(true);
-  const [rightLoading, setRightLoading] = useState(true);
-
-  const isMobile = useIsMobile();
-  const pagesPerSpread = isMobile ? 1 : 2;
+  const [pageLoading, setPageLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,46 +38,31 @@ export function KnjigaViewer() {
   }, []);
 
   const total = manifest?.total ?? 0;
-  const totalSpreads = Math.max(1, Math.ceil(total / pagesPerSpread));
-  const leftPageNum = spreadIndex * pagesPerSpread + 1;
-  const rightPageNum = pagesPerSpread === 2 ? leftPageNum + 1 : 0;
+  const pageNum = spreadIndex + 1;
 
-  const leftSrc = useMemo(
-    () => (leftPageNum >= 1 && leftPageNum <= total ? knjigaPageSrc(leftPageNum) : null),
-    [leftPageNum, total],
-  );
-  const rightSrc = useMemo(
-    () =>
-      pagesPerSpread === 2 && rightPageNum >= 1 && rightPageNum <= total
-        ? knjigaPageSrc(rightPageNum)
-        : null,
-    [pagesPerSpread, rightPageNum, total],
+  const pageSrc = useMemo(
+    () => (pageNum >= 1 && pageNum <= total ? knjigaPageSrc(pageNum) : null),
+    [pageNum, total],
   );
 
   useEffect(() => {
     if (!opened || total === 0) return;
-    const prefetchNums = [
-      leftPageNum + pagesPerSpread,
-      leftPageNum + pagesPerSpread + 1,
-      leftPageNum - 1,
-      leftPageNum - 2,
-    ];
+    const prefetchNums = [pageNum + 1, pageNum + 2, pageNum - 1, pageNum - 2];
     for (const n of prefetchNums) {
       if (n >= 1 && n <= total) prefetchImage(knjigaPageSrc(n));
     }
-  }, [opened, leftPageNum, pagesPerSpread, total]);
+  }, [opened, pageNum, total]);
 
   useEffect(() => {
-    setLeftLoading(true);
-    setRightLoading(true);
-  }, [leftPageNum, rightPageNum, pagesPerSpread]);
+    setPageLoading(true);
+  }, [pageNum]);
 
   const goPrev = useCallback(() => {
     setSpreadIndex((i) => Math.max(0, i - 1));
   }, []);
   const goNext = useCallback(() => {
-    setSpreadIndex((i) => Math.min(totalSpreads - 1, i + 1));
-  }, [totalSpreads]);
+    setSpreadIndex((i) => Math.min(total - 1, i + 1));
+  }, [total]);
 
   const toggleFullscreen = useCallback(() => {
     if (!wrapRef.current) return;
@@ -126,12 +92,12 @@ export function KnjigaViewer() {
         setSpreadIndex(0);
       } else if (e.key === "End") {
         e.preventDefault();
-        setSpreadIndex(totalSpreads - 1);
+        setSpreadIndex(total - 1);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [opened, goPrev, goNext, totalSpreads]);
+  }, [opened, goPrev, goNext, total]);
 
   if (loadError) {
     return (
@@ -151,10 +117,7 @@ export function KnjigaViewer() {
 
   const { title, coverFront, coverBack } = manifest;
 
-  const pageLabel =
-    pagesPerSpread === 2 && rightPageNum <= total
-      ? `${leftPageNum}–${rightPageNum} / ${total}`
-      : `${leftPageNum} / ${total}`;
+  const pageLabel = `${pageNum} / ${total}`;
 
   return (
     <div
@@ -213,41 +176,25 @@ export function KnjigaViewer() {
               className="knjiga-viewer__nav knjiga-viewer__nav--prev"
               onClick={goPrev}
               disabled={spreadIndex <= 0}
-              aria-label="Prethodne strane"
+              aria-label="Prethodna strana"
             >
               ‹
             </button>
 
-            <div className={`knjiga-viewer__spread${pagesPerSpread === 1 ? " knjiga-viewer__spread--single" : ""}`}>
-              {leftSrc ? (
+            <div className="knjiga-viewer__spread knjiga-viewer__spread--single">
+              {pageSrc ? (
                 <div className="knjiga-viewer__page-slot">
-                  {leftLoading ? (
+                  {pageLoading ? (
                     <div className="knjiga-viewer__page-loading" aria-hidden="true" />
                   ) : null}
                   <img
-                    key={leftPageNum}
-                    src={leftSrc}
-                    alt={`Strana ${leftPageNum}`}
+                    key={pageNum}
+                    src={pageSrc}
+                    alt={`Strana ${pageNum}`}
                     className="knjiga-viewer__img"
                     draggable={false}
-                    onLoad={() => setLeftLoading(false)}
-                    onError={() => setLeftLoading(false)}
-                  />
-                </div>
-              ) : null}
-              {pagesPerSpread === 2 && rightSrc ? (
-                <div className="knjiga-viewer__page-slot">
-                  {rightLoading ? (
-                    <div className="knjiga-viewer__page-loading" aria-hidden="true" />
-                  ) : null}
-                  <img
-                    key={rightPageNum}
-                    src={rightSrc}
-                    alt={`Strana ${rightPageNum}`}
-                    className="knjiga-viewer__img"
-                    draggable={false}
-                    onLoad={() => setRightLoading(false)}
-                    onError={() => setRightLoading(false)}
+                    onLoad={() => setPageLoading(false)}
+                    onError={() => setPageLoading(false)}
                   />
                 </div>
               ) : null}
@@ -257,8 +204,8 @@ export function KnjigaViewer() {
               type="button"
               className="knjiga-viewer__nav knjiga-viewer__nav--next"
               onClick={goNext}
-              disabled={spreadIndex >= totalSpreads - 1}
-              aria-label="Sledeće strane"
+              disabled={spreadIndex >= total - 1}
+              aria-label="Sledeća strana"
             >
               ›
             </button>
