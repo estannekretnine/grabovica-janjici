@@ -67,7 +67,7 @@ function PublicLayoutInner() {
                 Početna
               </NavLink>
               <NavLink to="/knjiga" className={navClass}>
-                Knjiga
+                Knjiga-Grabovica
               </NavLink>
               <NavLink to="/stablo" className={navClass}>
                 Stablo
